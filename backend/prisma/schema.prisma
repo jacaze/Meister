@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AccountType {
+  mei
+  pessoa_fisica
+}
+
+enum TransactionType {
+  receita
+  despesa
+}
+
+enum PaymentMethod {
+  dinheiro
+  pix
+  cartao_credito
+  cartao_debito
+  boleto
+  outro
+}
+
+enum TransactionOrigin {
+  manual
+  whatsapp
+  open_finance
+}
+
+model User {
+  id           String      @id @default(uuid())
+  name         String
+  email        String      @unique
+  passwordHash String      @map("password_hash")
+  accountType  AccountType @default(pessoa_fisica) @map("account_type")
+  createdAt    DateTime    @default(now()) @map("created_at")
+
+  categories   Category[]
+  transactions Transaction[]
+
+  @@map("users")
+}
+
+model Category {
+  id        String          @id @default(uuid())
+  userId    String          @map("user_id")
+  name      String
+  type      TransactionType
+  createdAt DateTime        @default(now()) @map("created_at")
+
+  user         User          @relation(fields: [userId], references: [id])
+  transactions Transaction[]
+
+  @@index([userId, type])
+  @@map("categories")
+}
+
+model Transaction {
+  id              String            @id @default(uuid())
+  userId          String            @map("user_id")
+  categoryId      String            @map("category_id")
+  type            TransactionType
+  description     String
+  amount          Decimal           @db.Decimal(12, 2)
+  paymentMethod   PaymentMethod?    @map("payment_method")
+  transactionDate DateTime          @map("transaction_date") @db.Date
+  origin          TransactionOrigin @default(manual)
+  createdAt       DateTime          @default(now()) @map("created_at")
+
+  user     User     @relation(fields: [userId], references: [id])
+  category Category @relation(fields: [categoryId], references: [id])
+
+  @@index([userId, transactionDate])
+  @@index([userId, type])
+  @@map("transactions")
+}
