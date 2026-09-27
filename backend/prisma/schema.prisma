@@ -38,6 +38,8 @@ model User {
   email        String      @unique
   passwordHash String      @map("password_hash")
   accountType  AccountType @default(pessoa_fisica) @map("account_type")
+  failedAttempts Int       @default(0) @map("failed_attempts")
+  lockUntil      DateTime? @map("lock_until")
   createdAt    DateTime    @default(now()) @map("created_at")
 
   categories   Category[]
