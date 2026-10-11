@@ -1,7 +1,17 @@
-import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vite';
+import { resolve } from 'path';
 
-// https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
-})
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'src/pages/index.html'),
+        dashboard: resolve(__dirname, 'src/pages/dashboard.html'),
+      },
+    },
+  },
+  server: {
+    port: 5173,
+    open: true,
+  },
+});

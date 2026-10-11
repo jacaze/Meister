@@ -1,13 +1,159 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<!-- Login e Registro -->
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meister - Gestão Financeira MEI</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        gold: {
+                            DEFAULT: '#D4AF37',
+                            light: '#F3E5AB',
+                            dark: '#AA8C2C'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-black text-slate-100 flex items-center justify-center min-h-screen">
+
+    <div class="bg-zinc-900 p-8 rounded-2xl shadow-2xl w-full max-w-md border border-gold/30">
+
+        <div class="text-center mb-6">
+            <div class="flex justify-center">
+                <img src="src/assets/meister.png" alt="Meister Logo" class="w-full max-w-[200px] h-auto object-contain mx-auto">
+            </div>
+        </div>
+
+        <div id="alertBox" class="hidden mb-4 p-3 rounded-xl text-sm font-medium"></div>
+
+        <form id="authForm" class="space-y-4">
+            
+            <div id="nameField" class="hidden">
+                <label class="block text-xs font-semibold text-gold uppercase tracking-wider mb-2">Nome Completo</label>
+                <input type="text" id="name" 
+                    class="w-full px-4 py-3 bg-black border border-zinc-800 rounded-xl focus:outline-none focus:border-gold text-white text-sm transition"
+                    placeholder="Seu Nome">
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-gold uppercase tracking-wider mb-2">E-mail</label>
+                <input type="email" id="email" required 
+                    class="w-full px-4 py-3 bg-black border border-zinc-800 rounded-xl focus:outline-none focus:border-gold text-white text-sm transition"
+                    placeholder="seu.email@exemplo.com">
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-gold uppercase tracking-wider mb-2">Senha</label>
+                <input type="password" id="password" required 
+                    class="w-full px-4 py-3 bg-black border border-zinc-800 rounded-xl focus:outline-none focus:border-gold text-white text-sm transition"
+                    placeholder="••••••••">
+            </div>
+
+            <button type="submit" id="submitBtn"
+                class="w-full py-3.5 bg-gradient-to-r from-gold to-gold-dark hover:from-gold-light hover:to-gold text-black font-bold rounded-xl shadow-lg shadow-gold/10 transition duration-200">
+                Entrar no Sistema
+            </button>
+        </form>
+
+        <div class="mt-6 text-center text-xs text-zinc-400">
+            <span id="toggleText">Ainda não tem uma conta?</span> 
+            <button id="toggleBtn" type="button" class="text-gold hover:underline font-medium ml-1">Cadastre-se</button>
+        </div>
+    </div>
+
+    <script>
+        let isRegisterMode = false;
+
+        const authForm = document.getElementById('authForm');
+        const alertBox = document.getElementById('alertBox');
+        const nameField = document.getElementById('nameField');
+        const submitBtn = document.getElementById('submitBtn');
+        const toggleText = document.getElementById('toggleText');
+        const toggleBtn = document.getElementById('toggleBtn');
+
+        function toggleMode() {
+            isRegisterMode = !isRegisterMode;
+            alertBox.classList.add('hidden');
+
+            if (isRegisterMode) {
+                nameField.classList.remove('hidden');
+                document.getElementById('name').setAttribute('required', 'true');
+                submitBtn.textContent = 'Criar Conta';
+                toggleText.textContent = 'Já tem uma conta?';
+                toggleBtn.textContent = 'Entrar';
+            } else {
+                nameField.classList.add('hidden');
+                document.getElementById('name').removeAttribute('required');
+                submitBtn.textContent = 'Entrar no Sistema';
+                toggleText.textContent = 'Ainda não tem uma conta?';
+                toggleBtn.textContent = 'Cadastre-se';
+            }
+        }
+
+        toggleBtn.addEventListener('click', toggleMode);
+
+        authForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const emailInput = document.getElementById('email').value.toLowerCase().trim();
+            const password = document.getElementById('password').value;
+            const name = isRegisterMode ? document.getElementById('name').value : undefined;
+
+            alertBox.classList.add('hidden');
+
+            const endpoint = isRegisterMode ? 'http://localhost:3000/api/register' : 'http://localhost:3000/api/login';
+            const payload = isRegisterMode ? { name, email: emailInput, password } : { email: emailInput, password };
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.message || 'Ocorreu um erro.');
+                }
+
+                if (isRegisterMode) {
+                    alertBox.className = 'mb-4 p-3 rounded-xl text-sm font-medium bg-emerald-950 text-emerald-400 border border-emerald-800/50';
+                    alertBox.textContent = 'Conta criada com sucesso! Faça login para continuar.';
+                    alertBox.classList.remove('hidden');
+
+                    setTimeout(() => {
+                        toggleMode(); 
+                        authForm.reset();
+                        document.getElementById('email').value = emailInput;
+                    }, 1500);
+                } else {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('userName', data.user.name);
+
+                    alertBox.className = 'mb-4 p-3 rounded-xl text-sm font-medium bg-emerald-950 text-emerald-400 border border-emerald-800/50';
+                    alertBox.textContent = 'Login realizado com sucesso! Redirecionando...';
+                    alertBox.classList.remove('hidden');
+
+                    setTimeout(() => {
+                        window.location.href = 'src/pages/dashboard.html';
+                    }, 1000);
+                }
+
+            } catch (err) {
+                alertBox.className = 'mb-4 p-3 rounded-xl text-sm font-medium bg-rose-950 text-rose-400 border border-rose-800/50';
+                alertBox.textContent = err.message;
+                alertBox.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
 </html>

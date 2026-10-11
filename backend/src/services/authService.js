@@ -3,7 +3,15 @@ const jwt = require('jsonwebtoken');
 const prisma = require('../config/prisma');
 
 async function register({ name, email, password, accountType }) {
-  const existingUser = await prisma.user.findUnique({ where: { email } });
+  const emailTratado = email.toLowerCase().trim();
+  const existingUser = await prisma.user.findFirst({ 
+    where: { 
+      email: {
+        equals: emailTratado,
+        mode: 'insensitive'
+      }
+    } 
+  });
 
   if (existingUser) {
     const error = new Error('Já existe um usuário com esse e-mail');
@@ -26,7 +34,15 @@ async function register({ name, email, password, accountType }) {
 }
 
 async function login({ email, password }) {
-  const user = await prisma.user.findUnique({ where: { email } });
+  const emailTratado = email.toLowerCase().trim();
+  const user = await prisma.user.findFirst({ 
+    where: { 
+      email: {
+        equals: emailTratado,
+        mode: 'insensitive'
+      }
+    } 
+  });
 
   if (!user) {
     const error = new Error('E-mail ou senha inválidos');
