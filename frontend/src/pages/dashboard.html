@@ -2,37 +2,574 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Meister - Dashboard</title>
+    <link rel="icon" href="../assets/MEIsterL.png">
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-black text-slate-100 min-h-screen">
-    
+
     <script>
         const token = localStorage.getItem('token');
         const userName = localStorage.getItem('userName');
 
         if (!token) {
-            window.location.href = 'index.html';
+            window.location.href = '/index.html';
         }
     </script>
 
-    <div class="p-8">
-        <h1 class="text-2xl font-bold text-amber-400">Bem-vindo ao Dashboard, <span id="welcomeName"></span>!</h1>
-        <p class="text-zinc-400 mt-2">Aqui ficará o controle financeiro do seu MEI.</p>
-        
-        <button onclick="logout()" class="mt-6 px-4 py-2 bg-rose-600 text-white rounded-xl">
-            Sair da Conta
-        </button>
+    <header class="border-b border-zinc-800">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <img src="../assets/MeisterLN.png" alt="MEIster" class="h-14 w-auto" />
+                <p class="hidden sm:block text-sm text-zinc-400">
+                    Olá, <span id="welcomeName" class="text-amber-400 font-semibold"></span>
+                </p>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="btnNew" type="button"
+                    class="px-4 py-2 bg-amber-400 hover:bg-amber-300 text-black font-semibold rounded-xl text-sm transition">
+                    + Novo lançamento
+                </button>
+                <button onclick="logout()" type="button"
+                    class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-sm transition">
+                    Sair
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main id="main" class="max-w-6xl mx-auto px-4 py-6 space-y-6 transition-opacity">
+
+        <div id="errorBox" role="alert"
+            class="hidden rounded-xl border border-rose-800 bg-rose-950/60 text-rose-200 px-4 py-3 text-sm flex items-center justify-between gap-3">
+            <span id="errorText"></span>
+            <button id="btnRetry" type="button" class="underline whitespace-nowrap">Tentar novamente</button>
+        </div>
+
+        <!-- Título + período -->
+        <section class="flex flex-wrap items-end justify-between gap-3">
+            <div>
+                <h1 class="text-2xl font-bold text-amber-400">Painel financeiro</h1>
+                <p id="periodLabel" class="text-sm text-zinc-500 mt-1 capitalize"></p>
+            </div>
+            <div id="periodButtons" class="flex gap-2 text-sm">
+                <button type="button" data-period="month">Este mês</button>
+                <button type="button" data-period="prev">Mês anterior</button>
+                <button type="button" data-period="year">Este ano</button>
+            </div>
+        </section>
+
+        <!-- Cartões de resumo -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+                <p class="text-sm text-zinc-400">Saldo atual</p>
+                <p id="cardSaldo" class="text-2xl font-bold mt-2">—</p>
+                <p class="text-xs text-zinc-500 mt-1">Todos os lançamentos</p>
+            </div>
+            <div class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+                <p class="text-sm text-zinc-400">Entradas do período</p>
+                <p id="cardEntradas" class="text-2xl font-bold mt-2 text-emerald-400">—</p>
+            </div>
+            <div class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+                <p class="text-sm text-zinc-400">Despesas do período</p>
+                <p id="cardDespesas" class="text-2xl font-bold mt-2 text-rose-400">—</p>
+            </div>
+            <div class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+                <p class="text-sm text-zinc-400">Resultado do período</p>
+                <p id="cardResultado" class="text-2xl font-bold mt-2">—</p>
+            </div>
+        </section>
+
+        <!-- Gráfico + limite MEI -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div class="lg:col-span-2 rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="font-semibold">Evolução mensal</h2>
+                    <div class="flex items-center gap-4 text-xs text-zinc-400">
+                        <span class="flex items-center gap-1.5"><span class="inline-block w-2.5 h-2.5 rounded-sm bg-emerald-400"></span>Entradas</span>
+                        <span class="flex items-center gap-1.5"><span class="inline-block w-2.5 h-2.5 rounded-sm bg-rose-400"></span>Despesas</span>
+                    </div>
+                </div>
+                <div id="chart" class="w-full"></div>
+            </div>
+
+            <div id="meiCard" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5"></div>
+        </section>
+
+        <!-- Categorias -->
+        <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+                <h2 class="font-semibold mb-4">Entradas por categoria</h2>
+                <div id="catReceitas" class="space-y-4"></div>
+            </div>
+            <div class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+                <h2 class="font-semibold mb-4">Despesas por categoria</h2>
+                <div id="catDespesas" class="space-y-4"></div>
+            </div>
+        </section>
+
+        <!-- Últimos lançamentos -->
+        <section class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+            <h2 class="font-semibold mb-2">Últimos lançamentos</h2>
+            <div id="latest" class="divide-y divide-zinc-800"></div>
+        </section>
+    </main>
+
+    <!-- Modal: novo lançamento -->
+    <div id="modal" class="hidden fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+         role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <form id="txForm" class="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-4 max-h-[92vh] overflow-y-auto">
+            <div class="flex items-center justify-between">
+                <h2 id="modalTitle" class="text-lg font-bold text-amber-400">Novo lançamento</h2>
+                <button type="button" id="btnClose" aria-label="Fechar" class="text-zinc-400 hover:text-white text-2xl leading-none">&times;</button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2" id="typeToggle">
+                <button type="button" data-type="receita">Entrada</button>
+                <button type="button" data-type="despesa">Despesa</button>
+            </div>
+
+            <div>
+                <label for="fDescription" class="block text-sm text-zinc-400 mb-1">Descrição</label>
+                <input id="fDescription" type="text" required maxlength="120"
+                    class="w-full rounded-xl bg-black border border-zinc-700 px-3 py-2 focus:outline-none focus:border-amber-400" />
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label for="fAmount" class="block text-sm text-zinc-400 mb-1">Valor (R$)</label>
+                    <input id="fAmount" type="text" inputmode="decimal" required placeholder="0,00"
+                        class="w-full rounded-xl bg-black border border-zinc-700 px-3 py-2 focus:outline-none focus:border-amber-400" />
+                </div>
+                <div>
+                    <label for="fDate" class="block text-sm text-zinc-400 mb-1">Data</label>
+                    <input id="fDate" type="date" required
+                        class="w-full rounded-xl bg-black border border-zinc-700 px-3 py-2 focus:outline-none focus:border-amber-400" />
+                </div>
+            </div>
+
+            <div>
+                <label for="fCategory" class="block text-sm text-zinc-400 mb-1">Categoria</label>
+                <select id="fCategory"
+                    class="w-full rounded-xl bg-black border border-zinc-700 px-3 py-2 focus:outline-none focus:border-amber-400"></select>
+                <input id="fNewCategory" type="text" maxlength="60" placeholder="Nome da nova categoria"
+                    class="hidden mt-2 w-full rounded-xl bg-black border border-zinc-700 px-3 py-2 focus:outline-none focus:border-amber-400" />
+            </div>
+
+            <div>
+                <label for="fPayment" class="block text-sm text-zinc-400 mb-1">Forma de pagamento (opcional)</label>
+                <select id="fPayment"
+                    class="w-full rounded-xl bg-black border border-zinc-700 px-3 py-2 focus:outline-none focus:border-amber-400"></select>
+            </div>
+
+            <p id="formError" class="hidden text-sm text-rose-400"></p>
+
+            <button id="btnSave" type="submit"
+                class="w-full py-2.5 bg-amber-400 hover:bg-amber-300 disabled:opacity-60 text-black font-semibold rounded-xl transition">
+                Salvar lançamento
+            </button>
+        </form>
     </div>
 
     <script>
-        document.getElementById('welcomeName').textContent = userName;
+        // ===== Configuração =====
+        // Endereço do backend (Fastify). Ajuste se mudar a porta ou for para produção.
+        const API_URL = 'http://localhost:3000/api';
+
+        // Formas de pagamento oferecidas no formulário. Os "value" precisam ser iguais
+        // aos do enum PaymentMethod do schema.prisma.
+        const PAYMENT_METHODS = [
+            { value: '', label: 'Não informar' },
+            { value: 'pix', label: 'Pix' },
+            { value: 'dinheiro', label: 'Dinheiro' },
+            { value: 'cartao_credito', label: 'Cartão de crédito' },
+            { value: 'cartao_debito', label: 'Cartão de débito' },
+            { value: 'boleto', label: 'Boleto' },
+            { value: 'outro', label: 'Outro' },
+        ];
+
+        // ===== Utilitários =====
+        const $ = (id) => document.getElementById(id);
+
+        const brl = (value) =>
+            new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) || 0);
+
+        // Evita injetar HTML vindo de descrições/categorias digitadas pelo usuário
+        const esc = (value) =>
+            String(value ?? '').replace(/[&<>"']/g, (c) => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+            }[c]));
+
+        // As datas dos lançamentos são guardadas em UTC; formatar em UTC evita "dia anterior"
+        const formatDate = (iso) =>
+            new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+
+        const monthLabel = (key) => {
+            const [y, m] = key.split('-').map(Number);
+            return new Date(Date.UTC(y, m - 1, 1))
+                .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+        };
+
+        const shortMonth = (key) => {
+            const [y, m] = key.split('-').map(Number);
+            return new Date(Date.UTC(y, m - 1, 1))
+                .toLocaleDateString('pt-BR', { month: 'short', timeZone: 'UTC' })
+                .replace('.', '');
+        };
+
+        const todayLocal = () => {
+            const d = new Date();
+            return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+        };
 
         function logout() {
             localStorage.removeItem('token');
             localStorage.removeItem('userName');
-            window.location.href = 'index.html';
+            window.location.href = '/index.html';
         }
+
+        async function api(path, options = {}) {
+            const response = await fetch(API_URL + path, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                    ...(options.headers || {}),
+                },
+            });
+
+            if (response.status === 401) {
+                logout();
+                throw new Error('Sessão expirada. Faça login novamente.');
+            }
+
+            if (response.status === 204) return null;
+
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.message || 'Erro ao comunicar com o servidor.');
+            return data;
+        }
+
+        // ===== Período =====
+        let currentPeriod = 'month';
+
+        function periodRange(kind) {
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = now.getMonth();
+
+            if (kind === 'year') {
+                return {
+                    start: new Date(Date.UTC(y, 0, 1)),
+                    end: new Date(Date.UTC(y + 1, 0, 1) - 1),
+                    label: `Ano de ${y}`,
+                };
+            }
+
+            const month = kind === 'prev' ? m - 1 : m;
+            const start = new Date(Date.UTC(y, month, 1));
+            return {
+                start,
+                end: new Date(Date.UTC(y, month + 1, 1) - 1),
+                label: start.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' }),
+            };
+        }
+
+        function paintPeriodButtons() {
+            document.querySelectorAll('#periodButtons button').forEach((btn) => {
+                const active = btn.dataset.period === currentPeriod;
+                btn.className = 'px-3 py-1.5 rounded-lg border transition ' + (active
+                    ? 'bg-amber-400 text-black border-amber-400 font-semibold'
+                    : 'border-zinc-700 text-zinc-300 hover:border-amber-400');
+            });
+        }
+
+        // ===== Renderização =====
+        function renderCards(data) {
+            const p = data.periodo;
+            $('cardSaldo').textContent = brl(data.saldoAtual);
+            $('cardSaldo').className = 'text-2xl font-bold mt-2 ' + (data.saldoAtual < 0 ? 'text-rose-400' : 'text-amber-400');
+            $('cardEntradas').textContent = brl(p.totalEntradas);
+            $('cardDespesas').textContent = brl(p.totalDespesas);
+            $('cardResultado').textContent = brl(p.resultado);
+            $('cardResultado').className = 'text-2xl font-bold mt-2 ' + (p.resultado < 0 ? 'text-rose-400' : 'text-emerald-400');
+        }
+
+        function renderChart(series) {
+            const W = 600, H = 240, padX = 8, padTop = 16, padBottom = 28;
+            const innerH = H - padTop - padBottom;
+            const base = padTop + innerH;
+            const max = Math.max(1, ...series.flatMap((s) => [s.receitas, s.despesas]));
+            const slot = (W - padX * 2) / series.length;
+            const barW = Math.min(28, slot * 0.28);
+            const barH = (value) => (value > 0 ? Math.max(3, (value / max) * innerH) : 0);
+
+            const bars = series.map((s, i) => {
+                const cx = padX + slot * i + slot / 2;
+                const hIn = barH(s.receitas);
+                const hOut = barH(s.despesas);
+                return `
+                    <g>
+                        <title>${esc(monthLabel(s.mes))}: entradas ${brl(s.receitas)} | despesas ${brl(s.despesas)}</title>
+                        <rect x="${cx - barW - 2}" y="${base - hIn}" width="${barW}" height="${hIn}" rx="4" fill="#34d399"></rect>
+                        <rect x="${cx + 2}" y="${base - hOut}" width="${barW}" height="${hOut}" rx="4" fill="#fb7185"></rect>
+                        <text x="${cx}" y="${H - 8}" text-anchor="middle" fill="#a1a1aa" font-size="12">${esc(shortMonth(s.mes))}</text>
+                    </g>`;
+            }).join('');
+
+            const hasData = series.some((s) => s.receitas > 0 || s.despesas > 0);
+
+            $('chart').innerHTML = `
+                <svg viewBox="0 0 ${W} ${H}" class="w-full h-auto" role="img"
+                     aria-label="Entradas e despesas dos últimos ${series.length} meses">
+                    <line x1="${padX}" y1="${base}" x2="${W - padX}" y2="${base}" stroke="#3f3f46" stroke-width="1"></line>
+                    ${bars}
+                </svg>
+                ${hasData ? '' : '<p class="text-sm text-zinc-500 text-center mt-2">Nenhum lançamento nos últimos meses.</p>'}`;
+        }
+
+        const MEI_STATUS = {
+            ok: {
+                bar: 'bg-emerald-400', box: 'border-emerald-900 bg-emerald-950/40 text-emerald-200',
+                text: 'Faturamento dentro do limite anual.',
+            },
+            atencao: {
+                bar: 'bg-amber-400', box: 'border-amber-800 bg-amber-950/40 text-amber-200',
+                text: 'Atenção: você já usou mais de 80% do limite anual.',
+            },
+            excedido: {
+                bar: 'bg-rose-500', box: 'border-rose-800 bg-rose-950/50 text-rose-200',
+                text: 'Limite anual ultrapassado, mas ainda dentro da tolerância de 20%. Consulte seu contador sobre o DAS complementar e o desenquadramento.',
+            },
+            desenquadramento: {
+                bar: 'bg-rose-500', box: 'border-rose-800 bg-rose-950/50 text-rose-200',
+                text: 'Acima da tolerância de 20%: o desenquadramento pode ser retroativo. Procure seu contador.',
+            },
+        };
+
+        function renderMei(mei) {
+            const s = MEI_STATUS[mei.status] || MEI_STATUS.ok;
+            const width = Math.min(mei.percentualUtilizado, 100);
+
+            $('meiCard').innerHTML = `
+                <h2 class="font-semibold">Limite anual do MEI</h2>
+                <p class="text-xs text-zinc-500">Receita bruta de ${esc(mei.ano)}</p>
+                <p class="text-4xl font-bold mt-4">${mei.percentualUtilizado.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}<span class="text-xl text-zinc-400">%</span></p>
+                <div class="mt-3 h-3 rounded-full bg-zinc-800 overflow-hidden"
+                     role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(width)}">
+                    <div class="h-full rounded-full ${s.bar}" style="width:${width}%"></div>
+                </div>
+                <dl class="mt-4 space-y-1 text-sm">
+                    <div class="flex justify-between"><dt class="text-zinc-400">Faturado no ano</dt><dd>${brl(mei.faturamentoAno)}</dd></div>
+                    <div class="flex justify-between"><dt class="text-zinc-400">Limite</dt><dd>${brl(mei.limite)}</dd></div>
+                    <div class="flex justify-between"><dt class="text-zinc-400">Restante</dt><dd class="text-amber-400">${brl(mei.restante)}</dd></div>
+                </dl>
+                <p class="mt-4 rounded-xl border px-3 py-2 text-xs ${s.box}">${esc(s.text)}</p>`;
+        }
+
+        function renderCategories(targetId, list, color) {
+            if (!list.length) {
+                $(targetId).innerHTML = '<p class="text-sm text-zinc-500">Sem lançamentos neste período.</p>';
+                return;
+            }
+
+            $(targetId).innerHTML = list.map((item) => `
+                <div>
+                    <div class="flex justify-between text-sm mb-1">
+                        <span class="truncate pr-2">${esc(item.nome)}
+                            <span class="text-zinc-500">(${item.quantidade})</span></span>
+                        <span class="whitespace-nowrap">${brl(item.total)}
+                            <span class="text-zinc-500">· ${item.percentual.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%</span></span>
+                    </div>
+                    <div class="h-2 rounded-full bg-zinc-800 overflow-hidden">
+                        <div class="h-full rounded-full ${color}" style="width:${Math.min(item.percentual, 100)}%"></div>
+                    </div>
+                </div>`).join('');
+        }
+
+        function renderLatest(list) {
+            if (!list.length) {
+                $('latest').innerHTML = `
+                    <p class="py-6 text-sm text-zinc-500 text-center">
+                        Nenhum lançamento ainda. Clique em <span class="text-amber-400">+ Novo lançamento</span> para começar.
+                    </p>`;
+                return;
+            }
+
+            $('latest').innerHTML = list.map((t) => {
+                const isIn = t.type === 'receita';
+                return `
+                    <div class="flex items-center justify-between gap-4 py-3">
+                        <div class="min-w-0">
+                            <p class="truncate">${esc(t.description)}</p>
+                            <p class="text-xs text-zinc-500">${esc(t.category?.name || 'Sem categoria')} · ${formatDate(t.transactionDate)}</p>
+                        </div>
+                        <p class="whitespace-nowrap font-semibold ${isIn ? 'text-emerald-400' : 'text-rose-400'}">
+                            ${isIn ? '+' : '−'} ${brl(t.amount)}
+                        </p>
+                    </div>`;
+            }).join('');
+        }
+
+        // ===== Carregamento =====
+        function showError(message) {
+            $('errorText').textContent = message;
+            $('errorBox').classList.remove('hidden');
+        }
+
+        async function loadDashboard() {
+            const { start, end, label } = periodRange(currentPeriod);
+            $('periodLabel').textContent = label;
+            paintPeriodButtons();
+            $('main').classList.add('opacity-60');
+            $('errorBox').classList.add('hidden');
+
+            try {
+                const query = new URLSearchParams({ startDate: start.toISOString(), endDate: end.toISOString() });
+                const data = await api('/dashboard?' + query.toString());
+
+                renderCards(data);
+                renderChart(data.evolucaoMensal);
+                renderMei(data.limiteMei);
+                renderCategories('catReceitas', data.porCategoria.receitas, 'bg-emerald-400');
+                renderCategories('catDespesas', data.porCategoria.despesas, 'bg-rose-400');
+                renderLatest(data.ultimasTransacoes);
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                $('main').classList.remove('opacity-60');
+            }
+        }
+
+        document.querySelectorAll('#periodButtons button').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                currentPeriod = btn.dataset.period;
+                loadDashboard();
+            });
+        });
+        $('btnRetry').addEventListener('click', loadDashboard);
+
+        // ===== Novo lançamento =====
+        let categories = [];
+        let formType = 'receita';
+
+        async function loadCategories() {
+            categories = await api('/categories');
+        }
+
+        function paintTypeToggle() {
+            document.querySelectorAll('#typeToggle button').forEach((btn) => {
+                const active = btn.dataset.type === formType;
+                const activeColor = formType === 'receita'
+                    ? 'bg-emerald-400 text-black border-emerald-400'
+                    : 'bg-rose-500 text-white border-rose-500';
+                btn.className = 'py-2 rounded-xl border font-semibold transition ' +
+                    (active ? activeColor : 'border-zinc-700 text-zinc-300 hover:border-amber-400');
+            });
+        }
+
+        function fillCategoryOptions() {
+            const options = categories
+                .filter((c) => c.type === formType)
+                .map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`);
+            options.push('<option value="__new__">+ Nova categoria…</option>');
+            $('fCategory').innerHTML = options.join('');
+            toggleNewCategory();
+        }
+
+        function toggleNewCategory() {
+            const isNew = $('fCategory').value === '__new__';
+            $('fNewCategory').classList.toggle('hidden', !isNew);
+            $('fNewCategory').required = isNew;
+        }
+
+        function setFormError(message) {
+            $('formError').textContent = message || '';
+            $('formError').classList.toggle('hidden', !message);
+        }
+
+        function openModal() {
+            $('txForm').reset();
+            formType = 'receita';
+            $('fDate').value = todayLocal();
+            $('fPayment').innerHTML = PAYMENT_METHODS
+                .map((m) => `<option value="${esc(m.value)}">${esc(m.label)}</option>`).join('');
+            setFormError('');
+            paintTypeToggle();
+            fillCategoryOptions();
+            $('modal').classList.remove('hidden');
+            $('fDescription').focus();
+        }
+
+        function closeModal() {
+            $('modal').classList.add('hidden');
+        }
+
+        $('btnNew').addEventListener('click', openModal);
+        $('btnClose').addEventListener('click', closeModal);
+        $('modal').addEventListener('click', (e) => { if (e.target === $('modal')) closeModal(); });
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+        $('fCategory').addEventListener('change', toggleNewCategory);
+
+        document.querySelectorAll('#typeToggle button').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                formType = btn.dataset.type;
+                paintTypeToggle();
+                fillCategoryOptions();
+            });
+        });
+
+        $('txForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            setFormError('');
+
+            const amount = Number($('fAmount').value.trim().replace(/\./g, '').replace(',', '.'));
+            if (!Number.isFinite(amount) || amount <= 0) {
+                setFormError('Informe um valor maior que zero.');
+                return;
+            }
+
+            $('btnSave').disabled = true;
+
+            try {
+                let categoryId = $('fCategory').value;
+
+                if (categoryId === '__new__') {
+                    const name = $('fNewCategory').value.trim();
+                    if (!name) throw new Error('Informe o nome da nova categoria.');
+                    const created = await api('/categories', {
+                        method: 'POST',
+                        body: JSON.stringify({ name, type: formType }),
+                    });
+                    categoryId = created.id;
+                }
+
+                await api('/transactions', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        categoryId,
+                        type: formType,
+                        description: $('fDescription').value.trim(),
+                        amount,
+                        transactionDate: $('fDate').value,
+                        paymentMethod: $('fPayment').value || undefined,
+                    }),
+                });
+
+                closeModal();
+                await Promise.all([loadCategories().catch(() => {}), loadDashboard()]);
+            } catch (error) {
+                setFormError(error.message);
+            } finally {
+                $('btnSave').disabled = false;
+            }
+        });
+
+        // ===== Início =====
+        $('welcomeName').textContent = userName || '';
+        loadCategories().catch(() => {});
+        loadDashboard();
     </script>
 </body>
 </html>

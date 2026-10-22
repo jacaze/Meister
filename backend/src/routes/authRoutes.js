@@ -96,7 +96,7 @@ module.exports = async function (fastify, options) {
       });
 
       const token = fastify.jwt.sign(
-        { id: user.id, email: user.email },
+        { userId: user.id, email: user.email },
         { expiresIn: '8h' }
       );
 

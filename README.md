@@ -1,56 +1,196 @@
-# Meister 🚀
+# MEIster
 
-Aplicativo de gestão financeira com auxílio a MEI.
-
----
-
-## 🛠️ Tecnologias Utilizadas (Até o momento)
-
-- **Node.js**
-- **Fastify**
-- **Prisma ORM**
-- **PostgreSQL**
+**O ritmo certo das suas finanças.** Aplicativo de gestão financeira para MEI (Microempreendedor Individual): cadastre receitas e despesas, acompanhe o resultado do mês e fique de olho no limite anual de faturamento.
 
 ---
 
-### 📌 Rotas Disponíveis
+## Funcionalidades
+
+- **Cadastro e login** com senha criptografada (bcrypt) e sessão via token JWT
+- **Proteção contra tentativas de acesso:** após 3 senhas incorretas a conta fica bloqueada por um tempo configurável
+- **Categorias** de receitas e despesas (criar, listar, editar e excluir)
+- **Lançamentos** de receitas e despesas com valor, data, categoria e forma de pagamento
+- **Dashboard financeiro**
+  - saldo atual e resumo do período (mês atual, mês anterior ou ano)
+  - gráfico de entradas e despesas dos últimos meses
+  - totais por categoria
+  - **limite anual do MEI** com barra de progresso e alertas (a partir de 80%, ao ultrapassar o teto e ao passar da tolerância de 20%)
+  - últimos lançamentos e formulário de novo lançamento
+
+> **Limite do MEI:** R$ 81.000,00 por ano, com tolerância de 20% (R$ 97.200,00). O valor é configurável pela variável `MEI_ANNUAL_LIMIT`, caso a legislação mude.
+
+---
+
+## Tecnologias
+
+| Camada | Tecnologias |
+|---|---|
+| Backend | Node.js, Fastify 5, Prisma ORM 6, PostgreSQL, JWT, bcrypt |
+| Frontend | Vite, HTML + JavaScript, Tailwind CSS (via CDN) |
+
+> O frontend já tem React, React Router e Axios instalados para a futura migração das telas, mas as telas atuais ainda não os utilizam.
+
+---
+
+## Estrutura do projeto
+
+```
+Meister/
+├── backend/
+│   ├── prisma/
+│   │   ├── schema.prisma          # modelos: User, Category, Transaction
+│   │   └── migrations/
+│   └── src/
+│       ├── server.js              # inicialização do Fastify
+│       ├── config/prisma.js       # cliente do Prisma
+│       ├── routes/                # definição das rotas
+│       ├── controllers/           # recebem a requisição e devolvem a resposta
+│       ├── services/              # regras de negócio
+│       └── middlewares/           # autenticação (authMiddleware.js)
+├── frontend/
+│   ├── index.html                 # login e cadastro
+│   ├── src/
+│   │   ├── pages/dashboard.html   # dashboard
+│   │   └── assets/                # logos e imagens
+│   └── vite.config.js
+├── .gitignore
+└── README.md
+```
+
+---
+
+## Como rodar localmente
+
+### Pré-requisitos
+
+- [Node.js](https://nodejs.org) 22 ou superior
+- [PostgreSQL](https://www.postgresql.org/download/) instalado e em execução
+
+### 1. Clonar o repositório
+
+```bash
+git clone https://github.com/jacaze/Meister.git
+cd Meister
+```
+
+### 2. Configurar e iniciar o backend
+
+```bash
+cd backend
+npm install
+```
+
+> Criação do arquivo `.env`
+
+Edite o arquivo `.env` com os seus dados (veja a tabela de variáveis abaixo) e rode as migrações para criar as tabelas:
+
+```bash
+npx prisma migrate dev
+npm run dev
+```
+
+O backend sobe em **http://localhost:3000**. Para conferir, acesse `http://localhost:3000/health`.
+
+### 3. Iniciar o frontend
+
+Em outro terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+O frontend abre em **http://localhost:5173**. Crie uma conta, faça login e você será levado ao dashboard.
+
+> O endereço da API está fixo como `http://localhost:3000/api` no `frontend/index.html` e no `frontend/src/pages/dashboard.html`. Se mudar a porta do backend, ajuste nesses dois arquivos.
+
+---
+
+## Variáveis de ambiente (`backend/.env`)
+
+| Variável | Obrigatória | Descrição | Exemplo |
+|---|---|---|---|
+| `DATABASE_URL` | Sim | String de conexão do PostgreSQL | `postgresql://usuario:senha@localhost:5432/gestao_financeira` |
+| `JWT_SECRET` | Sim | Chave usada para assinar os tokens. Use um valor longo e aleatório | `troque_por_um_valor_aleatorio_grande` |
+| `LOCK_TIME_MINUTES` | Sim | Minutos de bloqueio da conta após 3 senhas incorretas | `15` |
+| `PORT` | Não | Porta do backend (padrão `3000`) | `3000` |
+| `MEI_ANNUAL_LIMIT` | Não | Limite anual de faturamento do MEI em reais (padrão `81000`) | `81000` |
+
+---
+
+## Rotas da API
+
+Todas as rotas, exceto `register`, `login` e `health`, exigem o cabeçalho `Authorization: Bearer <token>`.
+
+### Autenticação
 
 | Método | Rota | Descrição |
 |---|---|---|
-| `POST` | `/api/register` | Registo de novo utilizador |
-| `POST` | `/api/login` | Autenticação e emissão de token JWT |
+| `POST` | `/api/register` | Cadastro de novo usuário (`name`, `email`, `password`) |
+| `POST` | `/api/login` | Login; retorna o token JWT e os dados do usuário (`email`, `password`) |
+
+### Categorias
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `GET` | `/api/categories` | Lista as categorias do usuário |
+| `POST` | `/api/categories` | Cria categoria (`name`, `type`: `receita` ou `despesa`) |
+| `PUT` | `/api/categories/:id` | Atualiza categoria |
+| `DELETE` | `/api/categories/:id` | Exclui categoria |
+
+### Lançamentos
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `GET` | `/api/transactions` | Lista lançamentos. Filtros opcionais: `startDate`, `endDate`, `categoryId`, `type` |
+| `POST` | `/api/transactions` | Cria lançamento (`categoryId`, `type`, `description`, `amount`, `transactionDate`, `paymentMethod` opcional) |
+| `PUT` | `/api/transactions/:id` | Atualiza lançamento |
+| `DELETE` | `/api/transactions/:id` | Exclui lançamento |
+
+Formas de pagamento aceitas: `dinheiro`, `pix`, `cartao_credito`, `cartao_debito`, `boleto`, `outro`.
+
+### Dashboard
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `GET` | `/api/dashboard` | Resumo financeiro. Parâmetros opcionais: `startDate`, `endDate`, `categoryId`, `months` (1 a 12, padrão 6). Sem datas, usa o mês atual |
+
+Resposta do dashboard:
+
+- `saldoAtual`: saldo de todos os lançamentos
+- `periodo`: entradas, despesas e resultado do período filtrado
+- `porCategoria`: totais e percentuais de receitas e despesas por categoria
+- `evolucaoMensal`: entradas, despesas e resultado por mês
+- `limiteMei`: faturamento do ano, percentual do limite, valor restante e `status` (`ok`, `atencao`, `excedido` ou `desenquadramento`)
+- `ultimasTransacoes`: os 5 lançamentos mais recentes
+
+### Outras
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `GET` | `/health` | Verifica se o servidor está no ar |
 
 ---
 
-## ⚙️ Configuração do Ambiente
+## Roadmap
 
-1. **Clone o repositório:**
-   ```
-   git clone https://github.com/jacaze/Meister.git
-   cd Meister
-   ```
+- [x] Cadastro e login com bloqueio por tentativas
+- [x] API de categorias e lançamentos
+- [x] Dashboard com resumo, gráfico mensal e limite do MEI
+- [ ] Tela para editar e excluir lançamentos
+- [ ] Listagem completa de lançamentos com filtros
+- [ ] Categorias padrão criadas junto com a conta
+- [ ] Exibir o limite do MEI apenas para contas do tipo `mei`
+- [ ] Limite proporcional no ano de abertura do CNPJ
+- [ ] Controle do DAS mensal
+- [ ] Migração das telas para React
+- [ ] Lançamentos via WhatsApp e Open Finance (campo `origin` já previsto no banco)
 
-2. **Instale as dependências:**
-   ```
-   npm install
-   # Navegue também para a pasta do frontend se necessário e instale as dependências de lá
-   ```
+---
 
-3. **Configure as variáveis de ambiente:**
-   ```
-   Renomeie o .env.example para .env e ajuste url do banco de dados, chave do JWT, e tempo de bloqueio caso erre a senha
-   DATABASE_URL="postgresql://usuario:senha@localhost:5432/meister_db?schema=public"
-   JWT_SECRET="sua_chave_secreta_aqui"
-   LOCK_TIME_MINUTES=5
-   ```
-   
-4. **Execute as migrações do banco de dados:**
-  ```
-  npx prisma migrate dev
-  ```
+## Segurança
 
-5. **Inicie o Ambiente de Desenvolvimento:**
-   ```
-   Backend (Fastify):  node .\backend\src\server.js
-   Frontend (Vite): npm run dev
-   ```
+- Senhas armazenadas apenas como hash (bcrypt)
+- Cada usuário só acessa os próprios dados
+- Antes de publicar em produção: usar HTTPS, restringir o CORS ao endereço do frontend e definir um `JWT_SECRET` forte
