@@ -19,9 +19,13 @@
     </script>
 
     <header class="border-b border-zinc-800">
-        <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
             <div class="flex items-center gap-4">
                 <img src="../assets/MeisterLN.png" alt="MEIster" class="h-14 w-auto" />
+                <nav class="flex items-center gap-1 text-sm" aria-label="Principal">
+                    <a href="dashboard.html" aria-current="page" class="px-3 py-1.5 rounded-lg bg-zinc-900 text-amber-400 font-semibold">Dashboard</a>
+                    <a href="transactions.html" class="px-3 py-1.5 rounded-lg text-zinc-300 hover:text-amber-400 transition">Lançamentos</a>
+                </nav>
                 <p class="hidden sm:block text-sm text-zinc-400">
                     Olá, <span id="welcomeName" class="text-amber-400 font-semibold"></span>
                 </p>
@@ -111,7 +115,10 @@
 
         <!-- Últimos lançamentos -->
         <section class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-            <h2 class="font-semibold mb-2">Últimos lançamentos</h2>
+            <div class="flex items-center justify-between mb-2">
+                <h2 class="font-semibold">Últimos lançamentos</h2>
+                <a href="transactions.html" class="text-sm text-amber-400 hover:text-amber-300">Ver todos &rarr;</a>
+            </div>
             <div id="latest" class="divide-y divide-zinc-800"></div>
         </section>
     </main>

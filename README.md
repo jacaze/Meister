@@ -10,6 +10,7 @@
 - **Proteção contra tentativas de acesso:** após 3 senhas incorretas a conta fica bloqueada por um tempo configurável
 - **Categorias** de receitas e despesas (criar, listar, editar e excluir)
 - **Lançamentos** de receitas e despesas com valor, data, categoria e forma de pagamento
+- **Tela de lançamentos** com busca por descrição, filtros (tipo, categoria, forma de pagamento e período), paginação, **edição** e **exclusão**
 - **Dashboard financeiro**
   - saldo atual e resumo do período (mês atual, mês anterior ou ano)
   - gráfico de entradas e despesas dos últimos meses
@@ -51,6 +52,7 @@ Meister/
 │   ├── index.html                 # login e cadastro
 │   ├── src/
 │   │   ├── pages/dashboard.html   # dashboard
+│   │   ├── pages/transactions.html # lançamentos: lista, filtros, editar e excluir
 │   │   └── assets/                # logos e imagens
 │   └── vite.config.js
 ├── .gitignore
@@ -80,7 +82,7 @@ cd backend
 npm install
 ```
 
-> Criação do arquivo `.env`
+> Criação do arquivo .env
 
 Edite o arquivo `.env` com os seus dados (veja a tabela de variáveis abaixo) e rode as migrações para criar as tabelas:
 
@@ -143,12 +145,16 @@ Todas as rotas, exceto `register`, `login` e `health`, exigem o cabeçalho `Auth
 
 | Método | Rota | Descrição |
 |---|---|---|
-| `GET` | `/api/transactions` | Lista lançamentos. Filtros opcionais: `startDate`, `endDate`, `categoryId`, `type` |
+| `GET` | `/api/transactions` | Lista lançamentos paginados, do mais recente ao mais antigo. Filtros opcionais: `search` (descrição), `type`, `categoryId`, `paymentMethod`, `startDate`, `endDate`, `page` e `pageSize` (padrão 20, máximo 100) |
 | `POST` | `/api/transactions` | Cria lançamento (`categoryId`, `type`, `description`, `amount`, `transactionDate`, `paymentMethod` opcional) |
-| `PUT` | `/api/transactions/:id` | Atualiza lançamento |
+| `PUT` | `/api/transactions/:id` | Atualização parcial: envie só os campos que mudam. `paymentMethod: null` limpa a forma de pagamento |
 | `DELETE` | `/api/transactions/:id` | Exclui lançamento |
 
 Formas de pagamento aceitas: `dinheiro`, `pix`, `cartao_credito`, `cartao_debito`, `boleto`, `outro`.
+
+A categoria precisa ser do próprio usuário e do mesmo tipo do lançamento (`receita` ou `despesa`).
+
+Resposta da listagem: `items`, `page`, `pageSize`, `total`, `totalPages` e `resumo` (`totalEntradas`, `totalDespesas` e `resultado`, calculados sobre **todos** os lançamentos filtrados, não só a página atual).
 
 ### Dashboard
 
@@ -178,8 +184,8 @@ Resposta do dashboard:
 - [x] Cadastro e login com bloqueio por tentativas
 - [x] API de categorias e lançamentos
 - [x] Dashboard com resumo, gráfico mensal e limite do MEI
-- [ ] Tela para editar e excluir lançamentos
-- [ ] Listagem completa de lançamentos com filtros
+- [x] Tela para editar e excluir lançamentos
+- [x] Listagem completa de lançamentos com filtros
 - [ ] Categorias padrão criadas junto com a conta
 - [ ] Exibir o limite do MEI apenas para contas do tipo `mei`
 - [ ] Limite proporcional no ano de abertura do CNPJ

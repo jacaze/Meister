@@ -1,7 +1,12 @@
 require('dotenv').config();
 const fastify = require('fastify')({ logger: true });
 
-fastify.register(require('@fastify/cors'), { origin: '*' });
+// A partir da v11 o @fastify/cors libera por padrão só GET, HEAD e POST;
+// sem listar PUT e DELETE o navegador bloqueia editar e excluir.
+fastify.register(require('@fastify/cors'), {
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
+});
 
 fastify.register(require('@fastify/jwt'), {
   secret: process.env.JWT_SECRET || 'sua_chave_secreta_super_segura'

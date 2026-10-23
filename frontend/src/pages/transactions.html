@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meister - Lançamentos</title>
+    <link rel="icon" href="../assets/MEIsterL.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-black text-slate-100 min-h-screen">
+
+    <script>
+        const token = localStorage.getItem('token');
+        const userName = localStorage.getItem('userName');
+
+        if (!token) {
+            window.location.href = '/index.html';
+        }
+    </script>
+
+    <header class="border-b border-zinc-800">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <img src="../assets/MeisterLN.png" alt="MEIster" class="h-14 w-auto" />
+                <nav class="flex items-center gap-1 text-sm" aria-label="Principal">
+                    <a href="dashboard.html" class="px-3 py-1.5 rounded-lg text-zinc-300 hover:text-amber-400 transition">Dashboard</a>
+                    <a href="transactions.html" aria-current="page" class="px-3 py-1.5 rounded-lg bg-zinc-900 text-amber-400 font-semibold">Lançamentos</a>
+                </nav>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="btnNew" type="button"
+                    class="px-4 py-2 bg-amber-400 hover:bg-amber-300 text-black font-semibold rounded-xl text-sm transition">
+                    + Novo lançamento
+                </button>
+                <button onclick="logout()" type="button"
+                    class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-sm transition">
+                    Sair
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 py-6 space-y-6">
+
+        <div id="errorBox" role="alert"
+            class="hidden rounded-xl border border-rose-800 bg-rose-950/60 text-rose-200 px-4 py-3 text-sm flex items-center justify-between gap-3">
+            <span id="errorText"></span>
+            <button id="btnRetry" type="button" class="underline whitespace-nowrap">Tentar novamente</button>
+        </div>
+
+        <div>
+            <h1 class="text-2xl font-bold text-amber-400">Lançamentos</h1>
+            <p class="text-sm text-zinc-500 mt-1">Pesquise, filtre, edite e exclua seus lançamentos.</p>
+        </div>
+
+        <!-- Filtros -->
+        <section class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 space-y-4" aria-label="Filtros">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div class="md:col-span-2">
+                    <label for="fSearch" class="block text-sm text-zinc-400 mb-1">Buscar</label>
+                    <input id="fSearch" type="search" placeholder="Descrição do lançamento" autocomplete="off"
+                        class="w-full rounded-xl bg-black border border-zinc-700 px-3 py-2 focus:outline-none focus:border-amber-400" />
+                </div>
+                <div>
+                    <label for="fType" class="block text-sm text-zinc-400 mb-1">Tipo</label>
+                    <select id="fType"
+                        class="w-full rounded-xl bg-black border border-zinc-700 px-3 py-2 focus:outline-none focus:border-amber-400">
+                        <option value="">Todos</option>
+                        <option value="receita">Entradas</option>
+                        <option value="despesa">Despesas</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="fPay" class="block text-sm text-zinc-400 mb-1">Forma de pagamento</label>
+                    <select id="fPay"
+                        class="w-full rounded-xl bg-black border border-zinc-700 px-3 py-2 focus:outline-none focus:border-amber-400"></select>
+                </div>
+                <div class="md:col-span-2">
+                    <label for="fCat" class="block text-sm text-zinc-400 mb-1">Categoria</label>
+                    <select id="fCat"
+                        class="w-full rounded-xl bg-black border border-zinc-700 px-3 py-2 focus:outline-none focus:border-amber-400"></select>
+                </div>
+                <div>
+                    <label for="fStart" class="block text-sm text-zinc-400 mb-1">De</label>
+                    <input id="fStart" type="date"
+                        class="w-full rounded-xl bg-black border border-zinc-700 px-3 py-2 focus:outline-none focus:border-amber-400" />
+                </div>
+                <div>
+                    <label for="fEnd" class="block text-sm text-zinc-400 mb-1">Até</label>
+                    <input id="fEnd" type="date"
+                        class="w-full rounded-xl bg-black border border-zinc-700 px-3 py-2 focus:outline-none focus:border-amber-400" />
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div id="presets" class="flex flex-wrap gap-2 text-sm">
+                    <button type="button" data-preset="all">Tudo</button>
+                    <button type="button" data-preset="month">Este mês</button>
+                    <button type="button" data-preset="prev">Mês anterior</button>
+                    <button type="button" data-preset="year">Este ano</button>
+                </div>
+                <button id="btnClear" type="button" class="text-sm text-zinc-400 hover:text-amber-400 underline">
+                    Limpar filtros
+                </button>
+            </div>
+
+            <p id="filterHint" class="hidden text-sm text-amber-400"></p>
+        </section>
+
+        <!-- Resumo do que está filtrado -->
+        <section class="grid grid-cols-2 lg:grid-cols-4 gap-4" aria-label="Resumo dos lançamentos filtrados">
+            <div class="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+                <p class="text-sm text-zinc-400">Lançamentos</p>
+                <p id="sumCount" class="text-xl font-bold mt-1">—</p>
+            </div>
+            <div class="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+                <p class="text-sm text-zinc-400">Entradas</p>
+                <p id="sumIn" class="text-xl font-bold mt-1 text-emerald-400">—</p>
+            </div>
+            <div class="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+                <p class="text-sm text-zinc-400">Despesas</p>
+                <p id="sumOut" class="text-xl font-bold mt-1 text-rose-400">—</p>
+            </div>
+            <div class="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+                <p class="text-sm text-zinc-400">Resultado</p>
+                <p id="sumResult" class="text-xl font-bold mt-1">—</p>
+            </div>
+        </section>
+
+        <!-- Lista -->
+        <section id="listCard" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 transition-opacity">
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm min-w-[680px]">
+                    <thead>
+                        <tr class="text-left text-xs uppercase tracking-wide text-zinc-500">
+                            <th class="py-2 pr-4 font-medium">Data</th>
+                            <th class="py-2 pr-4 font-medium">Descrição</th>
+                            <th class="py-2 pr-4 font-medium">Categoria</th>
+                            <th class="py-2 pr-4 font-medium">Pagamento</th>
+                            <th class="py-2 pl-4 font-medium text-right">Valor</th>
+                            <th class="py-2 pl-4 font-medium text-right"><span class="sr-only">Ações</span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="rows" class="divide-y divide-zinc-800"></tbody>
+                </table>
+            </div>
+
+            <div id="emptyState" class="hidden py-10 text-center text-sm text-zinc-500"></div>
+
+            <div id="pager" class="hidden mt-4 pt-4 border-t border-zinc-800 flex flex-wrap items-center justify-between gap-3 text-sm">
+                <p id="pageRange" class="text-zinc-500"></p>
+                <div class="flex items-center gap-2">
+                    <button id="btnPrev" type="button"
+                        class="px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-300 hover:border-amber-400 disabled:opacity-40 disabled:hover:border-zinc-700 transition">
+                        Anterior
+                    </button>
+                    <span id="pageInfo" class="text-zinc-400 px-2"></span>
+                    <button id="btnNext" type="button"
+                        class="px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-300 hover:border-amber-400 disabled:opacity-40 disabled:hover:border-zinc-700 transition">
+                        Próxima
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal: novo / editar lançamento -->
+    <div id="modal" class="hidden fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+         role="dialog" aria-modal="true" aria-labelledby="mTitle">
+        <form id="txForm" class="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-4 max-h-[92vh] overflow-y-auto">
+            <div class="flex items-center justify-between">
+                <h2 id="mTitle" class="text-lg font-bold text-amber-400">Novo lançamento</h2>
+                <button type="button" id="btnClose" aria-label="Fechar" class="text-zinc-400 hover:text-white text-2xl leading-none">&times;</button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2" id="typeToggle">
+                <button type="button" data-type="receita">Entrada</button>
+                <button type="button" data-type="despesa">Despesa</button>
+            </div>
+
+            <div>
+                <label for="mDescription" class="block text-sm text-zinc-400 mb-1">Descrição</label>
+                <input id="mDescription" type="text" required maxlength="120"
+                    class="w-full rounded-xl bg-black border border-zinc-700 px-3 py-2 focus:outline-none focus:border-amber-400" />
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label for="mAmount" class="block text-sm text-zinc-400 mb-1">Valor (R$)</label>
+                    <input id="mAmount" type="text" inputmode="decimal" required placeholder="0,00"
+                        class="w-full rounded-xl bg-black border border-zinc-700 px-3 py-2 focus:outline-none focus:border-amber-400" />
+                </div>
+                <div>
+                    <label for="mDate" class="block text-sm text-zinc-400 mb-1">Data</label>
+                    <input id="mDate" type="date" required
+                        class="w-full rounded-xl bg-black border border-zinc-700 px-3 py-2 focus:outline-none focus:border-amber-400" />
+                </div>
+            </div>
+
+            <div>
+                <label for="mCategory" class="block text-sm text-zinc-400 mb-1">Categoria</label>
+                <select id="mCategory"
+                    class="w-full rounded-xl bg-black border border-zinc-700 px-3 py-2 focus:outline-none focus:border-amber-400"></select>
+                <input id="mNewCategory" type="text" maxlength="60" placeholder="Nome da nova categoria"
+                    class="hidden mt-2 w-full rounded-xl bg-black border border-zinc-700 px-3 py-2 focus:outline-none focus:border-amber-400" />
+            </div>
+
+            <div>
+                <label for="mPayment" class="block text-sm text-zinc-400 mb-1">Forma de pagamento (opcional)</label>
+                <select id="mPayment"
+                    class="w-full rounded-xl bg-black border border-zinc-700 px-3 py-2 focus:outline-none focus:border-amber-400"></select>
+            </div>
+
+            <p id="mError" class="hidden text-sm text-rose-400"></p>
+
+            <button id="mSave" type="submit"
+                class="w-full py-2.5 bg-amber-400 hover:bg-amber-300 disabled:opacity-60 text-black font-semibold rounded-xl transition">
+                Salvar lançamento
+            </button>
+        </form>
+    </div>
+
+    <!-- Modal: confirmar exclusão -->
+    <div id="confirmModal" class="hidden fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+         role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmText">
+        <div class="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-4">
+            <h2 id="confirmTitle" class="text-lg font-bold text-rose-400">Excluir lançamento?</h2>
+            <p id="confirmText" class="text-sm text-zinc-300"></p>
+            <p id="confirmError" class="hidden text-sm text-rose-400"></p>
+            <div class="grid grid-cols-2 gap-2">
+                <button id="btnCancelDelete" type="button"
+                    class="py-2.5 rounded-xl border border-zinc-700 text-zinc-200 hover:border-amber-400 transition">
+                    Cancelar
+                </button>
+                <button id="btnConfirmDelete" type="button"
+                    class="py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-60 text-white font-semibold transition">
+                    Excluir
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Aviso rápido -->
+    <div id="toast" role="status" aria-live="polite"
+         class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-xl border px-4 py-2 text-sm shadow-lg"></div>
+
+    <script>
+        // ===== Configuração =====
+        // Endereço do backend (Fastify). Ajuste se mudar a porta ou for para produção.
+        const API_URL = 'http://localhost:3000/api';
+        const PAGE_SIZE = 15;
+
+        // Os "value" precisam ser iguais aos do enum PaymentMethod do schema.prisma.
+        const PAYMENT_METHODS = [
+            { value: '', label: 'Não informar' },
+            { value: 'pix', label: 'Pix' },
+            { value: 'dinheiro', label: 'Dinheiro' },
+            { value: 'cartao_credito', label: 'Cartão de crédito' },
+            { value: 'cartao_debito', label: 'Cartão de débito' },
+            { value: 'boleto', label: 'Boleto' },
+            { value: 'outro', label: 'Outro' },
+        ];
+        const PAYMENT_LABELS = Object.fromEntries(
+            PAYMENT_METHODS.filter((m) => m.value).map((m) => [m.value, m.label])
+        );
+
+        // ===== Utilitários =====
+        const $ = (id) => document.getElementById(id);
+
+        const brl = (value) =>
+            new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) || 0);
+
+        // Evita injetar HTML vindo de descrições/categorias digitadas pelo usuário
+        const esc = (value) =>
+            String(value ?? '').replace(/[&<>"']/g, (c) => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+            }[c]));
+
+        // O backend guarda só a data (sem hora), em UTC: formatar em UTC evita "dia anterior"
+        const formatDate = (iso) =>
+            new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+
+        const ymd = (y, m, d) =>
+            `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+        const todayLocal = () => {
+            const d = new Date();
+            return ymd(d.getFullYear(), d.getMonth(), d.getDate());
+        };
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('userName');
+            window.location.href = '/index.html';
+        }
+
+        async function api(path, options = {}) {
+            // Só envia Content-Type quando há corpo: o Fastify recusa DELETE com
+            // "application/json" e corpo vazio.
+            const headers = { Authorization: `Bearer ${token}` };
+            if (options.body !== undefined) headers['Content-Type'] = 'application/json';
+
+            const response = await fetch(API_URL + path, { ...options, headers });
+
+            if (response.status === 401) {
+                logout();
+                throw new Error('Sessão expirada. Faça login novamente.');
+            }
+
+            if (response.status === 204) return null;
+
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.message || 'Erro ao comunicar com o servidor.');
+            return data;
+        }
+
+        let toastTimer;
+        function showToast(message, kind = 'ok') {
+            const el = $('toast');
+            el.textContent = message;
+            el.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-xl border px-4 py-2 text-sm shadow-lg ' +
+                (kind === 'ok'
+                    ? 'border-emerald-800 bg-emerald-950 text-emerald-200'
+                    : 'border-rose-800 bg-rose-950 text-rose-200');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => el.classList.add('hidden'), 3500);
+        }
+
+        function showError(message) {
+            $('errorText').textContent = message;
+            $('errorBox').classList.remove('hidden');
+        }
+
+        // ===== Estado =====
+        let categories = [];
+        let items = [];
+        let page = 1;
+        let totalPages = 1;
+        let requestId = 0;
+        const filters = { search: '', type: '', categoryId: '', paymentMethod: '', startDate: '', endDate: '' };
+
+        // ===== Filtros =====
+        function presetRange(kind) {
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = now.getMonth();
+            const lastDay = (yy, mm) => new Date(yy, mm + 1, 0).getDate();
+
+            if (kind === 'month') return [ymd(y, m, 1), ymd(y, m, lastDay(y, m))];
+            if (kind === 'prev') {
+                const prev = new Date(y, m - 1, 1);
+                const py = prev.getFullYear();
+                const pm = prev.getMonth();
+                return [ymd(py, pm, 1), ymd(py, pm, lastDay(py, pm))];
+            }
+            if (kind === 'year') return [ymd(y, 0, 1), ymd(y, 11, 31)];
+            return ['', ''];
+        }
+
+        function paintPresets() {
+            const current = [filters.startDate, filters.endDate].join('|');
+            document.querySelectorAll('#presets button').forEach((btn) => {
+                const active = presetRange(btn.dataset.preset).join('|') === current;
+                btn.className = 'px-3 py-1.5 rounded-lg border transition ' + (active
+                    ? 'bg-amber-400 text-black border-amber-400 font-semibold'
+                    : 'border-zinc-700 text-zinc-300 hover:border-amber-400');
+            });
+        }
+
+        function fillPaymentFilter() {
+            $('fPay').innerHTML = '<option value="">Todas</option>' + PAYMENT_METHODS
+                .filter((m) => m.value)
+                .map((m) => `<option value="${esc(m.value)}">${esc(m.label)}</option>`).join('');
+        }
+
+        const categoryOption = (c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`;
+
+        function fillFilterCategories() {
+            const type = $('fType').value;
+            const previous = $('fCat').value;
+            let html = '<option value="">Todas</option>';
+
+            if (type) {
+                html += categories.filter((c) => c.type === type).map(categoryOption).join('');
+            } else {
+                const group = (label, list) => list.length
+                    ? `<optgroup label="${label}">${list.map(categoryOption).join('')}</optgroup>` : '';
+                html += group('Entradas', categories.filter((c) => c.type === 'receita'));
+                html += group('Despesas', categories.filter((c) => c.type === 'despesa'));
+            }
+
+            $('fCat').innerHTML = html;
+            // mantém a categoria escolhida se ela ainda existir na lista; senão volta para "Todas"
+            $('fCat').value = [...$('fCat').options].some((o) => o.value === previous) ? previous : '';
+        }
+
+        function readFilters() {
+            filters.search = $('fSearch').value.trim();
+            filters.type = $('fType').value;
+            filters.categoryId = $('fCat').value;
+            filters.paymentMethod = $('fPay').value;
+            filters.startDate = $('fStart').value;
+            filters.endDate = $('fEnd').value;
+        }
+
+        function hasActiveFilters() {
+            return Object.values(filters).some(Boolean);
+        }
+
+        function applyFilters() {
+            readFilters();
+            paintPresets();
+
+            if (filters.startDate && filters.endDate && filters.startDate > filters.endDate) {
+                $('filterHint').textContent = 'A data inicial não pode ser maior que a data final.';
+                $('filterHint').classList.remove('hidden');
+                return;
+            }
+            $('filterHint').classList.add('hidden');
+
+            page = 1;
+            loadTransactions();
+        }
+
+        let searchTimer;
+        $('fSearch').addEventListener('input', () => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(applyFilters, 350);
+        });
+        $('fType').addEventListener('change', () => { fillFilterCategories(); applyFilters(); });
+        ['fCat', 'fPay', 'fStart', 'fEnd'].forEach((id) => $(id).addEventListener('change', applyFilters));
+
+        document.querySelectorAll('#presets button').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const [start, end] = presetRange(btn.dataset.preset);
+                $('fStart').value = start;
+                $('fEnd').value = end;
+                applyFilters();
+            });
+        });
+
+        $('btnClear').addEventListener('click', () => {
+            $('fSearch').value = '';
+            $('fType').value = '';
+            $('fPay').value = '';
+            $('fStart').value = '';
+            $('fEnd').value = '';
+            fillFilterCategories();
+            $('fCat').value = '';
+            applyFilters();
+        });
+
+        // ===== Listagem =====
+        function renderSummary(resumo, total) {
+            $('sumCount').textContent = String(total);
+            $('sumIn').textContent = brl(resumo.totalEntradas);
+            $('sumOut').textContent = brl(resumo.totalDespesas);
+            $('sumResult').textContent = brl(resumo.resultado);
+            $('sumResult').className = 'text-xl font-bold mt-1 ' + (resumo.resultado < 0 ? 'text-rose-400' : 'text-emerald-400');
+        }
+
+        function renderRows() {
+            $('rows').innerHTML = items.map((t) => {
+                const isIn = t.type === 'receita';
+                return `
+                    <tr data-id="${esc(t.id)}">
+                        <td class="py-3 pr-4 whitespace-nowrap text-zinc-400">${formatDate(t.transactionDate)}</td>
+                        <td class="py-3 pr-4 max-w-xs"><p class="truncate" title="${esc(t.description)}">${esc(t.description)}</p></td>
+                        <td class="py-3 pr-4 whitespace-nowrap">
+                            <span class="inline-block w-2 h-2 rounded-full mr-2 ${isIn ? 'bg-emerald-400' : 'bg-rose-400'}"></span>${esc(t.category?.name || 'Sem categoria')}
+                        </td>
+                        <td class="py-3 pr-4 whitespace-nowrap text-zinc-400">${esc(PAYMENT_LABELS[t.paymentMethod] || '—')}</td>
+                        <td class="py-3 pl-4 whitespace-nowrap text-right font-semibold ${isIn ? 'text-emerald-400' : 'text-rose-400'}">
+                            ${isIn ? '+' : '−'} ${brl(t.amount)}
+                        </td>
+                        <td class="py-3 pl-4 whitespace-nowrap text-right">
+                            <button type="button" data-action="edit" aria-label="Editar lançamento ${esc(t.description)}"
+                                class="px-2.5 py-1 rounded-lg border border-zinc-700 text-xs text-zinc-300 hover:border-amber-400 hover:text-amber-400 transition">Editar</button>
+                            <button type="button" data-action="delete" aria-label="Excluir lançamento ${esc(t.description)}"
+                                class="ml-1 px-2.5 py-1 rounded-lg border border-zinc-700 text-xs text-zinc-300 hover:border-rose-500 hover:text-rose-400 transition">Excluir</button>
+                        </td>
+                    </tr>`;
+            }).join('');
+        }
+
+        function renderEmptyAndPager(total) {
+            const empty = $('emptyState');
+
+            if (items.length === 0) {
+                empty.classList.remove('hidden');
+                empty.innerHTML = hasActiveFilters()
+                    ? 'Nenhum lançamento encontrado com esses filtros.'
+                    : 'Você ainda não tem lançamentos. Clique em <span class="text-amber-400">+ Novo lançamento</span> para começar.';
+            } else {
+                empty.classList.add('hidden');
+            }
+
+            $('pager').classList.toggle('hidden', total === 0);
+            if (total === 0) return;
+
+            const from = (page - 1) * PAGE_SIZE + 1;
+            const to = Math.min(page * PAGE_SIZE, total);
+            $('pageRange').textContent = `Mostrando ${from}–${to} de ${total}`;
+            $('pageInfo').textContent = `Página ${page} de ${totalPages}`;
+            $('btnPrev').disabled = page <= 1;
+            $('btnNext').disabled = page >= totalPages;
+        }
+
+        async function loadTransactions() {
+            const myRequest = ++requestId; // ignora respostas antigas se o usuário digitar rápido
+            $('listCard').classList.add('opacity-60');
+            $('errorBox').classList.add('hidden');
+
+            try {
+                const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
+                Object.entries(filters).forEach(([key, value]) => { if (value) params.set(key, value); });
+
+                const data = await api('/transactions?' + params.toString());
+                if (myRequest !== requestId) return;
+
+                // Se a página atual ficou vazia (ex.: excluiu o último item dela), volta uma página
+                if (data.items.length === 0 && data.total > 0 && page > 1) {
+                    page = data.totalPages;
+                    return loadTransactions();
+                }
+
+                items = data.items;
+                totalPages = data.totalPages;
+                renderSummary(data.resumo, data.total);
+                renderRows();
+                renderEmptyAndPager(data.total);
+            } catch (error) {
+                if (myRequest === requestId) showError(error.message);
+            } finally {
+                if (myRequest === requestId) $('listCard').classList.remove('opacity-60');
+            }
+        }
+
+        $('btnPrev').addEventListener('click', () => { if (page > 1) { page -= 1; loadTransactions(); } });
+        $('btnNext').addEventListener('click', () => { if (page < totalPages) { page += 1; loadTransactions(); } });
+        $('btnRetry').addEventListener('click', loadTransactions);
+
+        $('rows').addEventListener('click', (event) => {
+            const button = event.target.closest('button[data-action]');
+            if (!button) return;
+
+            const transaction = items.find((t) => t.id === button.closest('tr').dataset.id);
+            if (!transaction) return;
+
+            if (button.dataset.action === 'edit') openForm(transaction);
+            if (button.dataset.action === 'delete') openConfirm(transaction);
+        });
+
+        // ===== Novo / editar =====
+        let editingId = null; // null = novo lançamento
+        let formType = 'receita';
+
+        async function loadCategories() {
+            categories = await api('/categories');
+        }
+
+        function paintTypeToggle() {
+            document.querySelectorAll('#typeToggle button').forEach((btn) => {
+                const active = btn.dataset.type === formType;
+                const activeColor = formType === 'receita'
+                    ? 'bg-emerald-400 text-black border-emerald-400'
+                    : 'bg-rose-500 text-white border-rose-500';
+                btn.className = 'py-2 rounded-xl border font-semibold transition ' +
+                    (active ? activeColor : 'border-zinc-700 text-zinc-300 hover:border-amber-400');
+            });
+        }
+
+        function fillFormCategories(selectedId) {
+            const list = categories.filter((c) => c.type === formType);
+
+            // Ao editar, garante que a categoria atual apareça, mesmo que seja de outro tipo,
+            // para o formulário nunca trocar de categoria sem o usuário perceber.
+            const current = categories.find((c) => c.id === selectedId);
+            const options = list.map(categoryOption);
+            if (current && current.type !== formType) {
+                options.unshift(`<option value="${esc(current.id)}">${esc(current.name)} (outro tipo)</option>`);
+            }
+            options.push('<option value="__new__">+ Nova categoria…</option>');
+
+            $('mCategory').innerHTML = options.join('');
+            const hasSelected = [...$('mCategory').options].some((o) => o.value === selectedId);
+            if (hasSelected) $('mCategory').value = selectedId;
+            toggleNewCategory();
+        }
+
+        function toggleNewCategory() {
+            const isNew = $('mCategory').value === '__new__';
+            $('mNewCategory').classList.toggle('hidden', !isNew);
+            $('mNewCategory').required = isNew;
+        }
+
+        function setFormError(message) {
+            $('mError').textContent = message || '';
+            $('mError').classList.toggle('hidden', !message);
+        }
+
+        function openForm(transaction = null) {
+            editingId = transaction ? transaction.id : null;
+            formType = transaction ? transaction.type : 'receita';
+
+            $('txForm').reset();
+            $('mTitle').textContent = transaction ? 'Editar lançamento' : 'Novo lançamento';
+            $('mSave').textContent = transaction ? 'Salvar alterações' : 'Salvar lançamento';
+            $('mPayment').innerHTML = PAYMENT_METHODS
+                .map((m) => `<option value="${esc(m.value)}">${esc(m.label)}</option>`).join('');
+
+            if (transaction) {
+                $('mDescription').value = transaction.description;
+                $('mAmount').value = Number(transaction.amount).toFixed(2).replace('.', ',');
+                $('mDate').value = String(transaction.transactionDate).slice(0, 10);
+                $('mPayment').value = transaction.paymentMethod || '';
+            } else {
+                $('mDate').value = todayLocal();
+            }
+
+            setFormError('');
+            paintTypeToggle();
+            fillFormCategories(transaction ? transaction.categoryId : null);
+            $('modal').classList.remove('hidden');
+            $('mDescription').focus();
+        }
+
+        function closeForm() {
+            $('modal').classList.add('hidden');
+        }
+
+        $('btnNew').addEventListener('click', () => openForm());
+        $('btnClose').addEventListener('click', closeForm);
+        $('modal').addEventListener('click', (e) => { if (e.target === $('modal')) closeForm(); });
+        $('mCategory').addEventListener('change', toggleNewCategory);
+
+        document.querySelectorAll('#typeToggle button').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                formType = btn.dataset.type;
+                paintTypeToggle();
+                fillFormCategories(null);
+            });
+        });
+
+        $('txForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            setFormError('');
+
+            const amount = Number($('mAmount').value.trim().replace(/\./g, '').replace(',', '.'));
+            if (!Number.isFinite(amount) || amount <= 0) {
+                setFormError('Informe um valor maior que zero.');
+                return;
+            }
+
+            $('mSave').disabled = true;
+
+            try {
+                let categoryId = $('mCategory').value;
+                let createdCategory = false;
+
+                if (categoryId === '__new__') {
+                    const name = $('mNewCategory').value.trim();
+                    if (!name) throw new Error('Informe o nome da nova categoria.');
+                    const created = await api('/categories', {
+                        method: 'POST',
+                        body: JSON.stringify({ name, type: formType }),
+                    });
+                    categoryId = created.id;
+                    createdCategory = true;
+                }
+
+                const payment = $('mPayment').value;
+                const payload = {
+                    categoryId,
+                    type: formType,
+                    description: $('mDescription').value.trim(),
+                    amount,
+                    transactionDate: $('mDate').value,
+                    // ao editar, null limpa a forma de pagamento; ao criar, apenas omite
+                    paymentMethod: payment || (editingId ? null : undefined),
+                };
+
+                if (editingId) {
+                    await api('/transactions/' + encodeURIComponent(editingId), {
+                        method: 'PUT',
+                        body: JSON.stringify(payload),
+                    });
+                } else {
+                    await api('/transactions', { method: 'POST', body: JSON.stringify(payload) });
+                    page = 1; // o novo lançamento aparece no topo
+                }
+
+                closeForm();
+                showToast(editingId ? 'Lançamento atualizado.' : 'Lançamento criado.');
+
+                if (createdCategory) {
+                    await loadCategories();
+                    fillFilterCategories();
+                }
+                await loadTransactions();
+            } catch (error) {
+                setFormError(error.message);
+            } finally {
+                $('mSave').disabled = false;
+            }
+        });
+
+        // ===== Excluir =====
+        let deletingId = null;
+
+        function openConfirm(transaction) {
+            deletingId = transaction.id;
+            $('confirmText').textContent =
+                `“${transaction.description}” — ${brl(transaction.amount)} em ${formatDate(transaction.transactionDate)}. ` +
+                'Esta ação não pode ser desfeita.';
+            $('confirmError').classList.add('hidden');
+            $('btnConfirmDelete').disabled = false;
+            $('confirmModal').classList.remove('hidden');
+            $('btnCancelDelete').focus();
+        }
+
+        function closeConfirm() {
+            deletingId = null;
+            $('confirmModal').classList.add('hidden');
+        }
+
+        $('btnCancelDelete').addEventListener('click', closeConfirm);
+        $('confirmModal').addEventListener('click', (e) => { if (e.target === $('confirmModal')) closeConfirm(); });
+
+        $('btnConfirmDelete').addEventListener('click', async () => {
+            if (!deletingId) return;
+            $('btnConfirmDelete').disabled = true;
+
+            try {
+                await api('/transactions/' + encodeURIComponent(deletingId), { method: 'DELETE' });
+                closeConfirm();
+                showToast('Lançamento excluído.');
+                await loadTransactions();
+            } catch (error) {
+                $('confirmError').textContent = error.message;
+                $('confirmError').classList.remove('hidden');
+                $('btnConfirmDelete').disabled = false;
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Escape') return;
+            closeForm();
+            closeConfirm();
+        });
+
+        // ===== Início =====
+        async function init() {
+            fillPaymentFilter();
+            paintPresets();
+
+            try {
+                await loadCategories();
+            } catch (error) {
+                showError(error.message);
+            }
+
+            fillFilterCategories();
+            loadTransactions();
+        }
+
+        init();
+    </script>
+</body>
+</html>
