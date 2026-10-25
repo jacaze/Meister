@@ -16,11 +16,13 @@ const authRoutes = require('./routes/authRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const userRoutes = require('./routes/userRoutes');
 
 fastify.register(authRoutes, { prefix: '/api' });
 fastify.register(categoryRoutes, { prefix: '/api' });
 fastify.register(transactionRoutes, { prefix: '/api' });
 fastify.register(dashboardRoutes, { prefix: '/api' });
+fastify.register(userRoutes, { prefix: '/api' });
 
 fastify.get('/health', async () => {
   return { status: 'ok', timestamp: new Date() };

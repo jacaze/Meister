@@ -1,15 +1,21 @@
 const LOCK_TIME_MINUTES = Number(process.env.LOCK_TIME_MINUTES)
 const bcrypt = require('bcryptjs');
 const prisma = require('../config/prisma');
+const { ACCOUNT_TYPES } = require('../services/userService');
 
 module.exports = async function (fastify, options) {
 
   fastify.post('/register', async (request, reply) => {
     try {
-      const { name, email, password } = request.body;
+      const { name, email, password, accountType } = request.body;
 
       if (!name || !email || !password) {
         return reply.status(400).send({ message: 'Nome, e-mail e senha são obrigatórios.' });
+      }
+
+      // Sem accountType, vale o padrão do schema (pessoa_fisica)
+      if (accountType !== undefined && !ACCOUNT_TYPES.includes(accountType)) {
+        return reply.status(400).send({ message: 'Tipo de conta inválido.' });
       }
 
       const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -23,13 +29,14 @@ module.exports = async function (fastify, options) {
         data: {
           name,
           email,
-          passwordHash: hashedPassword
+          passwordHash: hashedPassword,
+          accountType
         }
       });
 
       return reply.status(201).send({
         message: 'Usuário cadastrado com sucesso!',
-        user: { id: newUser.id, name: newUser.name, email: newUser.email }
+        user: { id: newUser.id, name: newUser.name, email: newUser.email, accountType: newUser.accountType }
       });
     } catch (error) {
       fastify.log.error(error);
@@ -103,7 +110,7 @@ module.exports = async function (fastify, options) {
       return reply.send({
         message: 'Login realizado com sucesso',
         token,
-        user: { id: user.id, name: user.name, email: user.email }
+        user: { id: user.id, name: user.name, email: user.email, accountType: user.accountType }
       });
 
     } catch (error) {

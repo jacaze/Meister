@@ -10,12 +10,13 @@
 - **Proteção contra tentativas de acesso:** após 3 senhas incorretas a conta fica bloqueada por um tempo configurável
 - **Categorias** de receitas e despesas (criar, listar, editar e excluir)
 - **Lançamentos** de receitas e despesas com valor, data, categoria e forma de pagamento
+- **Tipo de conta** (MEI ou pessoa física) escolhido no cadastro e alterável depois, direto no card do dashboard
 - **Tela de lançamentos** com busca por descrição, filtros (tipo, categoria, forma de pagamento e período), paginação, **edição** e **exclusão**
 - **Dashboard financeiro**
   - saldo atual e resumo do período (mês atual, mês anterior ou ano)
   - gráfico de entradas e despesas dos últimos meses
   - totais por categoria
-  - **limite anual do MEI** com barra de progresso e alertas (a partir de 80%, ao ultrapassar o teto e ao passar da tolerância de 20%)
+  - **limite anual do MEI** com barra de progresso e alertas (a partir de 80%, ao ultrapassar o teto e ao passar da tolerância de 20%), exibido **apenas para contas MEI**
   - últimos lançamentos e formulário de novo lançamento
 
 > **Limite do MEI:** R$ 81.000,00 por ano, com tolerância de 20% (R$ 97.200,00). O valor é configurável pela variável `MEI_ANNUAL_LIMIT`, caso a legislação mude.
@@ -82,7 +83,7 @@ cd backend
 npm install
 ```
 
-> Criação do arquivo .env
+> Criação do arquivo `.env`
 
 Edite o arquivo `.env` com os seus dados (veja a tabela de variáveis abaixo) e rode as migrações para criar as tabelas:
 
@@ -129,8 +130,15 @@ Todas as rotas, exceto `register`, `login` e `health`, exigem o cabeçalho `Auth
 
 | Método | Rota | Descrição |
 |---|---|---|
-| `POST` | `/api/register` | Cadastro de novo usuário (`name`, `email`, `password`) |
-| `POST` | `/api/login` | Login; retorna o token JWT e os dados do usuário (`email`, `password`) |
+| `POST` | `/api/register` | Cadastro de novo usuário (`name`, `email`, `password` e, opcionalmente, `accountType`: `mei` ou `pessoa_fisica`; sem ele vale `pessoa_fisica`) |
+| `POST` | `/api/login` | Login (`email`, `password`); retorna o token JWT e os dados do usuário, incluindo `accountType` |
+
+### Conta
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `GET` | `/api/me` | Dados públicos do usuário logado: `id`, `name`, `email` e `accountType` |
+| `PATCH` | `/api/me` | Altera o tipo de conta (`accountType`: `mei` ou `pessoa_fisica`). Outros campos são ignorados |
 
 ### Categorias
 
@@ -168,7 +176,8 @@ Resposta do dashboard:
 - `periodo`: entradas, despesas e resultado do período filtrado
 - `porCategoria`: totais e percentuais de receitas e despesas por categoria
 - `evolucaoMensal`: entradas, despesas e resultado por mês
-- `limiteMei`: faturamento do ano, percentual do limite, valor restante e `status` (`ok`, `atencao`, `excedido` ou `desenquadramento`)
+- `conta`: tipo de conta do usuário (`accountType`)
+- `limiteMei`: faturamento do ano, percentual do limite, valor restante e `status` (`ok`, `atencao`, `excedido` ou `desenquadramento`). Vem `null` para contas de pessoa física
 - `ultimasTransacoes`: os 5 lançamentos mais recentes
 
 ### Outras
@@ -187,7 +196,7 @@ Resposta do dashboard:
 - [x] Tela para editar e excluir lançamentos
 - [x] Listagem completa de lançamentos com filtros
 - [ ] Categorias padrão criadas junto com a conta
-- [ ] Exibir o limite do MEI apenas para contas do tipo `mei`
+- [x] Exibir o limite do MEI apenas para contas do tipo `mei`
 - [ ] Limite proporcional no ano de abertura do CNPJ
 - [ ] Controle do DAS mensal
 - [ ] Migração das telas para React

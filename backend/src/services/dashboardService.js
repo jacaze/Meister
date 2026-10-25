@@ -160,6 +160,7 @@ async function getSummary(userId, filters = {}) {
     categoryGroups,
     seriesTransactions,
     latestTransactions,
+    user,
   ] = await Promise.all([
     prisma.transaction.aggregate({
       where: { ...wherePeriod, type: 'receita' },
@@ -202,7 +203,14 @@ async function getSummary(userId, filters = {}) {
       orderBy: { transactionDate: 'desc' },
       take: 5,
     }),
+    prisma.user.findUnique({ where: { id: userId }, select: { accountType: true } }),
   ]);
+
+  if (!user) {
+    throw httpError('Usuário não encontrado', 404);
+  }
+
+  const isMei = user.accountType === 'mei';
 
   const categoryIds = [...new Set(categoryGroups.map((group) => group.categoryId))];
   const categories = categoryIds.length
@@ -217,6 +225,7 @@ async function getSummary(userId, filters = {}) {
   const periodOut = sumOf(periodExpenses);
 
   return {
+    conta: { accountType: user.accountType },
     saldoAtual: round2(sumOf(totalRevenue) - sumOf(totalExpenses)),
     periodo: {
       inicio: start,
@@ -227,7 +236,8 @@ async function getSummary(userId, filters = {}) {
     },
     porCategoria: buildCategoryBreakdown(categoryGroups, categoriesById),
     evolucaoMensal: buildMonthlySeries(seriesTransactions, months, now),
-    limiteMei: buildMeiLimit(sumOf(yearRevenue), year),
+    // O limite anual só faz sentido para quem é MEI; para os demais vai null
+    limiteMei: isMei ? buildMeiLimit(sumOf(yearRevenue), year) : null,
     ultimasTransacoes: latestTransactions,
   };
 }

@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Meister - Gestão Financeira MEI</title>
     <!-- Tailwind CSS -->
-     <link rel="icon" href="src/assets/MEIsterL.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -44,6 +43,21 @@
                     placeholder="Seu Nome">
             </div>
 
+            <fieldset id="accountTypeField" class="hidden">
+                <legend class="block text-xs font-semibold text-gold uppercase tracking-wider mb-2">Tipo de conta</legend>
+                <div class="grid grid-cols-2 gap-2">
+                    <label class="cursor-pointer">
+                        <input type="radio" name="accountType" value="mei" checked class="peer sr-only">
+                        <span class="block text-center px-3 py-3 rounded-xl border border-zinc-800 bg-black text-sm text-zinc-300 transition peer-checked:border-gold peer-checked:text-gold peer-focus-visible:ring-2 peer-focus-visible:ring-gold">MEI</span>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="accountType" value="pessoa_fisica" class="peer sr-only">
+                        <span class="block text-center px-3 py-3 rounded-xl border border-zinc-800 bg-black text-sm text-zinc-300 transition peer-checked:border-gold peer-checked:text-gold peer-focus-visible:ring-2 peer-focus-visible:ring-gold">Pessoa física</span>
+                    </label>
+                </div>
+                <p class="mt-2 text-xs text-zinc-500">O acompanhamento do limite anual aparece só para contas MEI. Você pode mudar depois.</p>
+            </fieldset>
+
             <div>
                 <label class="block text-xs font-semibold text-gold uppercase tracking-wider mb-2">E-mail</label>
                 <input type="email" id="email" required 
@@ -76,6 +90,7 @@
         const authForm = document.getElementById('authForm');
         const alertBox = document.getElementById('alertBox');
         const nameField = document.getElementById('nameField');
+        const accountTypeField = document.getElementById('accountTypeField');
         const submitBtn = document.getElementById('submitBtn');
         const toggleText = document.getElementById('toggleText');
         const toggleBtn = document.getElementById('toggleBtn');
@@ -86,12 +101,14 @@
 
             if (isRegisterMode) {
                 nameField.classList.remove('hidden');
+                accountTypeField.classList.remove('hidden');
                 document.getElementById('name').setAttribute('required', 'true');
                 submitBtn.textContent = 'Criar Conta';
                 toggleText.textContent = 'Já tem uma conta?';
                 toggleBtn.textContent = 'Entrar';
             } else {
                 nameField.classList.add('hidden');
+                accountTypeField.classList.add('hidden');
                 document.getElementById('name').removeAttribute('required');
                 submitBtn.textContent = 'Entrar no Sistema';
                 toggleText.textContent = 'Ainda não tem uma conta?';
@@ -107,11 +124,12 @@
             const emailInput = document.getElementById('email').value.toLowerCase().trim();
             const password = document.getElementById('password').value;
             const name = isRegisterMode ? document.getElementById('name').value : undefined;
+            const accountType = isRegisterMode ? document.querySelector('input[name="accountType"]:checked').value : undefined;
 
             alertBox.classList.add('hidden');
 
             const endpoint = isRegisterMode ? 'http://localhost:3000/api/register' : 'http://localhost:3000/api/login';
-            const payload = isRegisterMode ? { name, email: emailInput, password } : { email: emailInput, password };
+            const payload = isRegisterMode ? { name, email: emailInput, password, accountType } : { email: emailInput, password };
 
             try {
                 const response = await fetch(endpoint, {

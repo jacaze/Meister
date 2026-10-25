@@ -372,7 +372,22 @@
                     <div class="flex justify-between"><dt class="text-zinc-400">Limite</dt><dd>${brl(mei.limite)}</dd></div>
                     <div class="flex justify-between"><dt class="text-zinc-400">Restante</dt><dd class="text-amber-400">${brl(mei.restante)}</dd></div>
                 </dl>
-                <p class="mt-4 rounded-xl border px-3 py-2 text-xs ${s.box}">${esc(s.text)}</p>`;
+                <p class="mt-4 rounded-xl border px-3 py-2 text-xs ${s.box}">${esc(s.text)}</p>
+                <button type="button" data-action="set-account" data-type="pessoa_fisica"
+                    class="mt-3 text-xs text-zinc-500 hover:text-zinc-300 underline">Não sou MEI</button>`;
+        }
+
+        // Conta de pessoa física: o servidor não devolve o limite, então convidamos a ativar
+        function renderNotMei() {
+            $('meiCard').innerHTML = `
+                <h2 class="font-semibold">Limite anual do MEI</h2>
+                <p class="text-xs text-zinc-500">Disponível para contas MEI</p>
+                <p class="mt-4 text-sm text-zinc-300">Sua conta está como <span class="text-amber-400">pessoa física</span>, por isso o acompanhamento do limite anual não aparece.</p>
+                <p class="mt-2 text-sm text-zinc-400">Se você é MEI, ative para acompanhar quanto já faturou no ano.</p>
+                <button type="button" data-action="set-account" data-type="mei"
+                    class="mt-4 w-full py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-semibold text-sm transition">
+                    Sou MEI — ativar acompanhamento
+                </button>`;
         }
 
         function renderCategories(targetId, list, color) {
@@ -438,7 +453,8 @@
 
                 renderCards(data);
                 renderChart(data.evolucaoMensal);
-                renderMei(data.limiteMei);
+                if (data.limiteMei) renderMei(data.limiteMei);
+                else renderNotMei();
                 renderCategories('catReceitas', data.porCategoria.receitas, 'bg-emerald-400');
                 renderCategories('catDespesas', data.porCategoria.despesas, 'bg-rose-400');
                 renderLatest(data.ultimasTransacoes);
@@ -456,6 +472,25 @@
             });
         });
         $('btnRetry').addEventListener('click', loadDashboard);
+
+        // Troca o tipo de conta (MEI / pessoa física) e recarrega o painel
+        $('meiCard').addEventListener('click', async (event) => {
+            const button = event.target.closest('button[data-action="set-account"]');
+            if (!button) return;
+
+            const type = button.dataset.type;
+            if (type === 'pessoa_fisica' &&
+                !confirm('Deixar de acompanhar o limite do MEI? Você pode ativar de novo quando quiser.')) return;
+
+            button.disabled = true;
+            try {
+                await api('/me', { method: 'PATCH', body: JSON.stringify({ accountType: type }) });
+                await loadDashboard();
+            } catch (error) {
+                showError(error.message);
+                button.disabled = false;
+            }
+        });
 
         // ===== Novo lançamento =====
         let categories = [];
