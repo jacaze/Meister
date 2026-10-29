@@ -1,6 +1,6 @@
 # MEIster
 
-**O ritmo certo das suas finanças.** Aplicativo de gestão financeira para MEI (Microempreendedor Individual): cadastre receitas e despesas, acompanhe o resultado do mês e fique de olho no limite anual de faturamento.
+**O ritmo certo das suas finanças.** Aplicativo de gestão financeira para MEI (Microempreendedor Individual): cadastre receitas e despesas, acompanhe o resultado do mês, fique de olho no limite anual de faturamento e tenha à mão o atalho para emitir o DAS.
 
 ---
 
@@ -8,6 +8,7 @@
 
 - **Cadastro e login** com senha criptografada (bcrypt) e sessão via token JWT
 - **Proteção contra tentativas de acesso:** após 3 senhas incorretas a conta fica bloqueada por um tempo configurável
+- **Tipo de conta** (MEI ou pessoa física) escolhido no cadastro e alterável depois, direto no dashboard
 - **Categorias** de receitas e despesas (criar, listar, editar e excluir)
 - **Lançamentos** de receitas e despesas com valor, data, categoria e forma de pagamento
 - **Tipo de conta** (MEI ou pessoa física) escolhido no cadastro e alterável depois, direto no card do dashboard
@@ -18,8 +19,18 @@
   - totais por categoria
   - **limite anual do MEI** com barra de progresso e alertas (a partir de 80%, ao ultrapassar o teto e ao passar da tolerância de 20%), exibido **apenas para contas MEI**
   - últimos lançamentos e formulário de novo lançamento
+- **Página do DAS** (apenas contas MEI): faturamento do mês e do ano, percentual do limite usado, regra de vencimento, histórico dos últimos meses com atalho para **emitir a guia no PGMEI** (Receita Federal) e formulário de novo lançamento
 
-> **Limite do MEI:** R$ 81.000,00 por ano, com tolerância de 20% (R$ 97.200,00). O valor é configurável pela variável `MEI_ANNUAL_LIMIT`, caso a legislação mude.
+---
+
+## Telas
+
+| Tela | Arquivo | O que faz |
+|---|---|---|
+| Login e cadastro | `frontend/index.html` | Entrar ou criar conta, escolhendo entre MEI e pessoa física |
+| Dashboard | `frontend/src/pages/dashboard.html` | Visão geral das finanças e do limite do MEI |
+| Lançamentos | `frontend/src/pages/transactions.html` | Lista completa com filtros, edição e exclusão |
+| DAS | `frontend/src/pages/DAS.html` | Acompanhamento do faturamento e atalho para emitir o DAS |
 
 ---
 
@@ -52,8 +63,10 @@ Meister/
 ├── frontend/
 │   ├── index.html                 # login e cadastro
 │   ├── src/
-│   │   ├── pages/dashboard.html   # dashboard
-│   │   ├── pages/transactions.html # lançamentos: lista, filtros, editar e excluir
+│   │   ├── pages/
+│   │   │   ├── dashboard.html     # dashboard
+│   │   │   ├── transactions.html  # lançamentos: lista, filtros, editar e excluir
+│   │   │   └── DAS.html           # DAS: faturamento e atalho para o PGMEI
 │   │   └── assets/                # logos e imagens
 │   └── vite.config.js
 ├── .gitignore
@@ -67,7 +80,8 @@ Meister/
 ### Pré-requisitos
 
 - [Node.js](https://nodejs.org) 22 ou superior
-- [PostgreSQL](https://www.postgresql.org/download/) instalado e em execução
+- [PostgreSQL](https://www.postgresql.org/download/) instalado e em execução, com um banco criado para o projeto
+- Conexão com a internet ao abrir as telas (o Tailwind CSS é carregado por CDN)
 
 ### 1. Clonar o repositório
 
@@ -83,9 +97,23 @@ cd backend
 npm install
 ```
 
-> Criação do arquivo `.env`
+Crie o arquivo `backend/.env` com o conteúdo abaixo, ajustando a conexão do PostgreSQL:
 
-Edite o arquivo `.env` com os seus dados (veja a tabela de variáveis abaixo) e rode as migrações para criar as tabelas:
+```env
+DATABASE_URL="postgresql://usuario:senha@localhost:5432/gestao_financeira"
+JWT_SECRET="troque_por_um_valor_aleatorio_grande"
+LOCK_TIME_MINUTES=15
+PORT=3000
+MEI_ANNUAL_LIMIT=81000
+```
+
+Para gerar um `JWT_SECRET` forte:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+```
+
+Em seguida, crie as tabelas e inicie o servidor (sempre de dentro da pasta `backend`):
 
 ```bash
 npx prisma migrate dev
@@ -104,9 +132,9 @@ npm install
 npm run dev
 ```
 
-O frontend abre em **http://localhost:5173**. Crie uma conta, faça login e você será levado ao dashboard.
+O frontend abre em **http://localhost:5173**. Crie uma conta, faça login e você será levado ao dashboard. Para ver o limite do MEI e a página do DAS, escolha **MEI** no cadastro (ou ative o acompanhamento MEI depois, pelo dashboard).
 
-> O endereço da API está fixo como `http://localhost:3000/api` no `frontend/index.html` e no `frontend/src/pages/dashboard.html`. Se mudar a porta do backend, ajuste nesses dois arquivos.
+> O endereço da API está fixo como `http://localhost:3000/api` em quatro arquivos: `frontend/index.html`, `frontend/src/pages/dashboard.html`, `frontend/src/pages/transactions.html` e `frontend/src/pages/DAS.html`. Se mudar a porta do backend, ajuste nos quatro.
 
 ---
 
@@ -115,10 +143,21 @@ O frontend abre em **http://localhost:5173**. Crie uma conta, faça login e voc�
 | Variável | Obrigatória | Descrição | Exemplo |
 |---|---|---|---|
 | `DATABASE_URL` | Sim | String de conexão do PostgreSQL | `postgresql://usuario:senha@localhost:5432/gestao_financeira` |
-| `JWT_SECRET` | Sim | Chave usada para assinar os tokens. Use um valor longo e aleatório | `troque_por_um_valor_aleatorio_grande` |
-| `LOCK_TIME_MINUTES` | Sim | Minutos de bloqueio da conta após 3 senhas incorretas | `15` |
+| `JWT_SECRET` | Sim | Chave usada para assinar e validar os tokens. Use um valor longo e aleatório. Sem ela o login até responde, mas as demais rotas retornam 401 | `troque_por_um_valor_aleatorio_grande` |
+| `LOCK_TIME_MINUTES` | Sim | Minutos de bloqueio da conta após 3 senhas incorretas. Sem ela o bloqueio por tentativas não funciona | `15` |
 | `PORT` | Não | Porta do backend (padrão `3000`) | `3000` |
 | `MEI_ANNUAL_LIMIT` | Não | Limite anual de faturamento do MEI em reais (padrão `81000`) | `81000` |
+
+> **Nunca** faça commit do arquivo `.env`. Ele já está no `.gitignore`.
+
+---
+
+## Regras do MEI no sistema
+
+- **Limite anual:** R$ 81.000,00 de receita bruta por ano-calendário, com tolerância de 20% (até R$ 97.200,00). O valor é configurável pela variável `MEI_ANNUAL_LIMIT`, caso a legislação mude.
+- **Alertas do limite:** `atencao` a partir de 80% do limite, `excedido` acima do limite e `desenquadramento` acima da tolerância de 20%.
+- **DAS:** o vencimento é todo dia 20 (ou no primeiro dia útil seguinte). A página do DAS mostra o faturamento e leva ao PGMEI da Receita Federal para gerar a guia. O sistema **ainda não** calcula o valor da guia nem registra pagamentos.
+- O limite considera a receita bruta do ano inteiro. O cálculo **proporcional** no ano de abertura do CNPJ ainda não foi implementado (veja o roadmap).
 
 ---
 
@@ -147,7 +186,7 @@ Todas as rotas, exceto `register`, `login` e `health`, exigem o cabeçalho `Auth
 | `GET` | `/api/categories` | Lista as categorias do usuário |
 | `POST` | `/api/categories` | Cria categoria (`name`, `type`: `receita` ou `despesa`) |
 | `PUT` | `/api/categories/:id` | Atualiza categoria |
-| `DELETE` | `/api/categories/:id` | Exclui categoria |
+| `DELETE` | `/api/categories/:id` | Exclui categoria (não é possível excluir uma categoria que já tenha lançamentos) |
 
 ### Lançamentos
 
@@ -188,6 +227,15 @@ Resposta do dashboard:
 
 ---
 
+## Limitações conhecidas
+
+- Excluir uma categoria que já tem lançamentos falha (o banco impede) e a API responde com erro 500 em vez de uma mensagem amigável.
+- Novas contas começam **sem categorias**: é preciso criá-las pelo formulário de lançamento.
+- O endereço da API está fixo no código das telas (veja "Como rodar localmente").
+- As telas dependem do CDN do Tailwind CSS, então precisam de internet para ficar estilizadas.
+
+---
+
 ## Roadmap
 
 - [x] Cadastro e login com bloqueio por tentativas
@@ -195,10 +243,11 @@ Resposta do dashboard:
 - [x] Dashboard com resumo, gráfico mensal e limite do MEI
 - [x] Tela para editar e excluir lançamentos
 - [x] Listagem completa de lançamentos com filtros
-- [ ] Categorias padrão criadas junto com a conta
 - [x] Exibir o limite do MEI apenas para contas do tipo `mei`
+- [x] Página do DAS com faturamento e atalho para emitir a guia no PGMEI
+- [ ] Categorias padrão criadas junto com a conta
 - [ ] Limite proporcional no ano de abertura do CNPJ
-- [ ] Controle do DAS mensal
+- [ ] Controle do DAS mensal (vencimentos, valores e pagamentos registrados)
 - [ ] Migração das telas para React
 - [ ] Lançamentos via WhatsApp e Open Finance (campo `origin` já previsto no banco)
 
@@ -208,4 +257,4 @@ Resposta do dashboard:
 
 - Senhas armazenadas apenas como hash (bcrypt)
 - Cada usuário só acessa os próprios dados
-- Antes de publicar em produção: usar HTTPS, restringir o CORS ao endereço do frontend e definir um `JWT_SECRET` forte
+- Hoje o CORS aceita qualquer origem (`origin: '*'`). Antes de publicar em produção: usar HTTPS, restringir o CORS ao endereço do frontend e definir um `JWT_SECRET` forte

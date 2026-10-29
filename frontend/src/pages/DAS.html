@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meister - Gestão do DAS</title>
+    <link rel="icon" href="../assets/MEIsterL.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-black text-slate-100 min-h-screen flex flex-col">
+
+    <script>
+        const token = localStorage.getItem('token');
+        const userName = localStorage.getItem('userName');
+
+        if (!token) {
+            window.location.href = '/index.html';
+        }
+    </script>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Top Navigation Header -->
+    <header class="border-b border-zinc-800">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <img src="../assets/MeisterLN.png" alt="MEIster" class="h-14 w-auto" />
+                <nav class="flex items-center gap-1 text-sm" aria-label="Principal">
+                    <a href="dashboard.html" class="px-3 py-1.5 rounded-lg text-zinc-300 hover:text-amber-400 transition">Dashboard</a>
+                    <a href="transactions.html" class="px-3 py-1.5 rounded-lg text-zinc-300 hover:text-amber-400 transition">Lançamentos</a>
+                    <a href="DAS.html" aria-current="page" class="px-3 py-1.5 rounded-lg bg-zinc-900 text-amber-400 font-semibold">DAS</a>
+                </nav>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="btnNew" type="button"
+                    class="px-4 py-2 bg-amber-400 hover:bg-amber-300 text-black font-semibold rounded-xl text-sm transition">
+                    + Novo lançamento
+                </button>
+                <button onclick="logout()" type="button"
+                    class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-sm transition">
+                    Sair
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main id="main" class="max-w-6xl mx-auto px-4 py-6 space-y-6 flex-1 w-full transition-opacity">
+
+        <div id="errorBox" role="alert"
+            class="hidden rounded-xl border border-rose-800 bg-rose-950/60 text-rose-200 px-4 py-3 text-sm flex items-center justify-between gap-3">
+            <span id="errorText"></span>
+            <button id="btnRetry" type="button" class="underline whitespace-nowrap">Tentar novamente</button>
+        </div>
+
+        <!-- Conteúdo Renderizado a partir do Banco -->
+        <div id="dasContainer" class="space-y-6">
+            <!-- Injetado dinamicamente -->
+        </div>
+
+        <!-- Help & Information Cards -->
+        <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            <div class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 space-y-2">
+                <div class="flex items-center gap-2 text-amber-400 font-semibold">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <h3>O que compõe a Guia DAS do MEI?</h3>
+                </div>
+                <p class="text-xs text-zinc-400 leading-relaxed">
+                    A contribuição mensal do MEI é composta prioritariamente pelo <strong class="text-zinc-200">INSS (5% do salário mínimo)</strong>. Dependendo da sua atividade cadastrada, são adicionados <strong class="text-zinc-200">R$ 1,00 de ICMS</strong> (Comércio/Indústria) e/ou <strong class="text-zinc-200">R$ 5,00 de ISS</strong> (Prestação de Serviços).
+                </p>
+            </div>
+
+            <div class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 space-y-2">
+                <div class="flex items-center gap-2 text-amber-400 font-semibold">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                    <h3>Data de Vencimento do DAS</h3>
+                </div>
+                <p class="text-xs text-zinc-400 leading-relaxed">
+                    O DAS do MEI vence todo <strong class="text-zinc-200">dia 20 de cada mês</strong> (ou no primeiro dia útil subsequente). O atraso no pagamento gera multa diária (0,33% ao dia) e juros com base na taxa SELIC.
+                </p>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Modal: Novo Lançamento -->
+    <div id="modal" class="hidden fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+         role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <form id="txForm" class="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-4 max-h-[92vh] overflow-y-auto">
+            <div class="flex items-center justify-between">
+                <h2 id="modalTitle" class="text-lg font-bold text-amber-400">Novo lançamento</h2>
+                <button type="button" id="btnClose" aria-label="Fechar" class="text-zinc-400 hover:text-white text-2xl leading-none">&times;</button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2" id="typeToggle">
+                <button type="button" data-type="receita">Entrada</button>
+                <button type="button" data-type="despesa">Despesa</button>
+            </div>
+
+            <div>
+                <label for="fDescription" class="block text-sm text-zinc-400 mb-1">Descrição</label>
+                <input id="fDescription" type="text" required maxlength="120"
+                    class="w-full rounded-xl bg-black border border-zinc-700 px-3 py-2 focus:outline-none focus:border-amber-400" />
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label for="fAmount" class="block text-sm text-zinc-400 mb-1">Valor (R$)</label>
+                    <input id="fAmount" type="text" inputmode="decimal" required placeholder="0,00"
+                        class="w-full rounded-xl bg-black border border-zinc-700 px-3 py-2 focus:outline-none focus:border-amber-400" />
+                </div>
+                <div>
+                    <label for="fDate" class="block text-sm text-zinc-400 mb-1">Data</label>
+                    <input id="fDate" type="date" required
+                        class="w-full rounded-xl bg-black border border-zinc-700 px-3 py-2 focus:outline-none focus:border-amber-400" />
+                </div>
+            </div>
+
+            <div>
+                <label for="fCategory" class="block text-sm text-zinc-400 mb-1">Categoria</label>
+                <select id="fCategory"
+                    class="w-full rounded-xl bg-black border border-zinc-700 px-3 py-2 focus:outline-none focus:border-amber-400"></select>
+                <input id="fNewCategory" type="text" maxlength="60" placeholder="Nome da nova categoria"
+                    class="hidden mt-2 w-full rounded-xl bg-black border border-zinc-700 px-3 py-2 focus:outline-none focus:border-amber-400" />
+            </div>
+
+            <div>
+                <label for="fPayment" class="block text-sm text-zinc-400 mb-1">Forma de pagamento (opcional)</label>
+                <select id="fPayment"
+                    class="w-full rounded-xl bg-black border border-zinc-700 px-3 py-2 focus:outline-none focus:border-amber-400"></select>
+            </div>
+
+            <p id="formError" class="hidden text-sm text-rose-400"></p>
+
+            <button id="btnSave" type="submit"
+                class="w-full py-2.5 bg-amber-400 hover:bg-amber-300 disabled:opacity-60 text-black font-semibold rounded-xl transition">
+                Salvar lançamento
+            </button>
+        </form>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/api';
+
+        const PAYMENT_METHODS = [
+            { value: '', label: 'Não informar' },
+            { value: 'pix', label: 'Pix' },
+            { value: 'dinheiro', label: 'Dinheiro' },
+            { value: 'cartao_credito', label: 'Cartão de crédito' },
+            { value: 'cartao_debito', label: 'Cartão de débito' },
+            { value: 'boleto', label: 'Boleto' },
+            { value: 'outro', label: 'Outro' },
+        ];
+
+        const $ = (id) => document.getElementById(id);
+
+        const brl = (value) =>
+            new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) || 0);
+
+        const esc = (value) =>
+            String(value ?? '').replace(/[&<>"']/g, (c) => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+            }[c]));
+
+        const formatMonthLabel = (key) => {
+        if (!key) return '';
+        const [y, m] = key.split('-');
+        if (!y || !m) return key;
+        const date = new Date(Date.UTC(Number(y), Number(m) - 1, 1));
+        return date.toLocaleDateString('pt-BR', { month: 'numeric' /*month: 'long' -> janeiro, fevereiro, etc..*/,
+        year: 'numeric', timeZone: 'UTC' });
+        };
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('userName');
+            window.location.href = '/index.html';
+        }
+
+        async function api(path, options = {}) {
+            const response = await fetch(API_URL + path, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                    ...(options.headers || {}),
+                },
+            });
+
+            if (response.status === 401) {
+                logout();
+                throw new Error('Sessão expirada. Faça login novamente.');
+            }
+
+            if (response.status === 204) return null;
+
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.message || 'Erro ao comunicar com o servidor.');
+            return data;
+        }
+
+        function showToast(message, kind = 'ok') {
+            const container = $('toastContainer');
+            if(!container) return;
+            const toast = document.createElement('div');
+            toast.className = 'pointer-events-auto rounded-xl border px-4 py-3 text-sm shadow-xl ' +
+                (kind === 'ok'
+                    ? 'border-emerald-800 bg-emerald-950 text-emerald-200'
+                    : 'border-rose-800 bg-rose-950 text-rose-200');
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3500);
+        }
+
+        function showError(message) {
+            $('errorText').textContent = message;
+            $('errorBox').classList.remove('hidden');
+        }
+
+        async function loadDasScreen() {
+            $('main').classList.add('opacity-60');
+            $('errorBox').classList.add('hidden');
+
+            try {
+                const now = new Date();
+                const y = now.getFullYear();
+                const m = now.getMonth();
+                const start = new Date(Date.UTC(y, m, 1));
+                const end = new Date(Date.UTC(y, m + 1, 1) - 1);
+
+                // Busca dados reais do backend
+                const query = new URLSearchParams({ startDate: start.toISOString(), endDate: end.toISOString() });
+                const dashboardData = await api('/dashboard?' + query.toString());
+
+                if (!dashboardData.limiteMei) {
+                    renderNotMei();
+                } else {
+                    renderMeiScreen(dashboardData);
+                }
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                $('main').classList.remove('opacity-60');
+            }
+        }
+
+        function renderNotMei() {
+            $('dasContainer').innerHTML = `
+                <div class="rounded-2xl border border-zinc-800 bg-zinc-900 p-8 text-center space-y-4">
+                    <h2 class="text-lg font-semibold text-amber-400">Recurso exclusivo para contas MEI</h2>
+                    <p class="text-sm text-zinc-400 max-w-lg mx-auto">
+                        Sua conta está configurada como <span class="text-amber-400">Pessoa Física</span>. Para acompanhar obrigações do Simples Nacional, ative o modo MEI.
+                    </p>
+                    <button type="button" id="btnActivateMei"
+                        class="px-6 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-semibold text-sm transition">
+                        Ativar acompanhamento MEI
+                    </button>
+                </div>`;
+
+            $('btnActivateMei').addEventListener('click', async () => {
+                try {
+                    await api('/me', { method: 'PATCH', body: JSON.stringify({ accountType: 'mei' }) });
+                    loadDasScreen();
+                } catch (err) {
+                    showError(err.message);
+                }
+            });
+        }
+
+        function renderMeiScreen(dashboardData) {
+            const faturamentoMes = dashboardData.periodo.totalEntradas;
+            const mesAtualNome = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+            
+            // Puxa evolução mensal real para listar meses que tiveram faturamento
+            const evolucaoComFaturamento = (dashboardData.evolucaoMensal || []).filter(item => item.receitas > 0 || item.despesas > 0);
+
+            $('dasContainer').innerHTML = `
+                <!-- Banner Contextual -->
+                <section class="rounded-2xl border border-zinc-800 bg-zinc-900/90 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="px-2.5 py-0.5 rounded-md bg-amber-400/10 text-amber-400 border border-amber-400/20 text-xs font-semibold">Simples Nacional - MEI</span>
+                        </div>
+                        <h1 class="text-2xl font-bold text-amber-400 tracking-tight mt-1">Gestão do Documento de Arrecadação (DAS)</h1>
+                        <p class="text-sm text-zinc-400">Acompanhe suas entradas do mês e acesse a emissão oficial do Simples Nacional.</p>
+                    </div>
+                    <a href="https://www8.receita.fazenda.gov.br/SimplesNacional/Aplicacoes/ATSPO/pgmei.app/Identificacao" target="_blank" rel="noopener noreferrer" 
+                       class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-sm font-medium text-zinc-200 transition whitespace-nowrap">
+                        <span>Portal PGMEI Oficial</span>
+                        <svg class="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                    </a>
+                </section>
+
+                <!-- Cards com Dados Reais -->
+                <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+                        <p class="text-xs font-medium text-zinc-400 uppercase">Faturamento do Mês Atual</p>
+                        <p class="text-2xl font-bold mt-2 text-emerald-400">${brl(faturamentoMes)}</p>
+                        <p class="text-xs text-zinc-500 mt-1 capitalize">Baseado nos seus lançamentos de ${mesAtualNome}</p>
+                    </div>
+                    <div class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+                        <p class="text-xs font-medium text-zinc-400 uppercase">Faturamento Anual (Acumulado)</p>
+                        <p class="text-2xl font-bold mt-2 text-amber-400">${brl(dashboardData.limiteMei.faturamentoAno)}</p>
+                        <p class="text-xs text-zinc-500 mt-1">${dashboardData.limiteMei.percentualUtilizado.toFixed(1)}% do limite MEI utilizado</p>
+                    </div>
+                    <div class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+                        <p class="text-xs font-medium text-zinc-400 uppercase">Vencimento Padrão do DAS</p>
+                        <p class="text-2xl font-bold mt-2 text-zinc-100">Todo dia 20</p>
+                        <p class="text-xs text-zinc-500 mt-1">Regra geral de recolhimento da Receita</p>
+                    </div>
+                </section>
+
+                <!-- Tabela de Períodos com Lançamentos Cadastrados -->
+                <section class="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="font-semibold text-lg text-amber-400">Resumo de Períodos com Lançamentos</h2>
+                            <p class="text-xs text-zinc-500">Histórico de faturamento calculado a partir dos seus lançamentos</p>
+                        </div>
+                    </div>
+
+                    ${evolucaoComFaturamento.length === 0 ? `
+                        <div class="py-10 text-center text-sm text-zinc-500">
+                            Nenhum faturamento registrado até o momento. Cadastre novas entradas no botão <span class="text-amber-400">+ Novo lançamento</span>.
+                        </div>
+                    ` : `
+                        <div class="overflow-x-auto rounded-xl border border-zinc-800">
+                            <table class="w-full text-left text-sm text-zinc-300">
+                                <thead class="bg-zinc-950 text-xs uppercase text-zinc-400 border-b border-zinc-800">
+                                    <tr>
+                                        <th class="py-3 px-4 font-semibold">Mês / Ano</th>
+                                        <th class="py-3 px-4 font-semibold">Entradas Registradas</th>
+                                        <th class="py-3 px-4 font-semibold">Despesas Registradas</th>
+                                        <th class="py-3 px-4 font-semibold text-right">Ação</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-zinc-800">
+                                    ${evolucaoComFaturamento.map(item => `
+                                        <tr>
+                                            <td class="py-3 px-4 text-white font-medium">${formatMonthLabel(item.mes)}</td>
+                                            <td class="py-3 px-4 text-emerald-400 font-bold">${brl(item.receitas)}</td>
+                                            <td class="py-3 px-4 text-rose-400 font-bold">${brl(item.despesas)}</td>
+                                            <td class="py-3 px-4 text-right">
+                                                <a href="https://www8.receita.fazenda.gov.br/SimplesNacional/Aplicacoes/ATSPO/pgmei.app/Identificacao" 
+                                                   target="_blank" 
+                                                   class="px-3 py-1.5 text-xs rounded-lg bg-amber-400 hover:bg-amber-300 text-black font-semibold transition inline-block">
+                                                    Emitir DAS
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `}
+                </section>
+            `;
+        }
+
+        // ===== Scripts do Modal de Lançamento (Padrão) =====
+        let categories = [];
+        let formType = 'receita';
+
+        async function loadCategories() {
+            categories = await api('/categories');
+        }
+
+        function paintTypeToggle() {
+            document.querySelectorAll('#typeToggle button').forEach((btn) => {
+                const active = btn.dataset.type === formType;
+                const activeColor = formType === 'receita'
+                    ? 'bg-emerald-400 text-black border-emerald-400'
+                    : 'bg-rose-500 text-white border-rose-500';
+                btn.className = 'py-2 rounded-xl border font-semibold transition ' +
+                    (active ? activeColor : 'border-zinc-700 text-zinc-300 hover:border-amber-400');
+            });
+        }
+
+        function fillCategoryOptions() {
+            const options = categories
+                .filter((c) => c.type === formType)
+                .map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`);
+            options.push('<option value="__new__">+ Nova categoria…</option>');
+            $('fCategory').innerHTML = options.join('');
+            toggleNewCategory();
+        }
+
+        function toggleNewCategory() {
+            const isNew = $('fCategory').value === '__new__';
+            $('fNewCategory').classList.toggle('hidden', !isNew);
+            $('fNewCategory').required = isNew;
+        }
+
+        function setFormError(message) {
+            $('formError').textContent = message || '';
+            $('formError').classList.toggle('hidden', !message);
+        }
+
+        function openModal() {
+            $('txForm').reset();
+            formType = 'receita';
+            const d = new Date();
+            $('fDate').value = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+            $('fPayment').innerHTML = PAYMENT_METHODS
+                .map((m) => `<option value="${esc(m.value)}">${esc(m.label)}</option>`).join('');
+            setFormError('');
+            paintTypeToggle();
+            fillCategoryOptions();
+            $('modal').classList.remove('hidden');
+            $('fDescription').focus();
+        }
+
+        function closeModal() {
+            $('modal').classList.add('hidden');
+        }
+
+        $('btnNew').addEventListener('click', openModal);
+        $('btnClose').addEventListener('click', closeModal);
+        $('modal').addEventListener('click', (e) => { if (e.target === $('modal')) closeModal(); });
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+        $('fCategory').addEventListener('change', toggleNewCategory);
+
+        document.querySelectorAll('#typeToggle button').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                formType = btn.dataset.type;
+                paintTypeToggle();
+                fillCategoryOptions();
+            });
+        });
+
+        $('txForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            setFormError('');
+
+            const amount = Number($('fAmount').value.trim().replace(/\./g, '').replace(',', '.'));
+            if (!Number.isFinite(amount) || amount <= 0) {
+                setFormError('Informe um valor maior que zero.');
+                return;
+            }
+
+            $('btnSave').disabled = true;
+
+            try {
+                let categoryId = $('fCategory').value;
+
+                if (categoryId === '__new__') {
+                    const name = $('fNewCategory').value.trim();
+                    if (!name) throw new Error('Informe o nome da nova categoria.');
+                    const created = await api('/categories', {
+                        method: 'POST',
+                        body: JSON.stringify({ name, type: formType }),
+                    });
+                    categoryId = created.id;
+                }
+
+                await api('/transactions', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        categoryId,
+                        type: formType,
+                        description: $('fDescription').value.trim(),
+                        amount,
+                        transactionDate: $('fDate').value,
+                        paymentMethod: $('fPayment').value || undefined,
+                    }),
+                });
+
+                closeModal();
+                showToast('Lançamento salvo com sucesso!');
+                await loadDasScreen();
+            } catch (error) {
+                setFormError(error.message);
+            } finally {
+                $('btnSave').disabled = false;
+            }
+        });
+
+        $('btnRetry').addEventListener('click', loadDasScreen);
+
+        // Inicialização
+        loadCategories().catch(() => {});
+        loadDasScreen();
+    </script>
+</body>
+</html>
