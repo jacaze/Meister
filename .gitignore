@@ -12,13 +12,21 @@ dist-ssr/
 build/
 coverage/
 *.local
+*.tsbuildinfo
+
+# ===== Testes de mutação e temporários =====
+.stryker-tmp/
+reports/
 
 # ===== Prisma =====
 backend/src/generated/
 
 # ===== Pastas geradas por ferramentas de IA =====
 .agents/
-.claude/
+.claude/*
+!.claude/agents/
+!.claude/skills/
+.claude/settings.local.json
 .cursor/
 .devin/
 
@@ -48,7 +56,6 @@ desktop.ini
 # ===== Bancos locais e backups =====
 *.sqlite
 *.dump
-
 
 # ===== Planejamento e Telas (Stitch / Documentação interna) =====
 guia-planejamento-ia/

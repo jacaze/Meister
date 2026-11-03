@@ -1,0 +1,11 @@
+node_modules
+dist
+coverage
+.stryker-tmp
+reports
+.env
+.env.*
+!.env.example
+*.log
+**/*.test.ts
+tests

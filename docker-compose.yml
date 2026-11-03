@@ -1,0 +1,70 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: meister-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-meister}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-meister_dev_password_change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-meister}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-meister} -d ${POSTGRES_DB:-meister}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    build:
+      context: ./backend
+      target: runtime
+    command: npx prisma migrate deploy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-meister}:${POSTGRES_PASSWORD:-meister_dev_password_change_me}@db:5432/${POSTGRES_DB:-meister}?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: ./backend
+      target: runtime
+    command: node dist/main-api.js
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 3000
+      HOST: 0.0.0.0
+      DATABASE_URL: postgresql://${POSTGRES_USER:-meister}:${POSTGRES_PASSWORD:-meister_dev_password_change_me}@db:5432/${POSTGRES_DB:-meister}?schema=public
+      JWT_SECRET: ${JWT_SECRET:-dev_only_secret_key_with_at_least_32_characters_long}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      APP_URL: ${APP_URL:-http://localhost:5173}
+      INTERNAL_TICK_SECRET: ${INTERNAL_TICK_SECRET:-dev_only_internal_tick_secret_32_chars}
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: meister-mailpit
+    profiles: ["dev"]
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
