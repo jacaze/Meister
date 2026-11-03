@@ -1,5 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { UnauthorizedError } from '../shared/errors.js';
+import { resolveScopeForUser } from '../modules/workspace/public.js';
 
 export async function authMiddleware(
   request: FastifyRequest,
@@ -17,6 +18,7 @@ export async function authMiddleware(
       userId?: string;
       id?: string;
       email?: string;
+      wid?: string;
     }>();
 
     const userId = payload.userId ?? payload.sub ?? payload.id;
@@ -26,6 +28,8 @@ export async function authMiddleware(
     }
 
     request.userId = userId;
+    const requestedWorkspaceId = (request.headers['x-workspace-id'] as string) || payload.wid;
+    request.scope = await resolveScopeForUser(userId, requestedWorkspaceId);
   } catch (err) {
     if (err instanceof UnauthorizedError) {
       throw err;

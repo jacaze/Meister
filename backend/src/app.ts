@@ -11,6 +11,10 @@ import categoryRoutes from './routes/categoryRoutes.js';
 import transactionRoutes from './routes/transactionRoutes.js';
 import dashboardRoutes from './routes/dashboardRoutes.js';
 import userRoutes from './routes/userRoutes.js';
+import workspaceRoutes from './routes/workspaceRoutes.js';
+import fiscalRoutes from './routes/fiscalRoutes.js';
+import jarsRoutes from './routes/jarsRoutes.js';
+import transferRoutes from './routes/transferRoutes.js';
 
 export interface BuildAppOptions {
   env?: AppEnv;
@@ -61,6 +65,10 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await fastify.register(transactionRoutes, { prefix: '/api' });
   await fastify.register(dashboardRoutes, { prefix: '/api' });
   await fastify.register(userRoutes, { prefix: '/api' });
+  await fastify.register(workspaceRoutes, { prefix: '/api' });
+  await fastify.register(fiscalRoutes, { prefix: '/api' });
+  await fastify.register(jarsRoutes, { prefix: '/api' });
+  await fastify.register(transferRoutes, { prefix: '/api' });
 
   fastify.get('/health', async () => ({
     status: 'ok',

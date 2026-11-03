@@ -34,3 +34,6 @@ export function normalizePageQuery(query: PageQuery = {}): {
     take: pageSize,
   };
 }
+
+export const normalizePagination = normalizePageQuery;
+

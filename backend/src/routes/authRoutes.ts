@@ -8,6 +8,8 @@ import {
   UnauthorizedError,
   ValidationError,
 } from '../shared/index.js';
+import { provisionWorkspace, resolveScopeForUser } from '../modules/workspace/public.js';
+import { seedDefaultCategories } from '../modules/catalog/public.js';
 
 // Precomputed bcrypt hash (cost 10) for constant-time comparison when user does not exist
 const DUMMY_BCRYPT_HASH = '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
@@ -71,6 +73,19 @@ export async function authRoutes(
         },
       });
 
+      // Provision workspace, default entities and seed default categories
+      const provision = await provisionWorkspace({
+        userId: newUser.id,
+        accountType: newUser.accountType,
+        workspaceName: `Workspace de ${newUser.name}`,
+      });
+
+      await seedDefaultCategories({
+        workspaceId: provision.workspaceId,
+        userId: newUser.id,
+        isMei: newUser.accountType === 'mei',
+      });
+
       return reply.status(201).send({
         message: 'Usuário cadastrado com sucesso!',
         user: {
@@ -78,6 +93,7 @@ export async function authRoutes(
           name: newUser.name,
           email: newUser.email,
           accountType: newUser.accountType,
+          workspaceId: provision.workspaceId,
         },
       });
     } catch (err: unknown) {
@@ -164,8 +180,10 @@ export async function authRoutes(
       },
     });
 
+    const scope = await resolveScopeForUser(user.id);
+
     const token = fastify.jwt.sign(
-      { sub: user.id, userId: user.id, email: user.email },
+      { sub: user.id, userId: user.id, email: user.email, wid: scope.workspaceId },
       { expiresIn: '8h' }
     );
 
@@ -178,6 +196,7 @@ export async function authRoutes(
         name: user.name,
         email: user.email,
         accountType: user.accountType,
+        workspaceId: scope.workspaceId,
       },
     });
   });

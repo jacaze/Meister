@@ -7,3 +7,5 @@ export * from './env.js';
 export * from './events.js';
 export * from './pagination.js';
 export * from './http-error-handler.js';
+export * from './slug.js';
+export * from './cnpj.js';

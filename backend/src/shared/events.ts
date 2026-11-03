@@ -43,3 +43,6 @@ export class InProcessEventBus implements EventBus {
     }
   }
 }
+
+export const defaultEventBus = new InProcessEventBus();
+

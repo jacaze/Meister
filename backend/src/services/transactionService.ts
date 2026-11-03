@@ -7,7 +7,9 @@ import {
   ValidationError,
   assertAuthenticated,
   normalizePageQuery,
+  type WorkspaceScope,
 } from '../shared/index.js';
+import { resolveScopeForUser } from '../modules/workspace/public.js';
 
 const TRANSACTION_TYPES: readonly TransactionType[] = ['receita', 'despesa'] as const;
 const PAYMENT_METHODS: readonly PaymentMethod[] = [
@@ -50,9 +52,9 @@ function parseAmountToMoney(value: unknown): Money {
   return Money.fromInput(value, { requirePositive: true, allowComma: false });
 }
 
-async function findOwnCategory(userId: string, categoryId: string) {
+async function findOwnCategory(scope: WorkspaceScope, categoryId: string) {
   const category = await prisma.category.findFirst({
-    where: { id: categoryId, userId },
+    where: { id: categoryId, workspaceId: scope.workspaceId },
   });
 
   if (!category) {
@@ -76,12 +78,18 @@ export interface TransactionQuery {
   search?: string;
   page?: string | number;
   pageSize?: string | number;
+  limit?: string | number;
+  entityId?: string;
 }
 
-function buildWhere(userId: string, query: TransactionQuery = {}): Prisma.TransactionWhereInput {
-  const { startDate, endDate, categoryId, type, paymentMethod, search } = query;
-  const where: Prisma.TransactionWhereInput = { userId };
+function buildWhere(scope: WorkspaceScope, query: TransactionQuery = {}): Prisma.TransactionWhereInput {
+  const { startDate, endDate, categoryId, type, paymentMethod, search, entityId } = query;
+  const where: Prisma.TransactionWhereInput = {
+    workspaceId: scope.workspaceId,
+    deletedAt: null,
+  };
 
+  if (entityId) where.entityId = entityId;
   if (categoryId) where.categoryId = categoryId;
   if (type) where.type = parseType(type);
   if (paymentMethod) {
@@ -98,7 +106,7 @@ function buildWhere(userId: string, query: TransactionQuery = {}): Prisma.Transa
   const end = endDate ? LocalDate.fromInput(endDate, { label: 'Data final' }) : null;
 
   if (start && end && start.isAfter(end)) {
-    throw new ValidationError('A data inicial não pode ser maior que a data final');
+    throw new ValidationError('A data inicial não pode ser posterior à data final');
   }
 
   if (start || end) {
@@ -110,167 +118,258 @@ function buildWhere(userId: string, query: TransactionQuery = {}): Prisma.Transa
   return where;
 }
 
-function aggregateToMoney(aggregate: { _sum: { amount: Prisma.Decimal | null } }): Money {
-  const raw = aggregate._sum.amount;
-  if (!raw) return Money.zero();
-  return Money.fromDecimalString(raw.toFixed(2));
+export async function create(
+  userId: string | undefined,
+  input: {
+    description?: unknown;
+    amount?: unknown;
+    type?: unknown;
+    categoryId?: unknown;
+    paymentMethod?: unknown;
+    transactionDate?: unknown;
+    entityId?: unknown;
+    viaPersonalAccount?: unknown;
+  } = {},
+  scope?: WorkspaceScope
+) {
+  assertAuthenticated(userId);
+  const resolvedScope = scope ?? (await resolveScopeForUser(userId));
+
+  const description = parseDescription(input.description);
+  const money = parseAmountToMoney(input.amount);
+  const type = parseType(input.type);
+  const paymentMethod = parsePaymentMethod(input.paymentMethod);
+  const transactionDate = LocalDate.fromInput(input.transactionDate, {
+    label: 'Data da transação',
+  });
+
+  if (typeof input.categoryId !== 'string' || !input.categoryId) {
+    throw new ValidationError('Informe a categoria');
+  }
+
+  const category = await findOwnCategory(resolvedScope, input.categoryId);
+  assertCategoryType(category, type);
+
+  const targetEntityId: string =
+    typeof input.entityId === 'string' && input.entityId
+      ? input.entityId
+      : type === 'receita' && resolvedScope.defaultEntityIds.pj
+        ? resolvedScope.defaultEntityIds.pj
+        : resolvedScope.defaultEntityIds.pf;
+
+  return prisma.transaction.create({
+    data: {
+      userId,
+      workspaceId: resolvedScope.workspaceId,
+      entityId: targetEntityId,
+      categoryId: category.id,
+      description,
+      amount: money.toNumber(),
+      type,
+      paymentMethod,
+      transactionDate: transactionDate.toUtcDate(),
+      viaPersonalAccount: Boolean(input.viaPersonalAccount),
+      status: 'confirmado',
+    },
+    include: {
+      category: { select: { id: true, name: true, slug: true } },
+    },
+  });
 }
 
-export async function list(userId: string | undefined, query: TransactionQuery = {}) {
+export async function list(
+  userId: string | undefined,
+  query: TransactionQuery = {},
+  scope?: WorkspaceScope
+) {
   assertAuthenticated(userId);
+  const resolvedScope = scope ?? (await resolveScopeForUser(userId));
 
-  const where = buildWhere(userId, query);
-  const { page, pageSize, skip, take } = normalizePageQuery(query);
+  const where = buildWhere(resolvedScope, query);
+  const pagination = normalizePageQuery({
+    page: query.page,
+    pageSize: query.pageSize ?? query.limit,
+  });
 
-  const includeRevenue = !where.type || where.type === 'receita';
-  const includeExpense = !where.type || where.type === 'despesa';
-  const emptySum = { _sum: { amount: null } };
-
-  const [items, total, revenue, expense] = await Promise.all([
+  const [items, total, summaryRows] = await Promise.all([
     prisma.transaction.findMany({
       where,
-      include: { category: true },
+      include: {
+        category: { select: { id: true, name: true, slug: true } },
+      },
       orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
-      skip,
-      take,
+      skip: pagination.skip,
+      take: pagination.take,
     }),
     prisma.transaction.count({ where }),
-    includeRevenue
-      ? prisma.transaction.aggregate({
-          where: { ...where, type: 'receita' },
-          _sum: { amount: true },
-        })
-      : Promise.resolve(emptySum),
-    includeExpense
-      ? prisma.transaction.aggregate({
-          where: { ...where, type: 'despesa' },
-          _sum: { amount: true },
-        })
-      : Promise.resolve(emptySum),
+    prisma.transaction.findMany({
+      where,
+      select: { type: true, amount: true },
+    }),
   ]);
 
-  const entradasMoney = aggregateToMoney(revenue);
-  const despesasMoney = aggregateToMoney(expense);
-  const resultadoCents = entradasMoney.signedDiff(despesasMoney);
+  let totalEntradasMoney = Money.zero();
+  let totalDespesasMoney = Money.zero();
+
+  for (const row of summaryRows) {
+    const raw =
+      typeof row.amount === 'object' && 'toFixed' in row.amount
+        ? row.amount.toFixed(2)
+        : String(row.amount);
+    const m = Money.fromDecimalString(raw);
+    if (row.type === 'receita') {
+      totalEntradasMoney = totalEntradasMoney.add(m);
+    } else if (row.type === 'despesa') {
+      totalDespesasMoney = totalDespesasMoney.add(m);
+    }
+  }
+
+  const resultadoCents = totalEntradasMoney.cents - totalDespesasMoney.cents;
 
   return {
     items,
-    page,
-    pageSize,
+    paginacao: {
+      pagina: pagination.page,
+      limite: pagination.pageSize,
+      total,
+      totalPaginas: Math.max(1, Math.ceil(total / pagination.pageSize)),
+    },
+    page: pagination.page,
+    pageSize: pagination.pageSize,
     total,
-    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    totalPages: Math.max(1, Math.ceil(total / pagination.pageSize)),
     resumo: {
-      totalEntradas: entradasMoney.toNumber(),
-      totalDespesas: despesasMoney.toNumber(),
+      totalEntradas: totalEntradasMoney.toNumber(),
+      totalDespesas: totalDespesasMoney.toNumber(),
       resultado: Money.centsToNumber(resultadoCents),
     },
   };
 }
 
-export interface CreateTransactionInput {
-  categoryId?: unknown;
-  type?: unknown;
-  description?: unknown;
-  amount?: unknown;
-  paymentMethod?: unknown;
-  transactionDate?: unknown;
-}
-
-export async function create(userId: string | undefined, data: CreateTransactionInput = {}) {
+export async function getById(userId: string | undefined, id: string, scope?: WorkspaceScope) {
   assertAuthenticated(userId);
+  const resolvedScope = scope ?? (await resolveScopeForUser(userId));
 
-  const { categoryId, type, description, amount, paymentMethod, transactionDate } = data;
+  const transaction = await prisma.transaction.findFirst({
+    where: { id, workspaceId: resolvedScope.workspaceId, deletedAt: null },
+    include: {
+      category: { select: { id: true, name: true, slug: true } },
+      splits: true,
+    },
+  });
 
-  const missingAmount = amount === undefined || amount === null || amount === '';
-  if (!categoryId || typeof categoryId !== 'string' || !type || !description || missingAmount || !transactionDate) {
-    throw new ValidationError('Categoria, tipo, descrição, valor e data são obrigatórios');
+  if (!transaction) {
+    throw new NotFoundError('Transação não encontrada');
   }
 
-  const parsedType = parseType(type);
-  const parsedDescription = parseDescription(description);
-  const parsedAmount = parseAmountToMoney(amount);
-  const parsedDate = LocalDate.fromInput(transactionDate, { label: 'Data' });
-  const parsedPaymentMethod = parsePaymentMethod(paymentMethod);
-
-  const category = await findOwnCategory(userId, categoryId);
-  assertCategoryType(category, parsedType);
-
-  return prisma.transaction.create({
-    data: {
-      userId,
-      categoryId,
-      type: parsedType,
-      description: parsedDescription,
-      amount: parsedAmount.toDecimalString(),
-      transactionDate: parsedDate.toUtcDate(),
-      paymentMethod: parsedPaymentMethod,
-    },
-    include: { category: true },
-  });
+  return transaction;
 }
 
 export async function update(
   userId: string | undefined,
-  transactionId: string,
-  data: CreateTransactionInput = {}
+  id: string,
+  input: {
+    description?: unknown;
+    amount?: unknown;
+    type?: unknown;
+    categoryId?: unknown;
+    paymentMethod?: unknown;
+    transactionDate?: unknown;
+    viaPersonalAccount?: unknown;
+  } = {},
+  scope?: WorkspaceScope
 ) {
   assertAuthenticated(userId);
+  const resolvedScope = scope ?? (await resolveScopeForUser(userId));
 
   const transaction = await prisma.transaction.findFirst({
-    where: { id: transactionId, userId },
+    where: { id, workspaceId: resolvedScope.workspaceId, deletedAt: null },
   });
 
   if (!transaction) {
-    throw new NotFoundError('Lançamento não encontrado');
+    throw new NotFoundError('Transação não encontrada');
   }
 
-  const changes: Prisma.TransactionUncheckedUpdateInput = {};
+  const data: {
+    description?: string;
+    amount?: number;
+    type?: TransactionType;
+    categoryId?: string;
+    paymentMethod?: PaymentMethod | null;
+    transactionDate?: Date;
+    viaPersonalAccount?: boolean;
+  } = {};
 
-  if (data.type !== undefined) changes.type = parseType(data.type);
-  if (data.description !== undefined) changes.description = parseDescription(data.description);
-  if (data.amount !== undefined) changes.amount = parseAmountToMoney(data.amount).toDecimalString();
-  if (data.transactionDate !== undefined) {
-    changes.transactionDate = LocalDate.fromInput(data.transactionDate, { label: 'Data' }).toUtcDate();
-  }
-  if (data.paymentMethod !== undefined) {
-    changes.paymentMethod = parsePaymentMethod(data.paymentMethod);
+  const targetType = input.type !== undefined ? parseType(input.type) : transaction.type;
+
+  if (input.type !== undefined) {
+    data.type = targetType;
   }
 
-  if (data.categoryId !== undefined) {
-    if (!data.categoryId || typeof data.categoryId !== 'string') {
-      throw new ValidationError('Categoria inválida');
+  if (input.description !== undefined) {
+    data.description = parseDescription(input.description);
+  }
+
+  if (input.amount !== undefined) {
+    data.amount = parseAmountToMoney(input.amount).toNumber();
+  }
+
+  if (input.paymentMethod !== undefined) {
+    data.paymentMethod = parsePaymentMethod(input.paymentMethod);
+  }
+
+  if (input.transactionDate !== undefined) {
+    data.transactionDate = LocalDate.fromInput(input.transactionDate, {
+      label: 'Data da transação',
+    }).toUtcDate();
+  }
+
+  if (input.viaPersonalAccount !== undefined) {
+    data.viaPersonalAccount = Boolean(input.viaPersonalAccount);
+  }
+
+  if (input.categoryId !== undefined) {
+    if (typeof input.categoryId !== 'string' || !input.categoryId) {
+      throw new ValidationError('Informe a categoria');
     }
-    changes.categoryId = data.categoryId;
-  }
-
-  if (changes.type !== undefined || changes.categoryId !== undefined) {
-    const finalType = (changes.type as TransactionType | undefined) ?? transaction.type;
-    const finalCategoryId = (changes.categoryId as string | undefined) ?? transaction.categoryId;
-    const category = await findOwnCategory(userId, finalCategoryId);
-    assertCategoryType(category, finalType);
-  }
-
-  if (Object.keys(changes).length === 0) {
-    throw new ValidationError('Nenhum campo para atualizar');
+    const category = await findOwnCategory(resolvedScope, input.categoryId);
+    assertCategoryType(category, targetType);
+    data.categoryId = category.id;
+  } else if (input.type !== undefined && input.type !== transaction.type) {
+    const currentCategory = await prisma.category.findUnique({
+      where: { id: transaction.categoryId ?? undefined },
+    });
+    if (!currentCategory || currentCategory.type !== targetType) {
+      throw new ValidationError(
+        'A categoria atual é incompatível com o novo tipo; selecione uma nova categoria'
+      );
+    }
   }
 
   return prisma.transaction.update({
-    where: { id: transactionId },
-    data: changes,
-    include: { category: true },
+    where: { id },
+    data,
+    include: {
+      category: { select: { id: true, name: true, slug: true } },
+      splits: true,
+    },
   });
 }
 
-export async function remove(userId: string | undefined, transactionId: string) {
+export async function remove(userId: string | undefined, id: string, scope?: WorkspaceScope) {
   assertAuthenticated(userId);
+  const resolvedScope = scope ?? (await resolveScopeForUser(userId));
 
   const transaction = await prisma.transaction.findFirst({
-    where: { id: transactionId, userId },
+    where: { id, workspaceId: resolvedScope.workspaceId, deletedAt: null },
   });
 
   if (!transaction) {
-    throw new NotFoundError('Lançamento não encontrado');
+    throw new NotFoundError('Transação não encontrada');
   }
 
-  await prisma.transaction.delete({ where: { id: transactionId } });
+  await prisma.transaction.update({
+    where: { id },
+    data: { deletedAt: new Date() },
+  });
 }

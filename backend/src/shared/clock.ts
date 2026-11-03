@@ -35,12 +35,48 @@ export class YearMonth {
     return new YearMonth(Number(match[1]), Number(match[2]));
   }
 
+  public static fromIsoString(raw: string): YearMonth {
+    return YearMonth.fromString(raw);
+  }
+
+  public static fromParts(year: number, month: number): YearMonth {
+    return new YearMonth(year, month);
+  }
+
+  public static fromDate(date: LocalDate): YearMonth {
+    return date.yearMonth();
+  }
+
+  public static today(timeZone = DEFAULT_TIMEZONE): YearMonth {
+    return new SystemClock().currentYearMonth(timeZone);
+  }
+
   public toString(): string {
     return `${String(this.year).padStart(4, '0')}-${String(this.month).padStart(2, '0')}`;
   }
 
+  public toIsoString(): string {
+    return this.toString();
+  }
+
+  public get startDate(): LocalDate {
+    return this.startOfMonth();
+  }
+
+  public get endDate(): LocalDate {
+    return this.endOfMonth();
+  }
+
   public equals(other: YearMonth): boolean {
     return this.year === other.year && this.month === other.month;
+  }
+
+  public isBefore(other: YearMonth): boolean {
+    return this.year < other.year || (this.year === other.year && this.month < other.month);
+  }
+
+  public isAfter(other: YearMonth): boolean {
+    return this.year > other.year || (this.year === other.year && this.month > other.month);
   }
 
   public addMonths(delta: number): YearMonth {
@@ -78,6 +114,18 @@ export class LocalDate {
     this.year = year;
     this.month = month;
     this.day = day;
+  }
+
+  public static fromParts(year: number, month: number, day: number): LocalDate {
+    return new LocalDate(year, month, day);
+  }
+
+  public static today(timeZone = DEFAULT_TIMEZONE): LocalDate {
+    return new SystemClock().today(timeZone);
+  }
+
+  public static now(timeZone = DEFAULT_TIMEZONE): LocalDate {
+    return new SystemClock().today(timeZone);
   }
 
   public static fromIsoDate(iso: string, label = 'Data'): LocalDate {

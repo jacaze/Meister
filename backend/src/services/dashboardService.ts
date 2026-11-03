@@ -9,7 +9,11 @@ import {
   SystemClock,
   YearMonth,
   assertAuthenticated,
+  type WorkspaceScope,
 } from '../shared/index.js';
+import { resolveScopeForUser } from '../modules/workspace/public.js';
+import { getMeiLimit } from '../modules/fiscal/public.js';
+import { getJarsStatus } from '../modules/jars/public.js';
 
 const DEFAULT_MEI_ANNUAL_LIMIT = Number(process.env.MEI_ANNUAL_LIMIT) || 81000;
 const MEI_TOLERANCE = 0.2;
@@ -27,6 +31,8 @@ export interface DashboardFilters {
   endDate?: string;
   categoryId?: string;
   months?: string | number;
+  entityId?: string;
+  view?: 'pf' | 'pj' | 'consolidado';
 }
 
 export function resolvePeriod(
@@ -51,11 +57,15 @@ export function resolvePeriod(
 }
 
 function buildWhere(
-  userId: string,
-  { start, end, categoryId }: { start?: Date | null; end?: Date | null; categoryId?: string } = {}
+  scope: WorkspaceScope,
+  { start, end, categoryId, entityId }: { start?: Date | null; end?: Date | null; categoryId?: string; entityId?: string } = {}
 ): Prisma.TransactionWhereInput {
-  const where: Prisma.TransactionWhereInput = { userId };
+  const where: Prisma.TransactionWhereInput = {
+    workspaceId: scope.workspaceId,
+    deletedAt: null,
+  };
 
+  if (entityId) where.entityId = entityId;
   if (categoryId) where.categoryId = categoryId;
 
   if (start || end) {
@@ -67,10 +77,10 @@ function buildWhere(
   return where;
 }
 
-function aggregateToMoney(aggregate: { _sum: { amount: Prisma.Decimal | null } }): Money {
+function aggregateToMoney(aggregate: { _sum: { amount: Prisma.Decimal | number | null } }): Money {
   const raw = aggregate._sum.amount;
   if (!raw) return Money.zero();
-  return Money.fromDecimalString(raw.toFixed(2));
+  return Money.fromDecimalString(typeof raw === 'number' ? raw.toFixed(2) : raw.toFixed(2));
 }
 
 export function buildMeiLimit(revenueYearMoney: Money, year: number, annualLimit = DEFAULT_MEI_ANNUAL_LIMIT) {
@@ -105,9 +115,9 @@ export function buildMeiLimit(revenueYearMoney: Money, year: number, annualLimit
 
 function buildCategoryBreakdown(
   groups: {
-    categoryId: string;
+    categoryId: string | null;
     type: TransactionType;
-    _sum: { amount: Prisma.Decimal | null };
+    _sum: { amount: Prisma.Decimal | number | null };
     _count: { _all: number };
   }[],
   categoriesById: Map<string, string>
@@ -134,7 +144,7 @@ function buildCategoryBreakdown(
     let totalMoney = Money.zero();
     for (const group of items) {
       const m = group._sum.amount
-        ? Money.fromDecimalString(group._sum.amount.toFixed(2))
+        ? Money.fromDecimalString(typeof group._sum.amount === 'number' ? group._sum.amount.toFixed(2) : group._sum.amount.toFixed(2))
         : Money.zero();
       totalMoney = totalMoney.add(m);
     }
@@ -144,12 +154,13 @@ function buildCategoryBreakdown(
     const list = items
       .map((group) => {
         const itemMoney = group._sum.amount
-          ? Money.fromDecimalString(group._sum.amount.toFixed(2))
+          ? Money.fromDecimalString(typeof group._sum.amount === 'number' ? group._sum.amount.toFixed(2) : group._sum.amount.toFixed(2))
           : Money.zero();
         const amountNum = itemMoney.toNumber();
+        const catId = group.categoryId || 'sem-categoria';
         return {
-          categoryId: group.categoryId,
-          nome: categoriesById.get(group.categoryId) || 'Sem categoria',
+          categoryId: catId,
+          nome: categoriesById.get(catId) || 'Sem categoria',
           total: amountNum,
           quantidade: group._count._all,
           percentual: totalNum > 0 ? round2((amountNum / totalNum) * 100) : 0,
@@ -206,20 +217,24 @@ export function buildMonthlySeries(
 export async function getSummary(
   userId: string | undefined,
   filters: DashboardFilters = {},
-  clock: Clock = defaultClock
+  clock: Clock = defaultClock,
+  scope?: WorkspaceScope
 ) {
   assertAuthenticated(userId);
+  const resolvedScope = scope ?? (await resolveScopeForUser(userId));
 
   const currentYm = clock.currentYearMonth(DEFAULT_TIMEZONE);
   const { start, end } = resolvePeriod(filters, clock, DEFAULT_TIMEZONE);
-  const wherePeriod = buildWhere(userId, { start, end, categoryId: filters.categoryId });
+  const wherePeriod = buildWhere(resolvedScope, {
+    start,
+    end,
+    categoryId: filters.categoryId,
+    entityId: filters.entityId,
+  });
 
   let months = Number(filters.months) || EVOLUTION_MONTHS_DEFAULT;
   months = Math.min(Math.max(Math.trunc(months), 1), 12);
 
-  const year = currentYm.year;
-  const yearStart = new LocalDate(year, 1, 1).toUtcDate();
-  const nextYearStart = new LocalDate(year + 1, 1, 1).toUtcDate();
   const seriesStart = currentYm.addMonths(-(months - 1)).startOfMonth().toUtcDate();
   const seriesEnd = currentYm.endOfMonth().toUtcEndOfDay();
 
@@ -228,11 +243,12 @@ export async function getSummary(
     periodExpenses,
     totalRevenue,
     totalExpenses,
-    yearRevenue,
     categoryGroups,
     seriesTransactions,
     latestTransactions,
     user,
+    meiLimitResult,
+    jarsStatusResult,
   ] = await Promise.all([
     prisma.transaction.aggregate({
       where: { ...wherePeriod, type: 'receita' },
@@ -243,19 +259,11 @@ export async function getSummary(
       _sum: { amount: true },
     }),
     prisma.transaction.aggregate({
-      where: { userId, type: 'receita' },
+      where: { workspaceId: resolvedScope.workspaceId, deletedAt: null, type: 'receita' },
       _sum: { amount: true },
     }),
     prisma.transaction.aggregate({
-      where: { userId, type: 'despesa' },
-      _sum: { amount: true },
-    }),
-    prisma.transaction.aggregate({
-      where: {
-        userId,
-        type: 'receita',
-        transactionDate: { gte: yearStart, lt: nextYearStart },
-      },
+      where: { workspaceId: resolvedScope.workspaceId, deletedAt: null, type: 'despesa' },
       _sum: { amount: true },
     }),
     prisma.transaction.groupBy({
@@ -265,28 +273,32 @@ export async function getSummary(
       _count: { _all: true },
     }),
     prisma.transaction.findMany({
-      where: { userId, transactionDate: { gte: seriesStart, lte: seriesEnd } },
+      where: {
+        workspaceId: resolvedScope.workspaceId,
+        deletedAt: null,
+        transactionDate: { gte: seriesStart, lte: seriesEnd },
+      },
       select: { type: true, amount: true, transactionDate: true },
     }),
     prisma.transaction.findMany({
-      where: { userId },
+      where: { workspaceId: resolvedScope.workspaceId, deletedAt: null },
       include: { category: { select: { id: true, name: true } } },
       orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }],
       take: 5,
     }),
     prisma.user.findUnique({ where: { id: userId }, select: { accountType: true } }),
+    getMeiLimit(resolvedScope, { year: currentYm.year, entityId: filters.entityId }),
+    getJarsStatus(resolvedScope, { month: currentYm.toIsoString(), entityId: filters.entityId }).catch(() => null),
   ]);
 
   if (!user) {
     throw new NotFoundError('Usuário não encontrado');
   }
 
-  const isMei = user.accountType === 'mei';
-
-  const categoryIds = [...new Set(categoryGroups.map((group) => group.categoryId))];
+  const categoryIds = [...new Set(categoryGroups.map((group) => group.categoryId).filter(Boolean))] as string[];
   const categories = categoryIds.length
     ? await prisma.category.findMany({
-        where: { userId, id: { in: categoryIds } },
+        where: { workspaceId: resolvedScope.workspaceId, id: { in: categoryIds } },
         select: { id: true, name: true },
       })
     : [];
@@ -296,7 +308,20 @@ export async function getSummary(
   const periodOutMoney = aggregateToMoney(periodExpenses);
   const totalInMoney = aggregateToMoney(totalRevenue);
   const totalOutMoney = aggregateToMoney(totalExpenses);
-  const yearRevMoney = aggregateToMoney(yearRevenue);
+
+  const isMei = user.accountType === 'mei';
+
+  const formattedLimiteMei = isMei && meiLimitResult
+    ? {
+        ano: meiLimitResult.ano,
+        limite: Number(meiLimitResult.limite),
+        limiteComTolerancia: Number(meiLimitResult.limiteComTolerancia),
+        faturamentoAno: Number(meiLimitResult.faturamentoAno),
+        percentualUtilizado: meiLimitResult.percentualUtilizado,
+        restante: Number(meiLimitResult.restante),
+        status: meiLimitResult.status,
+      }
+    : null;
 
   return {
     conta: { accountType: user.accountType },
@@ -310,8 +335,9 @@ export async function getSummary(
     },
     porCategoria: buildCategoryBreakdown(categoryGroups, categoriesById),
     evolucaoMensal: buildMonthlySeries(seriesTransactions, months, currentYm),
-    limiteMei: isMei ? buildMeiLimit(yearRevMoney, year) : null,
+    limiteMei: formattedLimiteMei,
     ultimasTransacoes: latestTransactions,
+    potes: jarsStatusResult ? jarsStatusResult.jars : undefined,
   };
 }
 
