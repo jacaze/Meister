@@ -48,3 +48,10 @@ desktop.ini
 # ===== Bancos locais e backups =====
 *.sqlite
 *.dump
+
+
+# ===== Planejamento e Telas (Stitch / Documentação interna) =====
+guia-planejamento-ia/
+*planejamento*/
+stitch*/
+stitch_fluxo_de_faturas_e_potes/
