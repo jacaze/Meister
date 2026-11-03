@@ -1,0 +1,26 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "testRunner": "vitest",
+  "vitest": {
+    "configFile": "vitest.config.ts"
+  },
+  "mutate": [
+    "src/shared/**/*.ts",
+    "src/modules/**/domain/**/*.ts",
+    "src/modules/**/application/**/*.ts",
+    "!src/**/*.test.ts",
+    "!src/**/dto.ts",
+    "!src/**/ports/**"
+  ],
+  "reporters": ["clear-text", "json"],
+  "jsonReporter": {
+    "fileName": "reports/mutation/mutation.json"
+  },
+  "tempDirName": ".stryker-tmp",
+  "thresholds": {
+    "high": 85,
+    "low": 80,
+    "break": null
+  },
+  "concurrency": 4
+}
