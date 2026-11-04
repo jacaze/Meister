@@ -473,7 +473,7 @@ export const FloatingAssistantWidget: React.FC = () => {
                     className="w-full px-3.5 py-2.5 bg-[#131313] border border-[#ffffff14] rounded-xl text-xs text-white focus:outline-none focus:border-[#f2c94c] transition"
                   >
                     <option value="gemini-1.5-flash">gemini-1.5-flash (Recomendado, Rápido e Gratuito)</option>
-                    <option value="gemini-2.0-flash">gemini-2.0-flash (Nova Geração)</option>
+                    <option value="gemini-2.5-flash">gemini-2.5-flash (Nova Geração)</option>
                     <option value="gemini-1.5-pro">gemini-1.5-pro (Raciocínio Profundo)</option>
                   </select>
                 </div>

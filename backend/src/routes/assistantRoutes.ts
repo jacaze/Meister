@@ -76,9 +76,9 @@ export async function assistantRoutes(fastify: FastifyInstance) {
   fastify.post('/assistant/config', async (request, reply) => {
     const body = request.body as { apiKey?: unknown; model?: unknown };
     const rawKey = typeof body.apiKey === 'string' ? body.apiKey.trim() : null;
-    const selectedModel = typeof body.model === 'string' && body.model.trim()
+    const requestedModel = typeof body.model === 'string' && body.model.trim()
       ? body.model.trim()
-      : (process.env.LLM_MODEL || 'gemini-1.5-flash');
+      : (process.env.LLM_MODEL || 'gemini-2.5-flash');
 
     if (!rawKey) {
       // Clear key if empty
@@ -90,38 +90,60 @@ export async function assistantRoutes(fastify: FastifyInstance) {
       });
     }
 
-    // Ping Google Generative Language API to validate key
-    try {
-      const pingUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${rawKey}`;
-      const pingRes = await fetch(pingUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: 'ping' }] }],
-        }),
-      });
+    // Try requested model, and fallback to latest available models (gemini-2.5-flash, gemini-1.5-flash)
+    const candidateModels = Array.from(
+      new Set([requestedModel, 'gemini-2.5-flash', 'gemini-1.5-flash'])
+    );
 
-      if (!pingRes.ok) {
+    let workingModel: string | null = null;
+    let lastError: string = '';
+
+    for (const m of candidateModels) {
+      try {
+        const pingUrl = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${rawKey}`;
+        const pingRes = await fetch(pingUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: 'ping' }] }],
+          }),
+        });
+
+        if (pingRes.ok) {
+          workingModel = m;
+          break;
+        }
+
         const errorData = await pingRes.json().catch(() => null);
-        const reason = errorData?.error?.message || pingRes.statusText;
-        throw new ValidationError(`Chave rejeitada pela Google Gemini API: ${reason}`);
+        lastError = errorData?.error?.message || pingRes.statusText;
+
+        // If the API key itself is fundamentally invalid, stop immediately
+        if (
+          lastError.toLowerCase().includes('api key not valid') ||
+          lastError.toLowerCase().includes('forbidden')
+        ) {
+          break;
+        }
+      } catch (err: any) {
+        lastError = err.message || 'Falha de conexão com a API do Google';
       }
-    } catch (err: any) {
-      if (err instanceof ValidationError) throw err;
-      throw new ValidationError(`Falha ao conectar à Google API: ${err.message || 'Verifique sua conexão'}`);
     }
 
-    // Persist key and model
+    if (!workingModel) {
+      throw new ValidationError(`Chave rejeitada pela Google Gemini API: ${lastError}`);
+    }
+
+    // Persist key and validated model
     process.env.GEMINI_API_KEY = rawKey;
-    process.env.LLM_MODEL = selectedModel;
+    process.env.LLM_MODEL = workingModel;
     updateEnvFile('GEMINI_API_KEY', rawKey);
-    updateEnvFile('LLM_MODEL', selectedModel);
+    updateEnvFile('LLM_MODEL', workingModel);
 
     return reply.status(200).send({
       hasApiKey: true,
       maskedKey: `${rawKey.slice(0, 6)}...${rawKey.slice(-4)}`,
-      model: selectedModel,
-      message: 'Chave Gemini validada e ativada com sucesso!',
+      model: workingModel,
+      message: `Chave Gemini validada e ativada com sucesso usando o modelo ${workingModel}!`,
     });
   });
 
