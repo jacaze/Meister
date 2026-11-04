@@ -12,7 +12,7 @@ export const AppLayout: React.FC = () => {
   const navItems = [
     { label: 'Dashboard', path: '/', icon: 'grid_view' },
     { label: 'Lançamentos', path: '/transacoes', icon: 'receipt_long' },
-    { label: 'Extratos & Revisão', path: '/revisao', icon: 'inbox' },
+    { label: 'Extratos & Open Finance', path: '/revisao', icon: 'inbox' },
     { label: 'Potes Financeiros', path: '/potes', icon: 'savings' },
     { label: 'Educação & Lições', path: '/educacao', icon: 'school' },
     ...(user?.accountType === 'mei' ? [{ label: 'Impostos & DAS', path: '/impostos', icon: 'account_balance' }] : []),
