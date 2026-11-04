@@ -147,4 +147,60 @@ describe('Assistant & Telegram Integration Suite (PostgreSQL 16)', () => {
     });
     expect(saldoRes.statusCode).toBe(200);
   });
+
+  it('checks assistant config and processes conversational chat', async () => {
+    // 1. Get config
+    const configRes = await app.inject({
+      method: 'GET',
+      url: '/api/assistant/config',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(configRes.statusCode).toBe(200);
+    expect(configRes.json()).toHaveProperty('hasApiKey');
+    expect(configRes.json()).toHaveProperty('model');
+
+    // 2. Chat with proposal intent
+    const chatPropRes = await app.inject({
+      method: 'POST',
+      url: '/api/assistant/chat',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        message: 'Gastei 55 no almoço de hoje',
+      },
+    });
+    expect(chatPropRes.statusCode).toBe(200);
+    const chatProp = chatPropRes.json();
+    expect(chatProp.kind).toBe('proposal');
+    expect(chatProp.proposal.amount).toBe('55.00');
+    expect(chatProp.proposal.type).toBe('despesa');
+    expect(chatProp.reply).toContain('55,00');
+
+    // 3. Chat with finance query
+    const chatFinRes = await app.inject({
+      method: 'POST',
+      url: '/api/assistant/chat',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        message: 'Qual é o meu saldo?',
+      },
+    });
+    expect(chatFinRes.statusCode).toBe(200);
+    const chatFin = chatFinRes.json();
+    expect(chatFin.kind).toBe('finance_query');
+    expect(chatFin.reply).toContain('saldo');
+
+    // 4. Chat with education query
+    const chatEduRes = await app.inject({
+      method: 'POST',
+      url: '/api/assistant/chat',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        message: 'Como funciona o limite MEI?',
+      },
+    });
+    expect(chatEduRes.statusCode).toBe(200);
+    const chatEdu = chatEduRes.json();
+    expect(['education', 'general', 'finance_query']).toContain(chatEdu.kind);
+    expect(chatEdu.reply.length).toBeGreaterThan(10);
+  });
 });

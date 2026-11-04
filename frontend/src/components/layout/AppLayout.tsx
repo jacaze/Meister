@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.js';
 import QuickTransactionModal from '../modals/QuickTransactionModal.js';
+import FloatingAssistantWidget from '../assistant/FloatingAssistantWidget.js';
 
 export const AppLayout: React.FC = () => {
   const { user, workspace, activeEntityId, setActiveEntityId, logout } = useAuth();
@@ -13,7 +14,6 @@ export const AppLayout: React.FC = () => {
     { label: 'Lançamentos', path: '/transacoes', icon: 'receipt_long' },
     { label: 'Extratos & Revisão', path: '/revisao', icon: 'inbox' },
     { label: 'Potes Financeiros', path: '/potes', icon: 'savings' },
-    { label: 'Insights & Dicas', path: '/insights', icon: 'lightbulb' },
     { label: 'Educação & Lições', path: '/educacao', icon: 'school' },
     ...(user?.accountType === 'mei' ? [{ label: 'Impostos & DAS', path: '/impostos', icon: 'account_balance' }] : []),
     { label: 'Relatórios', path: '/relatorios', icon: 'analytics' },
@@ -166,6 +166,9 @@ export const AppLayout: React.FC = () => {
       >
         <span className="material-symbols-outlined text-3xl font-bold">add</span>
       </button>
+
+      {/* Persistent Floating Copilot / AI Assistant */}
+      <FloatingAssistantWidget />
 
       {/* Modal Lançamento Rápido */}
       {isModalOpen && <QuickTransactionModal onClose={() => setIsModalOpen(false)} />}
