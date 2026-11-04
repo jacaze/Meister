@@ -96,6 +96,39 @@ export async function seedDemoUser() {
     }
   }
 
+  // Ensure Financial Accounts exist for both entities
+  let accPj = await prisma.financialAccount.findFirst({
+    where: { workspaceId: scope.workspaceId, entityId: pjEntityId },
+  });
+  if (!accPj) {
+    accPj = await prisma.financialAccount.create({
+      data: {
+        workspaceId: scope.workspaceId,
+        entityId: pjEntityId,
+        name: 'Nubank PJ',
+        institution: 'Nubank',
+        kind: 'banco',
+        openingBalance: 5000.0,
+      },
+    });
+  }
+
+  let accPf = await prisma.financialAccount.findFirst({
+    where: { workspaceId: scope.workspaceId, entityId: scope.defaultEntityIds.pf },
+  });
+  if (!accPf) {
+    accPf = await prisma.financialAccount.create({
+      data: {
+        workspaceId: scope.workspaceId,
+        entityId: scope.defaultEntityIds.pf,
+        name: 'Nubank PF',
+        institution: 'Nubank',
+        kind: 'banco',
+        openingBalance: 1200.0,
+      },
+    });
+  }
+
   // Create Jar Plan if not exists
   const existingPlan = await prisma.jarPlan.findFirst({
     where: { workspaceId: scope.workspaceId, active: true },
@@ -110,6 +143,12 @@ export async function seedDemoUser() {
 
   // Ensure DAS charges
   await ensureDasCharges(scope);
+
+  // Link any existing transactions without financialAccountId
+  await prisma.transaction.updateMany({
+    where: { workspaceId: scope.workspaceId, financialAccountId: null },
+    data: { financialAccountId: accPj.id },
+  });
 
   // Create some sample transactions if none
   const existingTx = await prisma.transaction.count({
@@ -131,6 +170,7 @@ export async function seedDemoUser() {
           userId: user.id,
           entityId: pjEntityId,
           categoryId: servicosCat.id,
+          financialAccountId: accPj.id,
           type: 'receita',
           amount: 4500.0,
           description: 'Consultoria de Desenvolvimento Web',
@@ -145,6 +185,7 @@ export async function seedDemoUser() {
           userId: user.id,
           entityId: pjEntityId,
           categoryId: servicosCat.id,
+          financialAccountId: accPj.id,
           type: 'receita',
           amount: 3200.0,
           description: 'Projeto de Integração de Sistemas',
@@ -161,6 +202,7 @@ export async function seedDemoUser() {
           userId: user.id,
           entityId: pjEntityId,
           categoryId: softwareCat.id,
+          financialAccountId: accPj.id,
           type: 'despesa',
           amount: 450.0,
           description: 'Assinatura Servidor Cloud & Domínio',

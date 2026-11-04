@@ -172,10 +172,24 @@ export const AuthPage: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-2 py-3.5 bg-[#f2c94c] text-[#131313] text-sm font-extrabold rounded-2xl shadow-[0_0_25px_rgba(242,201,76,0.3)] hover:scale-[1.01] active:scale-[0.99] transition disabled:opacity-50"
+            className="w-full mt-2 py-3.5 bg-[#f2c94c] text-[#131313] text-sm font-extrabold rounded-2xl shadow-[0_0_25px_rgba(242,201,76,0.3)] hover:scale-[1.01] active:scale-[0.99] transition disabled:opacity-50 cursor-pointer"
           >
             {loading ? 'Processando...' : isRegister ? 'Criar Minha Conta Grátis' : 'Acessar Meu Painel'}
           </button>
+
+          {!isRegister && (
+            <button
+              type="button"
+              onClick={() => {
+                setEmail('demo@meister.com');
+                setPassword('senha123');
+                setError(null);
+              }}
+              className="w-full py-2.5 bg-[#262626] border border-[#ffffff14] text-[#f2c94c] hover:bg-[#303030] rounded-2xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <span>⚡ Preencher dados de Demo (demo@meister.com)</span>
+            </button>
+          )}
         </form>
       </div>
     </div>
