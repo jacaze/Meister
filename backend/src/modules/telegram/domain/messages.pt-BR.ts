@@ -93,6 +93,39 @@ export const MessagesPtBr = {
     return msg;
   },
 
+  receiptProposalReady: (data: {
+    issuerName?: string;
+    total: string;
+    issuedOn: string;
+    splits?: Array<{ categoryName: string; amount: string; jarName?: string }>;
+    duplicate?: boolean;
+    duplicateDate?: string;
+  }) => {
+    let msg = `🧾 *Nota Fiscal / Comprovante Reconhecido*\n\n`;
+    if (data.issuerName) {
+      msg += `🏢 *Estabelecimento:* ${escapeMarkdownV2(data.issuerName)}\n`;
+    }
+    msg += `📅 *Data de Emissão:* ${escapeMarkdownV2(data.issuedOn)}\n`;
+    msg += `💰 *Total da Nota:* *${escapeMarkdownV2(formatBrl(data.total))}*\n\n`;
+
+    if (data.splits && data.splits.length > 1) {
+      msg += `📦 *Divisão Automática por Categorias/Potes:*\n`;
+      for (const s of data.splits) {
+        const jar = s.jarName ? ` \\(Pote: ${escapeMarkdownV2(s.jarName)}\\)` : '';
+        msg += `• *${escapeMarkdownV2(s.categoryName)}:* ${escapeMarkdownV2(formatBrl(s.amount))}${jar}\n`;
+      }
+      msg += `\n`;
+    }
+
+    if (data.duplicate) {
+      msg += `⚠️ *Atenção:* Esta nota fiscal já foi registrada em ${escapeMarkdownV2(data.duplicateDate ?? 'data anterior')}\\. Deseja registrar novamente\\?\n\n`;
+    } else {
+      msg += `_Deseja confirmar o lançamento desta despesa?_`;
+    }
+
+    return msg;
+  },
+
   proposalCancelled: `❌ *Proposta cancelada com sucesso\\.* O lançamento foi descartado\\.`,
 
   notUnderstood: `🤔 *Não consegui identificar um lançamento financeiro\\.*\n\nTente algo como: _"Gastei 50 no almoço"_ ou _"Recebi 2500 de serviço via Pix"_\\.`,

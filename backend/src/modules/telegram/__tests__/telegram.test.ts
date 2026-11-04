@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { decodeProposalCallback, encodeProposalCallback } from '../domain/callback-data.js';
-import { escapeMarkdownV2, formatBrl } from '../domain/messages.pt-BR.js';
+import { MessagesPtBr, escapeMarkdownV2, formatBrl } from '../domain/messages.pt-BR.js';
 
 describe('Telegram Module — Domain & Messages', () => {
   it('encodes and decodes proposal callback data within 64 bytes limit', () => {
@@ -34,5 +34,25 @@ describe('Telegram Module — Domain & Messages', () => {
   it('formats BRL values in currency format', () => {
     expect(formatBrl(150.5)).toContain('150,50');
     expect(formatBrl('2500.00')).toContain('2.500,00');
+  });
+
+  it('formats receipt proposal ready message with splits and duplicates', () => {
+    const formatted = MessagesPtBr.receiptProposalReady({
+      issuerName: 'Papelaria & Cia',
+      total: '120.00',
+      issuedOn: '2026-11-04',
+      splits: [
+        { categoryName: 'Mercadorias / Insumos', amount: '80.00', jarName: 'Operação' },
+        { categoryName: 'Alimentação', amount: '40.00', jarName: 'Pessoal' },
+      ],
+      duplicate: true,
+      duplicateDate: '2026-11-03',
+    });
+
+    expect(formatted).toContain('Papelaria & Cia');
+    expect(formatted).toContain('120,00');
+    expect(formatted).toContain('Mercadorias / Insumos');
+    expect(formatted).toContain('Atenção');
+    expect(formatted).toContain('2026\\-11\\-03');
   });
 });

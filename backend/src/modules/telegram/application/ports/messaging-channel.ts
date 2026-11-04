@@ -7,4 +7,5 @@ export interface MessagingChannel {
   sendText(chatId: string, text: string, options?: SendMessageOptions): Promise<void>;
   editMessageText(chatId: string, messageId: number, text: string, options?: SendMessageOptions): Promise<void>;
   answerCallback(callbackQueryId: string, text?: string): Promise<void>;
+  downloadFile?(fileId: string): Promise<{ buffer: Buffer; mimeType?: string } | null>;
 }

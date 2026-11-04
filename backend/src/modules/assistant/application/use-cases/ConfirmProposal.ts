@@ -9,6 +9,7 @@ import {
 import { createTransaction } from '../../../ledger/public.js';
 import { getMeiLimit } from '../../../fiscal/public.js';
 import { getJarsStatus } from '../../../jars/public.js';
+import { registerReceipt } from '../../../receipts/public.js';
 
 export interface ConfirmProposalResult {
   readonly proposalId: string;
@@ -79,12 +80,15 @@ export async function confirmProposal(
     occurredOn?: string;
     transactionDate?: string;
     categoryId?: string | null;
+    splits?: Array<{ categoryId: string; amount: string | number; description?: string }>;
     paymentMethod?: PaymentMethod | null;
     viaPersonalAccount?: boolean;
+    accessKey?: string;
+    issuerCnpj?: string;
   };
 
   let targetCategoryId = draft.categoryId;
-  if (!targetCategoryId) {
+  if (!targetCategoryId && (!draft.splits || draft.splits.length === 0)) {
     const fallbackCategory = await prisma.category.findFirst({
       where: { workspaceId: scope.workspaceId, type: draft.type },
     });
@@ -101,11 +105,26 @@ export async function confirmProposal(
     description: draft.description,
     occurredOn: draft.occurredOn || draft.transactionDate,
     transactionDate: draft.transactionDate || draft.occurredOn,
-    categoryId: targetCategoryId,
+    categoryId: draft.splits && draft.splits.length > 0 ? undefined : targetCategoryId,
+    splits: draft.splits && draft.splits.length >= 2 ? draft.splits : undefined,
     paymentMethod: draft.paymentMethod,
     origin: 'telegram',
     sourceRef: `proposal:${proposal.id}`,
   });
+
+  if (draft.accessKey) {
+    try {
+      await registerReceipt(scope, {
+        accessKey: draft.accessKey,
+        issuerCnpj: draft.issuerCnpj,
+        issuedOn: draft.occurredOn || draft.transactionDate,
+        total: draft.amount,
+        source: 'ia',
+      });
+    } catch {
+      // Ignored if receipt key was already registered or not present
+    }
+  }
 
   // 2. Mark proposal as confirmed
   await prisma.proposal.update({
