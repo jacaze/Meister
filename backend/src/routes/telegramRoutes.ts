@@ -1,43 +1,65 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { authMiddleware } from '../middlewares/authMiddleware.js';
+import type { FastifyInstance } from 'fastify';
+import authMiddleware from '../middlewares/authMiddleware.js';
 import {
   createLinkToken,
-  getLinkStatus,
-  handleUpdate,
+  getTelegramLinkStatus,
+  unlinkChat,
+  handleTelegramUpdate,
+  TelegramApiChannel,
+  type TelegramUpdate,
 } from '../modules/telegram/public.js';
+import { UnauthorizedError } from '../shared/index.js';
 
-export async function telegramRoutes(fastify: FastifyInstance): Promise<void> {
-  // Public Webhook endpoint called by Telegram Servers
-  fastify.post('/webhook', async (request: FastifyRequest, reply: FastifyReply) => {
-    const update = request.body as any;
-    if (!update) {
-      return reply.status(400).send({ error: 'Corpo vazio' });
-    }
+export async function telegramRoutes(fastify: FastifyInstance) {
+  fastify.addHook('preHandler', authMiddleware);
 
-    // Process update asynchronously or synchronously
-    try {
-      await handleUpdate(update);
-    } catch (err) {
-      request.log.error(err, '[TelegramWebhook] Failed processing update');
-    }
-
-    return reply.status(200).send({ ok: true });
+  // Create link token for the authenticated user
+  fastify.post('/telegram/link-token', async (request, reply) => {
+    const scope = request.scope!;
+    const result = await createLinkToken(scope);
+    return reply.status(201).send(result);
   });
 
-  // Authenticated endpoints for UI linking
-  fastify.register(async (authedRoutes) => {
-    authedRoutes.addHook('preHandler', authMiddleware);
+  // Get current Telegram link status
+  fastify.get('/telegram/status', async (request, reply) => {
+    const scope = request.scope!;
+    const status = await getTelegramLinkStatus(scope);
+    return reply.status(200).send(status);
+  });
 
-    // POST /telegram/link-token
-    authedRoutes.post('/link-token', async (request: FastifyRequest, reply: FastifyReply) => {
-      const tokenData = await createLinkToken(request.scope);
-      return reply.status(200).send(tokenData);
-    });
+  // Unlink telegram
+  fastify.post('/telegram/unlink', async (request, reply) => {
+    const scope = request.scope!;
+    const result = await unlinkChat(scope);
+    return reply.status(200).send(result);
+  });
+}
 
-    // GET /telegram/status
-    authedRoutes.get('/status', async (request: FastifyRequest, reply: FastifyReply) => {
-      const status = await getLinkStatus(request.scope);
-      return reply.status(200).send(status);
-    });
+/**
+ * Public webhook route called by Telegram Bot servers
+ */
+export async function telegramWebhookRoute(fastify: FastifyInstance) {
+  const channel = new TelegramApiChannel();
+
+  fastify.post('/telegram/webhook', async (request, reply) => {
+    const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
+    if (secret) {
+      const headerSecret = request.headers['x-telegram-bot-api-secret-token'];
+      if (headerSecret !== secret) {
+        throw new UnauthorizedError('INVALID_WEBHOOK_SECRET', 'Secret token inválido.');
+      }
+    }
+
+    const update = request.body as TelegramUpdate;
+    if (update && typeof update === 'object' && 'update_id' in update) {
+      try {
+        await handleTelegramUpdate(update, channel);
+      } catch (err) {
+        request.log.error(err, '[telegramWebhookRoute] Error handling update');
+      }
+    }
+
+    // Telegram requires an immediate 200 OK
+    return reply.status(200).send({ ok: true });
   });
 }

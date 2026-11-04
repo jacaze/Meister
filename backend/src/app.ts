@@ -1,75 +1,106 @@
-import fastifyCors from '@fastify/cors';
-import fastifyJwt from '@fastify/jwt';
-import fastifySwagger from '@fastify/swagger';
-import fastifySwaggerUi from '@fastify/swagger-ui';
 import Fastify, { type FastifyInstance } from 'fastify';
-import { env } from './config/env.js';
-import { characterizationRoutes } from './routes/characterizationRoutes.js';
-import { fiscalRoutes } from './routes/fiscalRoutes.js';
-import { jarsRoutes } from './routes/jarsRoutes.js';
-import { ledgerRoutes } from './routes/ledgerRoutes.js';
-import { authRoutes } from './routes/authRoutes.js';
+import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
+import jwt from '@fastify/jwt';
+import cookie from '@fastify/cookie';
+import rateLimit from '@fastify/rate-limit';
+import prisma from './config/prisma.js';
+import { type AppEnv, parseEnv, registerCorrelationAndErrorHandler } from './shared/index.js';
+import authRoutes from './routes/authRoutes.js';
+import categoryRoutes from './routes/categoryRoutes.js';
+import transactionRoutes from './routes/transactionRoutes.js';
+import dashboardRoutes from './routes/dashboardRoutes.js';
+import userRoutes from './routes/userRoutes.js';
+import workspaceRoutes from './routes/workspaceRoutes.js';
+import fiscalRoutes from './routes/fiscalRoutes.js';
+import jarsRoutes from './routes/jarsRoutes.js';
+import transferRoutes from './routes/transferRoutes.js';
 import { assistantRoutes } from './routes/assistantRoutes.js';
-import { telegramRoutes } from './routes/telegramRoutes.js';
+import { telegramRoutes, telegramWebhookRoute } from './routes/telegramRoutes.js';
 
-export async function buildApp(): Promise<FastifyInstance> {
-  const app = Fastify({
-    logger: env.NODE_ENV !== 'test',
+export interface BuildAppOptions {
+  env?: AppEnv;
+  logger?: boolean;
+}
+
+export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
+  const env = options.env ?? parseEnv(process.env);
+  const fastify = Fastify({
+    logger: options.logger ?? env.NODE_ENV !== 'test',
+    bodyLimit: 1024 * 1024, // 1 MB default limit
   });
 
-  // CORS
-  await app.register(fastifyCors, {
-    origin: true,
+  registerCorrelationAndErrorHandler(fastify);
+
+  await fastify.register(helmet, {
+    contentSecurityPolicy: false,
+  });
+
+  await fastify.register(cors, {
+    origin: env.CORS_ORIGINS.includes('*') ? true : env.CORS_ORIGINS,
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
 
-  // JWT
-  await app.register(fastifyJwt, {
+  await fastify.register(cookie);
+
+  await fastify.register(rateLimit, {
+    max: 300,
+    timeWindow: '1 minute',
+  });
+
+  await fastify.register(jwt, {
     secret: env.JWT_SECRET,
-  });
-
-  // Swagger docs
-  await app.register(fastifySwagger, {
-    openapi: {
-      info: {
-        title: 'Meister API',
-        description: 'Backend para Gestão Financeira MEI',
-        version: '0.1.0',
-      },
+    sign: {
+      algorithm: 'HS256',
+    },
+    verify: {
+      algorithms: ['HS256'],
     },
   });
 
-  await app.register(fastifySwaggerUi, {
-    routePrefix: '/docs',
+  await fastify.register(authRoutes, {
+    prefix: '/api',
+    lockTimeMinutes: env.LOCK_TIME_MINUTES,
   });
+  await fastify.register(categoryRoutes, { prefix: '/api' });
+  await fastify.register(transactionRoutes, { prefix: '/api' });
+  await fastify.register(dashboardRoutes, { prefix: '/api' });
+  await fastify.register(userRoutes, { prefix: '/api' });
+  await fastify.register(workspaceRoutes, { prefix: '/api' });
+  await fastify.register(fiscalRoutes, { prefix: '/api' });
+  await fastify.register(jarsRoutes, { prefix: '/api' });
+  await fastify.register(transferRoutes, { prefix: '/api' });
+  await fastify.register(assistantRoutes, { prefix: '/api' });
+  await fastify.register(telegramRoutes, { prefix: '/api' });
+  await fastify.register(telegramWebhookRoute);
 
-  // Health check
-  app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
+  fastify.get('/health', async () => ({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+  }));
 
-  // Feature Routes
-  await app.register(authRoutes, { prefix: '/auth' });
-  await app.register(ledgerRoutes, { prefix: '/transactions' });
-  await app.register(fiscalRoutes, { prefix: '/fiscal' });
-  await app.register(jarsRoutes, { prefix: '/jars' });
-  await app.register(characterizationRoutes, { prefix: '/profile' });
-  await app.register(assistantRoutes, { prefix: '/assistant' });
-  await app.register(telegramRoutes, { prefix: '/telegram' });
+  fastify.get('/health/live', async () => ({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+  }));
 
-  // Central Error Handler
-  app.setErrorHandler((error, request, reply) => {
-    const statusCode = (error as any).statusCode || 500;
-    const message = error.message || 'Erro interno do servidor';
-
-    if (statusCode >= 500) {
-      request.log.error(error);
+  fastify.get('/health/ready', async (_request, reply) => {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      return reply.send({
+        status: 'ready',
+        database: 'up',
+        timestamp: new Date().toISOString(),
+      });
+    } catch {
+      return reply.status(503).send({
+        status: 'not_ready',
+        database: 'down',
+        timestamp: new Date().toISOString(),
+      });
     }
-
-    return reply.status(statusCode).send({
-      statusCode,
-      error: error.name || 'Error',
-      message,
-    });
   });
 
-  return app;
+  return fastify;
 }

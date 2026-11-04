@@ -1,204 +1,183 @@
 import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
+import { provisionWorkspace, resolveScopeForUser, updateBusinessProfile } from '../src/modules/workspace/public.js';
+import { seedDefaultCategories } from '../src/modules/catalog/public.js';
+import { createJarPlan } from '../src/modules/jars/public.js';
+import { ensureDasCharges } from '../src/modules/fiscal/public.js';
 
 const prisma = new PrismaClient();
 
-async function main() {
-  console.log('🌱 Starting database seed...');
-
-  // 1. Clean existing test data safely
-  await prisma.aiRun.deleteMany();
-  await prisma.proposal.deleteMany();
-  await prisma.telegramChatConnection.deleteMany();
-  await prisma.telegramLinkToken.deleteMany();
-  await prisma.auditLog.deleteMany();
-  await prisma.dasPayment.deleteMany();
-  await prisma.dasGuide.deleteMany();
-  await prisma.jarHistory.deleteMany();
-  await prisma.jarCategory.deleteMany();
-  await prisma.jar.deleteMany();
-  await prisma.transaction.deleteMany();
-  await prisma.category.deleteMany();
-  await prisma.categoryTemplateItem.deleteMany();
-  await prisma.categoryTemplate.deleteMany();
-  await prisma.meiProfile.deleteMany();
-  await prisma.entity.deleteMany();
-  await prisma.workspaceMember.deleteMany();
-  await prisma.workspace.deleteMany();
-  await prisma.user.deleteMany();
-
-  // 2. Create Demo User
-  const passwordHash = await bcrypt.hash('Senha123@', 10);
-  const demoUser = await prisma.user.create({
-    data: {
-      email: 'demo@meister.com',
-      passwordHash,
-      name: 'Lucas Consultoria',
+export async function seedFiscalParameters() {
+  const parameters = [
+    {
+      year: 2025,
+      meiAnnualLimit: 81000.0,
+      meiMonthlyReference: 6750.0,
+      tolerancePct: 0.2,
+      minimumWage: 1518.0,
+      icmsAmount: 1.0,
+      issAmount: 5.0,
+      inssPct: 0.05,
     },
-  });
-
-  // 3. Create Workspace
-  const workspace = await prisma.workspace.create({
-    data: {
-      name: 'Lucas MEI Tech',
-      slug: 'lucas-mei-tech',
-      members: {
-        create: {
-          userId: demoUser.id,
-          role: 'OWNER',
-        },
-      },
+    {
+      year: 2026,
+      meiAnnualLimit: 81000.0,
+      meiMonthlyReference: 6750.0,
+      tolerancePct: 0.2,
+      minimumWage: 1621.0,
+      icmsAmount: 1.0,
+      issAmount: 5.0,
+      inssPct: 0.05,
     },
-  });
-
-  // 4. Create Entities (PJ and PF)
-  const pjEntity = await prisma.entity.create({
-    data: {
-      workspaceId: workspace.id,
-      type: 'PJ',
-      name: 'Lucas Ortiz Consultoria MEI',
-      taxId: '54.123.456/0001-89',
-    },
-  });
-
-  const pfEntity = await prisma.entity.create({
-    data: {
-      workspaceId: workspace.id,
-      type: 'PF',
-      name: 'Lucas Ortiz',
-      taxId: '123.456.789-00',
-    },
-  });
-
-  // 5. Create MEI Profile
-  await prisma.meiProfile.create({
-    data: {
-      entityId: pjEntity.id,
-      annualLimit: 81000.0,
-      currentYear: 2026,
-      accumulatedGrossRevenue: 18500.0,
-      activityType: 'SERVICOS',
-    },
-  });
-
-  // 6. Create Category Template & Default Categories
-  const template = await prisma.categoryTemplate.create({
-    data: {
-      slug: 'mei-empresa',
-      name: 'Padrão MEI Prestador de Serviços',
-      description: 'Estrutura recomendada para pequenos empreendedores',
-    },
-  });
-
-  const categoriesData = [
-    { name: 'Prestação de Serviços', slug: 'servicos-prestados', type: 'receita', icon: 'briefcase', isDeductible: false },
-    { name: 'Venda de Produtos', slug: 'venda-produtos', type: 'receita', icon: 'shopping-bag', isDeductible: false },
-    { name: 'Alimentação & Refeições', slug: 'alimentacao', type: 'despesa', icon: 'coffee', isDeductible: true },
-    { name: 'Transporte & Combustível', slug: 'transporte', type: 'despesa', icon: 'truck', isDeductible: true },
-    { name: 'Equipamentos e Software', slug: 'tecnologia', type: 'despesa', icon: 'laptop', isDeductible: true },
-    { name: 'DAS MEI / Impostos', slug: 'impostos-das', type: 'despesa', icon: 'file-text', isDeductible: false },
-    { name: 'Pró-Labore / Retiradas', slug: 'pro-labore', type: 'despesa', icon: 'user', isDeductible: false },
   ];
 
-  const createdCategories: Record<string, string> = {};
-
-  for (const cat of categoriesData) {
-    const c = await prisma.category.create({
-      data: {
-        workspaceId: workspace.id,
-        name: cat.name,
-        slug: cat.slug,
-        type: cat.type,
-        icon: cat.icon,
-        isDeductible: cat.isDeductible,
-      },
+  for (const param of parameters) {
+    await prisma.fiscalParameters.upsert({
+      where: { year: param.year },
+      create: param,
+      update: param,
     });
-    createdCategories[cat.slug] = c.id;
   }
-
-  // 7. Create Jars (Potes Orçamentários)
-  const jarEssenciais = await prisma.jar.create({
-    data: {
-      workspaceId: workspace.id,
-      entityId: pjEntity.id,
-      name: 'Custos Operacionais',
-      monthlyCap: 1200.0,
-      spentThisMonth: 450.0,
-      ruleType: 'EXPENSE_CAP',
-      categories: {
-        create: [
-          { categoryId: createdCategories['tecnologia'] },
-          { categoryId: createdCategories['transporte'] },
-        ],
-      },
-    },
-  });
-
-  const jarAlimentacao = await prisma.jar.create({
-    data: {
-      workspaceId: workspace.id,
-      entityId: pfEntity.id,
-      name: 'Alimentação Diária',
-      monthlyCap: 800.0,
-      spentThisMonth: 120.0,
-      ruleType: 'EXPENSE_CAP',
-      categories: {
-        create: [
-          { categoryId: createdCategories['alimentacao'] },
-        ],
-      },
-    },
-  });
-
-  // 8. Seed sample transactions
-  await prisma.transaction.createMany({
-    data: [
-      {
-        workspaceId: workspace.id,
-        entityId: pjEntity.id,
-        categoryId: createdCategories['servicos-prestados'],
-        type: 'receita',
-        amount: 3500.0,
-        description: 'Desenvolvimento de Landing Page - Cliente Alfa',
-        paymentMethod: 'PIX',
-        transactionDate: new Date('2026-11-01T10:00:00Z'),
-        status: 'CONFIRMED',
-      },
-      {
-        workspaceId: workspace.id,
-        entityId: pjEntity.id,
-        categoryId: createdCategories['tecnologia'],
-        type: 'despesa',
-        amount: 149.9,
-        description: 'Assinatura Claude / Vercel Pro',
-        paymentMethod: 'CREDIT_CARD',
-        transactionDate: new Date('2026-11-02T14:30:00Z'),
-        status: 'CONFIRMED',
-      },
-      {
-        workspaceId: workspace.id,
-        entityId: pfEntity.id,
-        categoryId: createdCategories['alimentacao'],
-        type: 'despesa',
-        amount: 45.0,
-        description: 'Almoço Executivo',
-        paymentMethod: 'DEBIT_CARD',
-        transactionDate: new Date('2026-11-03T12:15:00Z'),
-        status: 'CONFIRMED',
-      },
-    ],
-  });
-
-  console.log('✅ Seed completed successfully:');
-  console.log(`   User: demo@meister.com (Senha123@)`);
-  console.log(`   Workspace: ${workspace.name} (${workspace.id})`);
 }
 
-main()
-  .catch((e) => {
-    console.error('❌ Seed failed:', e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
+export async function seedDemoUser() {
+  const email = 'demo@meister.com';
+  const rawPassword = 'senha123';
+
+  let user = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: 'insensitive' } },
   });
+
+  if (!user) {
+    console.log(`Creating demo user: ${email}...`);
+    const passwordHash = await bcrypt.hash(rawPassword, 10);
+    user = await prisma.user.create({
+      data: {
+        name: 'Lucas MEI',
+        email,
+        passwordHash,
+        accountType: 'mei',
+      },
+    });
+
+    const provision = await provisionWorkspace({
+      userId: user.id,
+      accountType: 'mei',
+      workspaceName: 'Workspace Demonstração',
+    });
+
+    await seedDefaultCategories({
+      workspaceId: provision.workspaceId,
+      userId: user.id,
+      isMei: true,
+    });
+  }
+
+  const scope = await resolveScopeForUser(user.id);
+  const pjEntityId = scope.defaultEntityIds.pj!;
+
+  // Complete business profile
+  await updateBusinessProfile(scope, {
+    entityId: pjEntityId,
+    cnpj: '11.222.333/0001-81',
+    legalName: 'Lucas MEI Soluções Tecnológicas',
+    openedOn: '2026-01-10',
+    activity: 'servicos',
+  });
+
+  // Create Jar Plan if not exists
+  const existingPlan = await prisma.jarPlan.findFirst({
+    where: { workspaceId: scope.workspaceId, active: true },
+  });
+
+  if (!existingPlan) {
+    await createJarPlan(scope, {
+      templateSlug: 'mei-empresa',
+      entityId: pjEntityId,
+    });
+  }
+
+  // Ensure DAS charges
+  await ensureDasCharges(scope);
+
+  // Create some sample transactions if none
+  const existingTx = await prisma.transaction.count({
+    where: { workspaceId: scope.workspaceId },
+  });
+
+  if (existingTx === 0) {
+    const categories = await prisma.category.findMany({
+      where: { workspaceId: scope.workspaceId },
+    });
+
+    const servicosCat = categories.find((c) => c.slug === 'servicos' || c.type === 'receita');
+    const softwareCat = categories.find((c) => c.slug === 'software' || c.type === 'despesa');
+
+    if (servicosCat) {
+      await prisma.transaction.create({
+        data: {
+          workspaceId: scope.workspaceId,
+          userId: user.id,
+          entityId: pjEntityId,
+          categoryId: servicosCat.id,
+          type: 'receita',
+          amount: 4500.0,
+          description: 'Consultoria de Desenvolvimento Web',
+          transactionDate: new Date(),
+          paymentMethod: 'pix',
+        },
+      });
+
+      await prisma.transaction.create({
+        data: {
+          workspaceId: scope.workspaceId,
+          userId: user.id,
+          entityId: pjEntityId,
+          categoryId: servicosCat.id,
+          type: 'receita',
+          amount: 3200.0,
+          description: 'Projeto de Integração de Sistemas',
+          transactionDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+          paymentMethod: 'pix',
+        },
+      });
+    }
+
+    if (softwareCat) {
+      await prisma.transaction.create({
+        data: {
+          workspaceId: scope.workspaceId,
+          userId: user.id,
+          entityId: pjEntityId,
+          categoryId: softwareCat.id,
+          type: 'despesa',
+          amount: 450.0,
+          description: 'Assinatura Servidor Cloud & Domínio',
+          transactionDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+          paymentMethod: 'cartao_credito',
+        },
+      });
+    }
+  }
+
+  console.log('Demo user and sample data verified & fully configured!');
+}
+
+async function main() {
+  console.log('Seeding fiscal parameters...');
+  await seedFiscalParameters();
+  console.log('Seeding demo user and workspace...');
+  await seedDemoUser();
+  console.log('Seeding completed successfully.');
+}
+
+if (process.argv[1]?.includes('seed.ts')) {
+  main()
+    .catch((err) => {
+      console.error(err);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}
