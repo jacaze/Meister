@@ -1,95 +1,99 @@
 export function escapeMarkdownV2(text: string): string {
-  // Characters that must be escaped in Telegram MarkdownV2:
-  // _ * [ ] ( ) ~ ` > # + - = | { } . !
-  return text.replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
+  // Characters reserved in MarkdownV2: _ * [ ] ( ) ~ ` > # + - = | { } . !
+  return text.replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, '\\$&');
 }
 
-export function formatCurrencyPtBr(centsOrAmount: bigint | number | string): string {
-  let num: number;
-  if (typeof centsOrAmount === 'bigint') {
-    num = Number(centsOrAmount) / 100;
-  } else if (typeof centsOrAmount === 'string') {
-    num = parseFloat(centsOrAmount);
-  } else {
-    num = centsOrAmount;
-  }
-  return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+export function formatBrl(amount: string | number): string {
+  const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(isNaN(num) ? 0 : num);
 }
 
-export const TelegramMessagesPtBr = {
-  welcomeUnlinked: (botUsername?: string) =>
-    `👋 *Olá\\! Bem\\-vindo ao Meister*\n\n` +
-    `Para conectar sua conta com segurança, acesse as *Configurações* do seu painel Meister no computador ou celular e clique em *Conectar Telegram*\\.\n\n` +
-    `Ou use o comando:\n` +
-    `\`/start <seu_token_de_vinculacao>\``,
+export const MessagesPtBr = {
+  welcomeUnlinked: (botUsername: string) =>
+    `👋 *Olá\\! Eu sou o assistente financeiro do MEIster\\.*\n\n` +
+    `Para vincular sua conta e lançar despesas/receitas direto por aqui, acesse o MEIster na web em *Configurações ➔ Conexões ➔ Telegram* e clique em *Vincular*\\.`,
 
-  linkSuccess: (workspaceName: string) =>
-    `🎉 *Conta conectada com sucesso\\!*\n\n` +
-    `Seu Telegram está vinculado ao workspace *${escapeMarkdownV2(workspaceName)}*\\.\n\n` +
-    `Agora você pode enviar fotos de notas ou mensagens em texto como:\n` +
-    `• _"Gastei 45 no almoço hoje no pix"_\n` +
-    `• _"Recebi 1200 do cliente ABC"_\n` +
-    `• _"/saldo"_, _"/limite"_, _"/potes"_`,
+  linkSuccess: (userName: string, workspaceName: string) =>
+    `🎉 *Conta vinculada com sucesso\\!*\n\n` +
+    `Olá, *${escapeMarkdownV2(userName)}*\\! Agora suas mensagens no Telegram serão registradas diretamente no workspace *${escapeMarkdownV2(workspaceName)}*\\.\n\n` +
+    `💡 *Exemplos do que você pode me mandar:*\n` +
+    `• _"Gastei 45 no almoço no débito"_\n` +
+    `• _"Recebi 1500 de consultoria via Pix"_\n` +
+    `• _"Paguei 120 de gasolina ontem"_\n` +
+    `• Comandos: /saldo, /limite, /das, /potes ou /ajuda\\.`,
 
-  helpText: () =>
-    `🧭 *Comandos Disponíveis:*\n\n` +
-    `• \`/saldo\` \\- Ver o saldo total consolidado\n` +
-    `• \`/limite\` \\- Termômetro de faturamento anual do MEI\n` +
-    `• \`/das\` \\- Status da guia DAS do mês\n` +
-    `• \`/potes\` \\- Situação dos potes de orçamento\n` +
-    `• \`/ultimos\` \\- Ver os últimos 5 lançamentos\n` +
-    `• \`/ajuda\` \\- Mostra esta mensagem de ajuda\n\n` +
-    `💡 *Lançamentos Rápidos:*\n` +
-    `Envie uma mensagem em linguagem natural, por exemplo:\n` +
-    `_"Comprei materiais elétricos 180 no débito ontem"_`,
+  alreadyLinked:
+    `ℹ️ *Este chat já está vinculado à sua conta MEIster\\.*\n\nEnvie uma receita, despesa ou use /ajuda para ver os comandos\\.`,
 
-  proposalDraft: (data: {
+  invalidOrExpiredToken:
+    `❌ *Link de vínculo inválido ou expirado\\.*\n\nPor favor, gere um novo link no painel web do MEIster e tente novamente\\.`,
+
+  help:
+    `🤖 *Comandos do MEIster Assistente*\n\n` +
+    `• /saldo — Saldo consolidado das contas\n` +
+    `• /limite — Termômetro do limite anual do MEI\n` +
+    `• /das — Situação e valor do DAS do mês\n` +
+    `• /potes — Situação dos potes financeiros\n` +
+    `• /ultimos — Últimos lançamentos registrados\n` +
+    `• /desvincular — Desconecta o Telegram da sua conta\n` +
+    `• /ajuda — Exibe esta mensagem\n\n` +
+    `_Você também pode simplesmente digitar qualquer lançamento em linguagem natural ou mandar fotos de notas fiscais\\._`,
+
+  proposalReady: (draft: {
     type: 'receita' | 'despesa';
-    amountFormatted: string;
+    amount: string;
     description: string;
     categoryName: string;
-    dateFormatted: string;
+    date: string;
     scope: 'pj' | 'pf';
   }) => {
-    const icon = data.type === 'receita' ? '🟢' : '🔴';
-    const typeLabel = data.type === 'receita' ? 'Receita' : 'Despesa';
-    const scopeLabel = data.scope === 'pj' ? 'Empresa (PJ)' : 'Pessoal (PF)';
+    const icon = draft.type === 'receita' ? '🟢' : '🔴';
+    const typeLabel = draft.type === 'receita' ? 'Receita' : 'Despesa';
+    const scopeLabel = draft.scope === 'pj' ? 'Empresa (MEI)' : 'Pessoal (PF)';
 
     return (
-      `📝 *Proposta de Lançamento*\n\n` +
+      `🧾 *Proposta de Lançamento*\n\n` +
       `${icon} *Tipo:* ${escapeMarkdownV2(typeLabel)}\n` +
-      `💰 *Valor:* ${escapeMarkdownV2(data.amountFormatted)}\n` +
-      `🏷️ *Descrição:* ${escapeMarkdownV2(data.description)}\n` +
-      `📁 *Categoria:* ${escapeMarkdownV2(data.categoryName)}\n` +
-      `📅 *Data:* ${escapeMarkdownV2(data.dateFormatted)}\n` +
-      `🏢 *Conta:* ${escapeMarkdownV2(scopeLabel)}\n\n` +
+      `💰 *Valor:* *${escapeMarkdownV2(formatBrl(draft.amount))}*\n` +
+      `📝 *Descrição:* ${escapeMarkdownV2(draft.description)}\n` +
+      `🏷️ *Categoria:* ${escapeMarkdownV2(draft.categoryName)}\n` +
+      `📅 *Data:* ${escapeMarkdownV2(draft.date)}\n` +
+      `🏢 *Entidade:* ${escapeMarkdownV2(scopeLabel)}\n\n` +
       `_Deseja confirmar este lançamento?_`
     );
   },
 
-  proposalConfirmed: (data: {
-    amountFormatted: string;
+  proposalConfirmed: (res: {
     description: string;
-    jarName?: string;
-    jarPercent?: number;
-    meiRemaining?: string;
+    amount: string;
+    type: string;
+    impact?: {
+      jarName?: string;
+      jarPercentUsed?: number;
+      isJarWarning?: boolean;
+      meiAnnualLimit?: number;
+      meiPercentUsed?: number;
+    };
   }) => {
-    let msg = `✅ *Lançamento confirmado com sucesso\\!*\n` +
-      `💰 *${escapeMarkdownV2(data.amountFormatted)}* \\- ${escapeMarkdownV2(data.description)}\n`;
+    let msg = `✅ *Lançamento confirmado com sucesso\\!*\n\n` +
+      `• *${escapeMarkdownV2(res.description)}* — *${escapeMarkdownV2(formatBrl(res.amount))}*\n`;
 
-    if (data.jarName && data.jarPercent !== undefined) {
-      msg += `\n🏺 *Pote:* ${escapeMarkdownV2(data.jarName)} (${data.jarPercent}% utilizado)`;
+    if (res.impact?.jarName && res.impact?.jarPercentUsed !== undefined) {
+      const warn = res.impact.isJarWarning ? ' ⚠️' : '';
+      msg += `\n📦 *Pote ${escapeMarkdownV2(res.impact.jarName)}:* ${escapeMarkdownV2(res.impact.jarPercentUsed.toFixed(1))}% utilizado${warn}`;
     }
-    if (data.meiRemaining) {
-      msg += `\n📊 *MEI:* ${escapeMarkdownV2(data.meiRemaining)} restantes para o teto anual`;
+
+    if (res.impact?.meiPercentUsed !== undefined) {
+      msg += `\n📊 *Termômetro MEI:* ${escapeMarkdownV2(res.impact.meiPercentUsed.toFixed(1))}% do teto anual`;
     }
+
     return msg;
   },
 
-  proposalCanceled: () => `❌ *Proposta cancelada com sucesso\\.*`,
+  proposalCancelled: `❌ *Proposta cancelada com sucesso\\.* O lançamento foi descartado\\.`,
 
-  notUnderstood: () =>
-    `🤔 Não entendi o lançamento financeiro\\.\n` +
-    `Tente enviar o valor e a descrição, por exemplo:\n` +
-    `_"Gastei 50 no mercado hoje no pix"_`,
+  notUnderstood: `🤔 *Não consegui identificar um lançamento financeiro\\.*\n\nTente algo como: _"Gastei 50 no almoço"_ ou _"Recebi 2500 de serviço via Pix"_\\.`,
 };

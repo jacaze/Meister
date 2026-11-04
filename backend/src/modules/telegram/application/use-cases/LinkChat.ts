@@ -1,61 +1,79 @@
+import crypto from 'node:crypto';
 import prisma from '../../../../config/prisma.js';
-import { ValidationError } from '../../../../shared/index.js';
+import type { MessagingChannel } from '../ports/messaging-channel.js';
+import { MessagesPtBr } from '../../domain/messages.pt-BR.js';
+import { resolveScopeForUser } from '../../../workspace/public.js';
 
 export interface LinkChatInput {
-  readonly token: string;
   readonly chatId: string;
-  readonly telegramUserId: string;
-  readonly username?: string;
-  readonly firstName?: string;
+  readonly telegramUserId?: string;
+  readonly token: string;
+  readonly channel: MessagingChannel;
 }
 
-export async function linkChat(input: LinkChatInput): Promise<{ workspaceId: string; workspaceName: string }> {
-  const linkToken = await prisma.telegramLinkToken.findUnique({
-    where: { token: input.token },
-    include: { workspace: true },
+export type LinkChatResult =
+  | { readonly success: true; readonly userName: string; readonly workspaceName: string }
+  | { readonly success: false; readonly reason: 'invalid_or_expired' | 'already_linked' };
+
+export async function linkChat(input: LinkChatInput): Promise<LinkChatResult> {
+  const tokenHash = crypto.createHash('sha256').update(input.token.trim()).digest('hex');
+
+  const tokenRecord = await prisma.telegramLinkToken.findFirst({
+    where: {
+      tokenHash,
+      usedAt: null,
+      expiresAt: { gt: new Date() },
+    },
+    include: { user: true },
   });
 
-  if (!linkToken) {
-    throw new ValidationError('Token de vinculação inválido.');
+  if (!tokenRecord) {
+    await input.channel.sendText(input.chatId, MessagesPtBr.invalidOrExpiredToken);
+    return { success: false, reason: 'invalid_or_expired' };
   }
 
-  if (linkToken.consumedAt || linkToken.expiresAt < new Date()) {
-    throw new ValidationError('Este token de vinculação expirou ou já foi utilizado.');
-  }
-
-  // Transaction: consume token + upsert chat connection
-  const res = await prisma.$transaction(async (tx) => {
-    await tx.telegramLinkToken.update({
-      where: { id: linkToken.id },
-      data: { consumedAt: new Date() },
-    });
-
-    await tx.telegramChatConnection.upsert({
-      where: { chatId: input.chatId },
-      create: {
-        workspaceId: linkToken.workspaceId,
-        userId: linkToken.userId,
-        chatId: input.chatId,
-        telegramUserId: input.telegramUserId,
-        username: input.username,
-        firstName: input.firstName,
-        status: 'active',
-      },
-      update: {
-        workspaceId: linkToken.workspaceId,
-        userId: linkToken.userId,
-        telegramUserId: input.telegramUserId,
-        username: input.username,
-        firstName: input.firstName,
-        status: 'active',
-      },
-    });
-
-    return linkToken.workspace;
+  // Resolve scope for user to get workspace
+  const scope = await resolveScopeForUser(tokenRecord.userId);
+  const workspace = await prisma.workspace.findUnique({
+    where: { id: scope.workspaceId },
   });
+
+  // Upsert telegram link for this chatId
+  await prisma.telegramLink.upsert({
+    where: { chatId: input.chatId },
+    create: {
+      userId: tokenRecord.userId,
+      workspaceId: scope.workspaceId,
+      chatId: input.chatId,
+      telegramUserId: input.telegramUserId ?? null,
+      status: 'ativo',
+    },
+    update: {
+      userId: tokenRecord.userId,
+      workspaceId: scope.workspaceId,
+      telegramUserId: input.telegramUserId ?? null,
+      status: 'ativo',
+      revokedAt: null,
+    },
+  });
+
+  // Mark token as used
+  await prisma.telegramLinkToken.update({
+    where: { id: tokenRecord.id },
+    data: { usedAt: new Date() },
+  });
+
+  const userName = tokenRecord.user.name;
+  const workspaceName = workspace?.name ?? 'Meu Workspace';
+
+  await input.channel.sendText(
+    input.chatId,
+    MessagesPtBr.linkSuccess(userName, workspaceName)
+  );
 
   return {
-    workspaceId: res.id,
-    workspaceName: res.name,
+    success: true,
+    userName,
+    workspaceName,
   };
 }

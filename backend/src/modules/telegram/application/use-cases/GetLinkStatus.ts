@@ -1,38 +1,44 @@
 import prisma from '../../../../config/prisma.js';
-import { assertCanRead, type WorkspaceScope } from '../../../../shared/index.js';
+import type { WorkspaceScope } from '../../../../shared/index.js';
 
 export interface TelegramLinkStatus {
-  readonly isLinked: boolean;
+  readonly linked: boolean;
   readonly chatId?: string;
-  readonly username?: string;
-  readonly firstName?: string;
-  readonly linkedAt?: Date;
-  readonly botUsername?: string;
+  readonly linkedAt?: string;
 }
 
-export async function getLinkStatus(scope: WorkspaceScope): Promise<TelegramLinkStatus> {
-  assertCanRead(scope);
-
-  const connection = await prisma.telegramChatConnection.findFirst({
+export async function getTelegramLinkStatus(scope: WorkspaceScope): Promise<TelegramLinkStatus> {
+  const link = await prisma.telegramLink.findFirst({
     where: {
+      userId: scope.actorUserId,
       workspaceId: scope.workspaceId,
-      status: 'active',
+      status: 'ativo',
     },
-    orderBy: { createdAt: 'desc' },
   });
 
-  const botUsername = process.env.TELEGRAM_BOT_USERNAME || 'MeisterAssistenteBot';
-
-  if (!connection) {
-    return { isLinked: false, botUsername };
+  if (!link) {
+    return { linked: false };
   }
 
   return {
-    isLinked: true,
-    chatId: connection.chatId,
-    username: connection.username ?? undefined,
-    firstName: connection.firstName ?? undefined,
-    linkedAt: connection.createdAt,
-    botUsername,
+    linked: true,
+    chatId: link.chatId,
+    linkedAt: link.linkedAt.toISOString(),
   };
+}
+
+export async function unlinkChat(scope: WorkspaceScope): Promise<{ success: boolean }> {
+  await prisma.telegramLink.updateMany({
+    where: {
+      userId: scope.actorUserId,
+      workspaceId: scope.workspaceId,
+      status: 'ativo',
+    },
+    data: {
+      status: 'revogado',
+      revokedAt: new Date(),
+    },
+  });
+
+  return { success: true };
 }
