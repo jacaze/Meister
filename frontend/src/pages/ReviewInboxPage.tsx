@@ -156,7 +156,12 @@ export const ReviewInboxPage: React.FC = () => {
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || 'Erro ao iniciar Pluggy Connect.';
       alert(msg);
-      if (err.response?.data?.message?.includes('Credenciais')) {
+      if (
+        msg.includes('Credenciais') ||
+        msg.includes('autenticação') ||
+        msg.includes('invalid') ||
+        msg.includes('401')
+      ) {
         setIsConfigModalOpen(true);
       }
     } finally {
