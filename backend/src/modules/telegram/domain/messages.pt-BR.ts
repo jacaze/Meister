@@ -37,6 +37,9 @@ export const MessagesPtBr = {
     `• /limite — Termômetro do limite anual do MEI\n` +
     `• /das — Situação e valor do DAS do mês\n` +
     `• /potes — Situação dos potes financeiros\n` +
+    `• /insights — Dicas e análises inteligentes das suas finanças\n` +
+    `• /resumo — Resumo financeiro do mês em 3 pontos\n` +
+    `• /perguntar <texto> — Pergunte aos seus números\n` +
     `• /ultimos — Últimos lançamentos registrados\n` +
     `• /desvincular — Desconecta o Telegram da sua conta\n` +
     `• /ajuda — Exibe esta mensagem\n\n` +

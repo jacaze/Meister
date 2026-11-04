@@ -9,6 +9,7 @@ import JarsPage from './pages/JarsPage.js';
 import DasPage from './pages/DasPage.js';
 import ReportsPage from './pages/ReportsPage.js';
 import ProfilePage from './pages/ProfilePage.js';
+import InsightsPage from './pages/InsightsPage.js';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { token, loading } = useAuth();
@@ -74,6 +75,7 @@ export const App: React.FC = () => {
             <Route index element={<DashboardPage />} />
             <Route path="transacoes" element={<TransactionsPage />} />
             <Route path="potes" element={<JarsPage />} />
+            <Route path="insights" element={<InsightsPage />} />
             <Route path="impostos" element={<DasPage />} />
             <Route path="relatorios" element={<ReportsPage />} />
             <Route path="perfil" element={<ProfilePage />} />

@@ -55,6 +55,9 @@ model User {
   telegramLinks  TelegramLink[]
   linkTokens     TelegramLinkToken[]
   proposals      Proposal[]
+  insights       Insight[]
+  insightFeedbacks InsightFeedback[]
+  insightPreferences InsightPreference[]
 
   @@map("users")
 }
@@ -110,6 +113,7 @@ model Workspace {
   telegramLinks        TelegramLink[]
   proposals            Proposal[]
   transactionAudits    TransactionAudit[]
+  insights             Insight[]
 
   @@map("workspaces")
 }
@@ -146,6 +150,7 @@ model Entity {
   dasCharges        DasCharge[]
   limitAlerts       LimitAlert[]
   jarPlans          JarPlan[]
+  insights          Insight[]
 
   @@index([workspaceId, active])
   @@map("entities")
@@ -519,4 +524,69 @@ model AiRun {
 
   @@index([inputHash])
   @@map("ai_runs")
+}
+
+model Insight {
+  id              String    @id @default(uuid())
+  workspaceId     String    @map("workspace_id")
+  userId          String?   @map("user_id")
+  entityId        String?   @map("entity_id")
+  detectorId      String    @map("detector_id")
+  detectorVersion String    @default("1.0") @map("detector_version")
+  period          String    // e.g. "2026-11"
+  severity        String    // info | atencao | alerta
+  confidence      String    @default("alta") // alta | estimativa
+  metrics         Json
+  actions         Json?
+  narrationText   String    @map("narration_text")
+  narrationSource String    @default("template") @map("narration_source") // template | llm
+  templateId      String?   @map("template_id")
+  promptVersion   String?   @map("prompt_version")
+  dedupeKey       String    @unique @map("dedupe_key")
+  status          String    @default("nova") // nova | vista | dispensada | acao_tomada | expirada
+  createdAt       DateTime  @default(now()) @map("created_at")
+  seenAt          DateTime? @map("seen_at")
+  expiresAt       DateTime? @map("expires_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  entity    Entity?   @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  feedbacks InsightFeedback[]
+
+  @@index([workspaceId, entityId, status])
+  @@index([workspaceId, createdAt])
+  @@map("insights")
+}
+
+model InsightFeedback {
+  id        String   @id @default(uuid())
+  insightId String   @map("insight_id")
+  userId    String   @map("user_id")
+  value     String   // util | inutil
+  reason    String?  // nao_e_util | errado | repetitivo | outro
+  createdAt DateTime @default(now()) @map("created_at")
+
+  insight Insight @relation(fields: [insightId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([insightId])
+  @@map("insight_feedbacks")
+}
+
+model InsightPreference {
+  id           String    @id @default(uuid())
+  userId       String    @map("user_id")
+  detectorId   String?   @map("detector_id")
+  enabled      Boolean   @default(true)
+  sensitivity  String    @default("normal") // baixa | normal | alta
+  aiNarration  Boolean   @default(false) @map("ai_narration")
+  snoozedUntil DateTime? @map("snoozed_until")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, detectorId])
+  @@map("insight_preferences")
 }
