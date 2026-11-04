@@ -84,14 +84,19 @@ export const BankConnectionsCard: React.FC<BankConnectionsCardProps> = ({
 
   const formatDate = (isoString: string | null) => {
     if (!isoString) return 'Nunca sincronizado';
-    const d = new Date(isoString);
-    return d.toLocaleString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    try {
+      const d = new Date(isoString);
+      if (isNaN(d.getTime())) return 'Nunca sincronizado';
+      return d.toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return 'Nunca sincronizado';
+    }
   };
 
   return (
@@ -164,7 +169,7 @@ export const BankConnectionsCard: React.FC<BankConnectionsCardProps> = ({
                       <div>
                         <h4 className="text-sm font-bold text-white">{conn.institution}</h4>
                         <span className="text-[10px] text-[#99907b]">
-                          {conn.accounts.length} {conn.accounts.length === 1 ? 'conta' : 'contas'} vinculada(s)
+                          {(conn.accounts || []).length} {(conn.accounts || []).length === 1 ? 'conta' : 'contas'} vinculada(s)
                         </span>
                       </div>
                     </div>
@@ -182,7 +187,7 @@ export const BankConnectionsCard: React.FC<BankConnectionsCardProps> = ({
 
                   {/* Accounts badges */}
                   <div className="flex flex-wrap gap-1.5">
-                    {conn.accounts.map((acc) => (
+                    {(conn.accounts || []).map((acc) => (
                       <span
                         key={acc.id}
                         className="text-[11px] font-medium px-2 py-0.5 rounded-lg bg-[#ffffff08] border border-[#ffffff0f] text-[#ccc]"

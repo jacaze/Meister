@@ -16,8 +16,11 @@ export interface SavePluggyConfigInput {
 }
 
 function updateEnvFile(key: string, value: string | null) {
+  if (process.env.NODE_ENV === 'test') return;
   try {
-    const envPath = path.resolve(process.cwd(), '.env');
+    const rootEnv = path.resolve(process.cwd(), '.env');
+    const backendEnv = path.resolve(process.cwd(), 'backend', '.env');
+    const envPath = fs.existsSync(backendEnv) ? backendEnv : rootEnv;
     if (!fs.existsSync(envPath)) return;
 
     let content = fs.readFileSync(envPath, 'utf8');

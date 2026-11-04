@@ -52,10 +52,10 @@ export const ReviewInboxPage: React.FC = () => {
         api.get('/openfinance/connections'),
       ]);
 
-      const fetchedItems: BankTransactionItem[] = itemsRes.data.items || [];
+      const fetchedItems: BankTransactionItem[] = itemsRes.data?.items || [];
       setItems(fetchedItems);
       setCategories(catsRes.data || []);
-      setConnections(connsRes.data.connections || []);
+      setConnections(connsRes.data?.connections || []);
 
       // Pre-fill categories from suggested
       const catMap: Record<string, string> = {};
@@ -303,8 +303,8 @@ export const ReviewInboxPage: React.FC = () => {
           <div className="space-y-3">
             {items.map((it) => {
               const isIncome = it.direction === 'in';
-              const availableCategories = categories.filter(
-                (c) => c.type === (isIncome ? 'receita' : 'despesa')
+              const availableCategories = (categories || []).filter(
+                (c) => c && c.type === (isIncome ? 'receita' : 'despesa')
               );
 
               return (
@@ -351,7 +351,10 @@ export const ReviewInboxPage: React.FC = () => {
                           isIncome ? 'text-[#27ae60]' : 'text-white'
                         }`}
                       >
-                        {isIncome ? '+' : '-'} R$ {Number(it.amount).toFixed(2).replace('.', ',')}
+                        {isIncome ? '+' : '-'} R${' '}
+                        {(isNaN(Number(it.amount)) ? 0 : Number(it.amount))
+                          .toFixed(2)
+                          .replace('.', ',')}
                       </span>
                     </div>
 

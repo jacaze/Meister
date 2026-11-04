@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext.js';
+import ErrorBoundary from './components/common/ErrorBoundary.js';
 import AppLayout from './components/layout/AppLayout.js';
 import AuthPage from './pages/AuthPage.js';
 import DashboardPage from './pages/DashboardPage.js';
@@ -52,47 +53,49 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 export const App: React.FC = () => {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <Routes>
-          {/* Public Auth Route */}
-          <Route
-            path="/login"
-            element={
-              <PublicRoute>
-                <AuthPage />
-              </PublicRoute>
-            }
-          />
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AuthProvider>
+          <Routes>
+            {/* Public Auth Route */}
+            <Route
+              path="/login"
+              element={
+                <PublicRoute>
+                  <AuthPage />
+                </PublicRoute>
+              }
+            />
 
-          {/* Protected Application Routes */}
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <AppLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<DashboardPage />} />
-            <Route path="transacoes" element={<TransactionsPage />} />
-            <Route path="potes" element={<JarsPage />} />
-            <Route path="insights" element={<Navigate to="/" replace />} />
-            <Route path="revisao" element={<ReviewInboxPage />} />
-            <Route path="extratos" element={<ReviewInboxPage />} />
-            <Route path="openfinance" element={<ReviewInboxPage />} />
-            <Route path="open-finance" element={<ReviewInboxPage />} />
-            <Route path="educacao" element={<EducationPage />} />
-            <Route path="impostos" element={<DasPage />} />
-            <Route path="relatorios" element={<ReportsPage />} />
-            <Route path="perfil" element={<ProfilePage />} />
-          </Route>
+            {/* Protected Application Routes */}
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <AppLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<DashboardPage />} />
+              <Route path="transacoes" element={<TransactionsPage />} />
+              <Route path="potes" element={<JarsPage />} />
+              <Route path="insights" element={<Navigate to="/" replace />} />
+              <Route path="revisao" element={<ReviewInboxPage />} />
+              <Route path="extratos" element={<ReviewInboxPage />} />
+              <Route path="openfinance" element={<ReviewInboxPage />} />
+              <Route path="open-finance" element={<ReviewInboxPage />} />
+              <Route path="educacao" element={<EducationPage />} />
+              <Route path="impostos" element={<DasPage />} />
+              <Route path="relatorios" element={<ReportsPage />} />
+              <Route path="perfil" element={<ProfilePage />} />
+            </Route>
 
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </AuthProvider>
-    </BrowserRouter>
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </AuthProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 };
 
