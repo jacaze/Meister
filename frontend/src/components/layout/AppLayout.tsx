@@ -14,6 +14,7 @@ export const AppLayout: React.FC = () => {
     { label: 'Extratos & Revisão', path: '/revisao', icon: 'inbox' },
     { label: 'Potes Financeiros', path: '/potes', icon: 'savings' },
     { label: 'Insights & Dicas', path: '/insights', icon: 'lightbulb' },
+    { label: 'Educação & Lições', path: '/educacao', icon: 'school' },
     ...(user?.accountType === 'mei' ? [{ label: 'Impostos & DAS', path: '/impostos', icon: 'account_balance' }] : []),
     { label: 'Relatórios', path: '/relatorios', icon: 'analytics' },
     { label: 'Perfil & MEI', path: '/perfil', icon: 'storefront' },

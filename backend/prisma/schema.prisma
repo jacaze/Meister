@@ -58,6 +58,10 @@ model User {
   insights       Insight[]
   insightFeedbacks InsightFeedback[]
   insightPreferences InsightPreference[]
+  lessonProgresses   LessonProgress[]
+  nudgeLogs          NudgeLog[]
+  consents           UserConsent[]
+  auditLogs          AuditLog[]
 
   @@map("users")
 }
@@ -115,6 +119,8 @@ model Workspace {
   transactionAudits    TransactionAudit[]
   insights             Insight[]
   bankConnections      BankConnection[]
+  nudgeLogs            NudgeLog[]
+  auditLogs            AuditLog[]
 
   @@map("workspaces")
 }
@@ -652,4 +658,83 @@ model BankTransaction {
   @@unique([provider, externalId])
   @@index([connectionId, status])
   @@map("bank_transactions")
+}
+
+// ==========================================
+// Education & Contextual Nudges
+// ==========================================
+
+model LessonProgress {
+  id            String    @id @default(uuid())
+  userId        String    @map("user_id")
+  workspaceId   String    @map("workspace_id")
+  lessonSlug    String    @map("lesson_slug")
+  lessonVersion Int       @default(1) @map("lesson_version")
+  status        String    @default("iniciada") // iniciada | concluida
+  quizScore     Int?      @map("quiz_score")
+  quizAttempts  Int       @default(0) @map("quiz_attempts")
+  completedAt   DateTime? @map("completed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonSlug])
+  @@index([workspaceId, status])
+  @@map("lesson_progress")
+}
+
+model NudgeLog {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  workspaceId String    @map("workspace_id")
+  trigger     String
+  lessonSlug  String    @map("lesson_slug")
+  channel     String    @default("web") // web | telegram
+  dedupeKey   String    @unique @map("dedupe_key")
+  feedback    String?   // util | inutil
+  sentAt      DateTime  @default(now()) @map("sent_at")
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([userId, sentAt])
+  @@map("nudge_logs")
+}
+
+// ==========================================
+// Compliance, LGPD & Audit Log
+// ==========================================
+
+model UserConsent {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  kind      String   // terms | privacy | ai_processing | open_finance
+  version   String   @default("1.0")
+  accepted  Boolean  @default(true)
+  ipAddress String?  @map("ip_address")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kind, version])
+  @@map("user_consents")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  workspaceId String?  @map("workspace_id")
+  userId      String?  @map("user_id")
+  actor       String
+  action      String
+  target      String?
+  meta        Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user      User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([userId, createdAt])
+  @@map("audit_logs")
 }
