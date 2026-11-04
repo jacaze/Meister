@@ -8,7 +8,7 @@ export class AiVisionReceiptProvider implements FiscalReceiptProvider {
 
   constructor(apiKey?: string, model?: string) {
     this.apiKey = apiKey || process.env.GEMINI_API_KEY;
-    this.model = model || process.env.LLM_MODEL || 'gemini-1.5-flash';
+    this.model = model || process.env.LLM_MODEL || 'gemini-3.5-flash';
   }
 
   async parseReceipt(input: {

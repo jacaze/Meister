@@ -36,12 +36,12 @@ export const FloatingAssistantWidget: React.FC = () => {
   const [config, setConfig] = useState<AssistantConfig>({
     hasApiKey: false,
     maskedKey: null,
-    model: 'gemini-1.5-flash',
+    model: 'gemini-3.5-flash',
   });
 
   // Settings form states
   const [inputKey, setInputKey] = useState('');
-  const [selectedModel, setSelectedModel] = useState('gemini-1.5-flash');
+  const [selectedModel, setSelectedModel] = useState('gemini-3.5-flash');
   const [configLoading, setConfigLoading] = useState(false);
   const [configStatus, setConfigStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -472,9 +472,9 @@ export const FloatingAssistantWidget: React.FC = () => {
                     onChange={(e) => setSelectedModel(e.target.value)}
                     className="w-full px-3.5 py-2.5 bg-[#131313] border border-[#ffffff14] rounded-xl text-xs text-white focus:outline-none focus:border-[#f2c94c] transition"
                   >
-                    <option value="gemini-1.5-flash">gemini-1.5-flash (Recomendado, Rápido e Gratuito)</option>
-                    <option value="gemini-2.5-flash">gemini-2.5-flash (Nova Geração)</option>
-                    <option value="gemini-1.5-pro">gemini-1.5-pro (Raciocínio Profundo)</option>
+                    <option value="gemini-3.5-flash">gemini-3.5-flash (Recomendado, Rápido e Estável)</option>
+                    <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite (Ultra Leve)</option>
+                    <option value="gemini-3.8-flash">gemini-3.8-flash (Alta Performance)</option>
                   </select>
                 </div>
 

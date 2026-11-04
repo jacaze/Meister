@@ -68,7 +68,7 @@ export async function assistantRoutes(fastify: FastifyInstance) {
     return reply.status(200).send({
       hasApiKey,
       maskedKey,
-      model: process.env.LLM_MODEL || 'gemini-1.5-flash',
+      model: process.env.LLM_MODEL || 'gemini-3.5-flash',
     });
   });
 
@@ -78,7 +78,7 @@ export async function assistantRoutes(fastify: FastifyInstance) {
     const rawKey = typeof body.apiKey === 'string' ? body.apiKey.trim() : null;
     const requestedModel = typeof body.model === 'string' && body.model.trim()
       ? body.model.trim()
-      : (process.env.LLM_MODEL || 'gemini-2.5-flash');
+      : (process.env.LLM_MODEL || 'gemini-3.5-flash');
 
     if (!rawKey) {
       // Clear key if empty
@@ -90,9 +90,9 @@ export async function assistantRoutes(fastify: FastifyInstance) {
       });
     }
 
-    // Try requested model, and fallback to latest available models (gemini-2.5-flash, gemini-1.5-flash)
+    // Try requested model, and fallback to latest available models (gemini-3.5-flash, gemini-3.5-flash-lite, gemini-3.8-flash)
     const candidateModels = Array.from(
-      new Set([requestedModel, 'gemini-2.5-flash', 'gemini-1.5-flash'])
+      new Set([requestedModel, 'gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.8-flash'])
     );
 
     let workingModel: string | null = null;

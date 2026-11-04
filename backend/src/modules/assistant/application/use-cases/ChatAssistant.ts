@@ -63,50 +63,56 @@ async function callGeminiChat(
   history: readonly ChatMessage[],
   userMessage: string
 ): Promise<string | null> {
-  try {
-    const contents: Array<{ role: string; parts: Array<{ text: string }> }> = [];
+  const modelsToTry = Array.from(new Set([model, 'gemini-3.5-flash-lite', 'gemini-3.5-flash']));
 
-    // Map history (up to last 6 messages)
-    const recentHistory = (history || []).slice(-6);
-    for (const msg of recentHistory) {
+  for (const m of modelsToTry) {
+    try {
+      const contents: Array<{ role: string; parts: Array<{ text: string }> }> = [];
+
+      // Map history (up to last 6 messages)
+      const recentHistory = (history || []).slice(-6);
+      for (const msg of recentHistory) {
+        contents.push({
+          role: msg.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: msg.content }],
+        });
+      }
+
+      // Add current user prompt
       contents.push({
-        role: msg.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: msg.content }],
+        role: 'user',
+        parts: [{ text: userMessage }],
       });
+
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          contents,
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 1000,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        console.warn(`[GeminiChat] Model ${m} returned ${response.status}. Trying next.`);
+        continue;
+      }
+
+      const data = await response.json();
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (typeof text === 'string' && text.trim()) {
+        return text.trim();
+      }
+    } catch (err) {
+      console.warn(`[GeminiChat] Error in generateContent with model ${m}:`, err);
     }
-
-    // Add current user prompt
-    contents.push({
-      role: 'user',
-      parts: [{ text: userMessage }],
-    });
-
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        contents,
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 1000,
-        },
-      }),
-    });
-
-    if (!response.ok) {
-      console.warn(`[GeminiChat] API status ${response.status}: ${response.statusText}`);
-      return null;
-    }
-
-    const data = await response.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    return typeof text === 'string' ? text.trim() : null;
-  } catch (err) {
-    console.warn('[GeminiChat] Error in generateContent:', err);
-    return null;
   }
+  return null;
 }
 
 export async function chatAssistant(
@@ -194,7 +200,7 @@ export async function chatAssistant(
 
   // 4. Generative AI with Gemini if key is provided
   const apiKey = process.env.GEMINI_API_KEY;
-  const model = process.env.LLM_MODEL || 'gemini-1.5-flash';
+  const model = process.env.LLM_MODEL || 'gemini-3.5-flash';
 
   if (apiKey) {
     // Gather workspace context for high-quality Gemini generation

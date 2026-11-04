@@ -7,7 +7,7 @@ export class GeminiExtractor implements LlmExtractor {
 
   constructor(apiKey?: string, model?: string) {
     this.apiKey = apiKey || process.env.GEMINI_API_KEY;
-    this.model = model || process.env.LLM_MODEL || 'gemini-1.5-flash';
+    this.model = model || process.env.LLM_MODEL || 'gemini-3.5-flash';
   }
 
   async extractFromText(input: ExtractFromTextInput): Promise<Extraction> {
@@ -36,38 +36,39 @@ ${input.text}
 </dado_do_usuario>
 Data de referência (hoje): ${input.referenceDateIso || new Date().toISOString().slice(0, 10)}`;
 
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`;
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: systemPrompt }] },
-          contents: [{ role: 'user', parts: [{ text: userContent }] }],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            temperature: 0.1,
-          },
-        }),
-      });
+    const candidateModels = Array.from(new Set([this.model, 'gemini-3.5-flash-lite', 'gemini-3.5-flash']));
+    for (const m of candidateModels) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${this.apiKey}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            contents: [{ role: 'user', parts: [{ text: userContent }] }],
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature: 0.1,
+            },
+          }),
+        });
 
-      if (!response.ok) {
-        console.warn(`[GeminiExtractor] API returned status ${response.status}. Using fallback parser.`);
-        return this.heuristicFallback(input.text, input.categories);
+        if (!response.ok) {
+          console.warn(`[GeminiExtractor] Model ${m} returned status ${response.status}. Trying next.`);
+          continue;
+        }
+
+        const rawJson = await response.json();
+        const textResponse = rawJson?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!textResponse) continue;
+
+        const parsedObj = JSON.parse(textResponse);
+        return ExtractionSchema.parse(parsedObj);
+      } catch (err) {
+        console.warn(`[GeminiExtractor] Error calling Gemini with model ${m}:`, err);
       }
-
-      const rawJson = await response.json();
-      const textResponse = rawJson?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!textResponse) {
-        return this.heuristicFallback(input.text, input.categories);
-      }
-
-      const parsedObj = JSON.parse(textResponse);
-      return ExtractionSchema.parse(parsedObj);
-    } catch (err) {
-      console.warn('[GeminiExtractor] Error calling Gemini API:', err);
-      return this.heuristicFallback(input.text, input.categories);
     }
+    return this.heuristicFallback(input.text, input.categories);
   }
 
   async extractFromImage(input: ExtractFromImageInput): Promise<Extraction> {
@@ -237,42 +238,31 @@ Extraia: total da compra (string decimal "0.00"), data, estabelecimento (merchan
       };
     }
 
+    const isQuestionOrGreeting =
+      /\b(ol[aá]|oi|bom dia|boa tarde|boa noite|dica|dicas|como|qual|quais|o que|por que|ajuda|ajudar|opini[aã]o|quem|onde)\b/i.test(clean);
+
     // Extract amount: "R$ 150,00", "50.00", "50,50", "150", "cinquentao"
     let amountStr: string | null = null;
+    const hasCurrencyPrefix = /(?:r\$\s*|\$\s*)/i.test(clean);
     const amountMatch = clean.match(/(?:r\$\s*)?(\d+(?:[.,]\d{1,2})?)/i);
-    if (amountMatch && amountMatch[1]) {
+
+    // Infer type: receita vs despesa
+    let type: 'receita' | 'despesa' | null = null;
+    const isReceita = /\b(recebi|ganhei|vendi|entrada|venda|faturei|faturamento|pagamento recebido|recebimento)\b/i.test(clean);
+    const isDespesa = /\b(gastei|paguei|comprei|despesa|custo|saida|sa[ií]da|almo[cç]o|gasolina|mercado|uber)\b/i.test(clean);
+
+    if (isReceita) {
+      type = 'receita';
+    } else if (isDespesa) {
+      type = 'despesa';
+    }
+
+    if (amountMatch && amountMatch[1] && (hasCurrencyPrefix || isReceita || isDespesa) && !isQuestionOrGreeting) {
       const numPart = amountMatch[1].replace(',', '.');
       const val = parseFloat(numPart);
       if (!isNaN(val) && val > 0) {
         amountStr = val.toFixed(2);
       }
-    }
-
-    // Infer type: receita vs despesa
-    let type: 'receita' | 'despesa' | null = null;
-    if (
-      clean.includes('recebi') ||
-      clean.includes('ganhei') ||
-      clean.includes('vendi') ||
-      clean.includes('entrada') ||
-      clean.includes('venda') ||
-      clean.includes('faturei') ||
-      clean.includes('pagamento recebido')
-    ) {
-      type = 'receita';
-    } else if (
-      clean.includes('gastei') ||
-      clean.includes('paguei') ||
-      clean.includes('comprei') ||
-      clean.includes('despesa') ||
-      clean.includes('custo') ||
-      clean.includes('saida') ||
-      clean.includes('saída')
-    ) {
-      type = 'despesa';
-    } else if (amountStr) {
-      // Default to despesa if typical spending statement
-      type = 'despesa';
     }
 
     // Payment method
