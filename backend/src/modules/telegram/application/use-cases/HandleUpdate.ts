@@ -2,6 +2,7 @@ import prisma from '../../../../config/prisma.js';
 import { resolveScopeForUser } from '../../../workspace/public.js';
 import { proposeFromText, confirmProposal, cancelProposal } from '../../../assistant/public.js';
 import { parseReceiptPhoto } from '../../../receipts/public.js';
+import { runDetectors, listInsights, buildMonthlyDigest, askFinances } from '../../../insights/public.js';
 import { getMeiLimit, listDas } from '../../../fiscal/public.js';
 import { getJarsStatus } from '../../../jars/public.js';
 import { listTransactions } from '../../../ledger/public.js';
@@ -365,6 +366,48 @@ export async function handleTelegramUpdate(
         `• ${escapeMarkdownV2(formatBrl(String(t.amount)))} em ${escapeMarkdownV2(t.transactionDate.toISOString().slice(0, 10))}\n\n`;
     }
     await channel.sendText(chatId, msgUltimos);
+    return;
+  }
+
+  if (text === '/insights') {
+    await runDetectors(scope).catch(() => {});
+    const insights = await listInsights(scope, { limit: 3 });
+    if (insights.length === 0) {
+      await channel.sendText(chatId, `💡 *Nenhuma anomalia ou alerta relevante encontrado no momento\\.* Suas finanças estão dentro do padrão habitual\\.`);
+      return;
+    }
+    let msgInsights = `💡 *Observações e Dicas Financeiras*\n\n`;
+    for (const ins of insights) {
+      const icon = ins.severity === 'alerta' ? '🚨' : ins.severity === 'atencao' ? '⚠️' : 'ℹ️';
+      msgInsights += `${icon} ${escapeMarkdownV2(ins.narrationText)}\n\n`;
+    }
+    msgInsights += `_Análise informativa — não é recomendação financeira\\._`;
+    await channel.sendText(chatId, msgInsights);
+    return;
+  }
+
+  if (text === '/resumo') {
+    const digest = await buildMonthlyDigest(scope);
+    let msgDigest = `📊 *Seu Mês em 3 Pontos \\(${escapeMarkdownV2(digest.label)}\\)*\n\n` +
+      `• *Receitas:* ${escapeMarkdownV2(digest.totalIncome)}\n` +
+      `• *Despesas:* ${escapeMarkdownV2(digest.totalExpense)}\n` +
+      `• *Resultado:* *${escapeMarkdownV2(digest.netResult)}*\n\n` +
+      `💡 *Destaques do Período:*\n`;
+    for (const p of digest.points) {
+      msgDigest += `• ${escapeMarkdownV2(p)}\n`;
+    }
+    await channel.sendText(chatId, msgDigest);
+    return;
+  }
+
+  if (text.startsWith('/perguntar')) {
+    const query = text.replace('/perguntar', '').trim();
+    if (!query) {
+      await channel.sendText(chatId, `❓ Digite sua dúvida após o comando\\. Exemplo: _/perguntar quanto gastei com alimentação este mês\\?_`);
+      return;
+    }
+    const answerRes = await askFinances(scope, query);
+    await channel.sendText(chatId, `💬 ${escapeMarkdownV2(answerRes.answer)}`);
     return;
   }
 
