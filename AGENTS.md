@@ -4,6 +4,17 @@ Este documento define as diretrizes inegociáveis de engenharia de software, qua
 
 ---
 
+## 📋 REGRA DE OURO #0: SEMPRE DAR UM PARECER ANTES DE EXECUTAR (ZERO AÇÃO ÀS CEGAS)
+
+1. **PARECER PRÉVIO OBRIGATÓRIO:**
+   - Antes de executar qualquer ação, alteração de código, migração de banco, início de comando ou configuração de ferramenta externa, a IA deve **obrigatoriamente apresentar um parecer prévio** (diagnóstico, impactos, arquivos que serão tocados, estratégia e riscos).
+2. **ALINHAMENTO COM O USUÁRIO:**
+   - Se a ação envolver decisões de arquitetura, ferramentas externas (túneis, webhooks, serviços de terceiros), custos de API ou mudança de escopo, a IA deve detalhar as opções, apresentar sua recomendação técnica e obter o aval do usuário antes de rodar.
+3. **TRANSPARÊNCIA TOTAL DE PROCESSAMENTO:**
+   - O usuário deve sempre saber com precisão o que está sendo processado localmente e o que é enviado para provedores externos (como Google Gemini API, Pluggy ou Telegram), evitando premissas ocultas ou consumo desnecessário de cotas.
+
+---
+
 ## 🛑 REGRA DE OURO #1: UMA COISA POR VEZ, BEM FEITA (ANTI-BATCHING)
 
 1. **PROIBIDO DESENVOLVER MÚLTIPLOS MÓDULOS EM LOTE:**
