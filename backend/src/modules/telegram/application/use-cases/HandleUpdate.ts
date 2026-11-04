@@ -1,402 +1,292 @@
 import prisma from '../../../../config/prisma.js';
-import type { MessagingChannel } from '../application/ports/messaging-channel.js';
-import { TelegramApiChannel } from '../infra/telegram-channel.js';
-import { decodeProposalCallback, encodeProposalCallback } from '../domain/callback-data.js';
-import {
-  escapeMarkdownV2,
-  formatCurrencyPtBr,
-  TelegramMessagesPtBr,
-} from '../domain/messages.pt-BR.js';
-import { linkChat } from './LinkChat.js';
-import { proposeFromText, confirmProposal, cancelProposal } from '../../assistant/public.js';
-import { getMeiLimit, getDasStatus } from '../../../fiscal/public.js';
+import { resolveScopeForUser } from '../../../workspace/public.js';
+import { proposeFromText, confirmProposal, cancelProposal } from '../../../assistant/public.js';
+import { getMeiLimit, listDas } from '../../../fiscal/public.js';
 import { getJarsStatus } from '../../../jars/public.js';
 import { listTransactions } from '../../../ledger/public.js';
-import type { WorkspaceScope } from '../../../../shared/index.js';
+import { MessagesPtBr, escapeMarkdownV2, formatBrl } from '../../domain/messages.pt-BR.js';
+import { decodeProposalCallback, encodeProposalCallback } from '../../domain/callback-data.js';
+import type { MessagingChannel } from '../ports/messaging-channel.js';
+import { linkChat } from './LinkChat.js';
+import { unlinkChat } from './GetLinkStatus.js';
 
 export interface TelegramUpdate {
-  update_id: number;
-  message?: {
-    message_id: number;
-    from: {
-      id: number;
-      is_bot: boolean;
-      first_name?: string;
-      username?: string;
-    };
-    chat: {
-      id: number;
-      type: string;
-      title?: string;
-      username?: string;
-      first_name?: string;
-    };
-    date: number;
-    text?: string;
+  readonly update_id: number | bigint;
+  readonly message?: {
+    readonly message_id: number;
+    readonly from?: { readonly id: number; readonly is_bot: boolean; readonly first_name?: string };
+    readonly chat: { readonly id: number | string; readonly type: string };
+    readonly text?: string;
   };
-  callback_query?: {
-    id: string;
-    from: {
-      id: number;
-      first_name?: string;
-      username?: string;
-    };
-    message?: {
-      message_id: number;
-      chat: {
-        id: number;
-      };
-    };
-    data?: string;
+  readonly callback_query?: {
+    readonly id: string;
+    readonly from: { readonly id: number; readonly first_name?: string };
+    readonly message?: { readonly message_id: number; readonly chat: { readonly id: number | string } };
+    readonly data?: string;
   };
 }
 
-export async function handleUpdate(
+export async function handleTelegramUpdate(
   update: TelegramUpdate,
-  channel: MessagingChannel = new TelegramApiChannel()
+  channel: MessagingChannel
 ): Promise<void> {
-  // 1. Handle Callback Query (Inline keyboard buttons)
-  if (update.callback_query && update.callback_query.data) {
-    const callback = update.callback_query;
-    const chatId = callback.message?.chat.id;
-    const messageId = callback.message?.message_id;
+  const updateId = BigInt(update.update_id);
 
-    if (!chatId || !messageId) {
-      await channel.answerCallbackQuery(callback.id);
-      return;
-    }
-
-    const parsed = decodeProposalCallback(callback.data);
-    if (!parsed) {
-      await channel.answerCallbackQuery(callback.id, 'Ação inválida.');
-      return;
-    }
-
-    // Find connection
-    const connection = await prisma.telegramChatConnection.findUnique({
-      where: { chatId: String(chatId) },
+  // 1. Deduplication with inbound_updates table
+  try {
+    const existing = await prisma.inboundUpdate.findUnique({
+      where: { updateId },
     });
+    if (existing && (existing.status === 'processada' || existing.status === 'ignorada')) {
+      return;
+    }
+  } catch {
+    // If inbound_updates table is inaccessible, proceed safely
+  }
 
-    if (!connection || connection.status !== 'active') {
-      await channel.answerCallbackQuery(callback.id, 'Chat não vinculado.');
+  // 2. Handle Callback Queries (Button Clicks)
+  if (update.callback_query && typeof update.callback_query.data === 'string') {
+    const cb = update.callback_query;
+    const callbackData = cb.data as string;
+    const chatId = String(cb.message?.chat.id);
+    const messageId = cb.message?.message_id;
+
+    await channel.answerCallback(cb.id);
+
+    const parsed = decodeProposalCallback(callbackData);
+    if (!parsed || !messageId) {
       return;
     }
 
-    // Resolve scope
-    const scope = await buildScope(connection.workspaceId, connection.userId);
+    const link = await prisma.telegramLink.findFirst({
+      where: { chatId, status: 'ativo' },
+    });
+    if (!link) return;
 
-    if (parsed.action === 'confirm') {
+    const scope = await resolveScopeForUser(link.userId);
+
+    if (parsed.action === 'c') {
       try {
-        const result = await confirmProposal(scope, parsed.proposalId);
-        await channel.answerCallbackQuery(callback.id, 'Lançamento confirmado!');
-
-        const confirmationMsg = TelegramMessagesPtBr.proposalConfirmed({
-          amountFormatted: formatCurrencyPtBr(result.amount),
-          description: result.description,
-          jarName: result.impact?.jarName,
-          jarPercent: result.impact?.jarPercentUsed,
-          meiRemaining:
-            result.impact?.meiAnnualLimit && result.impact?.meiAccumulatedGross !== undefined
-              ? formatCurrencyPtBr(
-                  Math.max(0, result.impact.meiAnnualLimit - result.impact.meiAccumulatedGross)
-                )
-              : undefined,
-        });
-
-        await channel.editMessageText(chatId, messageId, confirmationMsg, {
-          parseMode: 'MarkdownV2',
-        });
+        const res = await confirmProposal(scope, parsed.proposalId);
+        await channel.editMessageText(
+          chatId,
+          messageId,
+          MessagesPtBr.proposalConfirmed(res)
+        );
       } catch (err: any) {
-        await channel.answerCallbackQuery(callback.id, err.message || 'Erro ao confirmar.');
+        await channel.sendText(chatId, `⚠️ ${escapeMarkdownV2(err.message || 'Erro ao confirmar proposta.')}`);
       }
-      return;
-    }
-
-    if (parsed.action === 'cancel') {
+    } else if (parsed.action === 'x') {
       try {
         await cancelProposal(scope, parsed.proposalId);
-        await channel.answerCallbackQuery(callback.id, 'Proposta cancelada.');
-        await channel.editMessageText(chatId, messageId, TelegramMessagesPtBr.proposalCanceled(), {
-          parseMode: 'MarkdownV2',
-        });
+        await channel.editMessageText(chatId, messageId, MessagesPtBr.proposalCancelled);
       } catch (err: any) {
-        await channel.answerCallbackQuery(callback.id, err.message || 'Erro ao cancelar.');
+        await channel.sendText(chatId, `⚠️ ${escapeMarkdownV2(err.message || 'Erro ao cancelar proposta.')}`);
       }
-      return;
     }
-
-    await channel.answerCallbackQuery(callback.id);
     return;
   }
 
-  // 2. Handle Text Messages
-  if (update.message && update.message.text) {
-    const msg = update.message;
-    const chatId = String(msg.chat.id);
-    const rawText = msg.text.trim();
+  // 3. Handle Messages
+  const rawText = update.message?.text;
+  if (!update.message || typeof rawText !== 'string') {
+    return;
+  }
 
-    // Check /start command with optional linking token: "/start <token>"
-    if (rawText.startsWith('/start')) {
-      const parts = rawText.split(/\s+/);
-      const token = parts[1];
+  const msg = update.message;
+  if (msg.from?.is_bot) return;
 
-      if (!token) {
-        await channel.sendMessage(chatId, TelegramMessagesPtBr.welcomeUnlinked(), {
-          parseMode: 'MarkdownV2',
-        });
-        return;
-      }
+  const chatId = String(msg.chat.id);
+  const text = rawText.trim();
 
-      try {
-        const linked = await linkChat({
-          token,
-          chatId,
-          telegramUserId: String(msg.from.id),
-          username: msg.from.username,
-          firstName: msg.from.first_name,
-        });
+  // Check link
+  const link = await prisma.telegramLink.findFirst({
+    where: { chatId, status: 'ativo' },
+  });
 
-        await channel.sendMessage(chatId, TelegramMessagesPtBr.linkSuccess(linked.workspaceName), {
-          parseMode: 'MarkdownV2',
-        });
-      } catch (err: any) {
-        await channel.sendMessage(
-          chatId,
-          `⚠️ *Erro ao vincular:* ${escapeMarkdownV2(err.message || 'Token inválido ou expirado.')}`,
-          { parseMode: 'MarkdownV2' }
-        );
-      }
-      return;
-    }
-
-    // Check if chat is connected
-    const connection = await prisma.telegramChatConnection.findUnique({
-      where: { chatId },
-    });
-
-    if (!connection || connection.status !== 'active') {
-      await channel.sendMessage(chatId, TelegramMessagesPtBr.welcomeUnlinked(), {
-        parseMode: 'MarkdownV2',
-      });
-      return;
-    }
-
-    const scope = await buildScope(connection.workspaceId, connection.userId);
-
-    // Command /ajuda
-    if (rawText === '/ajuda' || rawText === '/help') {
-      await channel.sendMessage(chatId, TelegramMessagesPtBr.helpText(), {
-        parseMode: 'MarkdownV2',
-      });
-      return;
-    }
-
-    // Command /saldo
-    if (rawText === '/saldo') {
-      const transactions = await listTransactions(scope, { page: 1, limit: 100 });
-      let balance = 0;
-      for (const t of transactions.data) {
-        const val = Number(t.amount);
-        if (t.type === 'receita') balance += val;
-        else balance -= val;
-      }
-
-      const balanceFormatted = formatCurrencyPtBr(balance);
-      await channel.sendMessage(
+  // Handle /start with token
+  if (text.startsWith('/start')) {
+    const parts = text.split(/\s+/);
+    if (parts.length > 1 && parts[1]) {
+      await linkChat({
         chatId,
-        `💰 *Saldo Consolidado:* ${escapeMarkdownV2(balanceFormatted)}`,
-        { parseMode: 'MarkdownV2' }
-      );
+        telegramUserId: String(msg.from?.id),
+        token: parts[1],
+        channel,
+      });
       return;
     }
 
-    // Command /limite
-    if (rawText === '/limite') {
-      if (!scope.defaultEntityIds.pj) {
-        await channel.sendMessage(
-          chatId,
-          `ℹ️ Não há entidade MEI (PJ) configurada neste workspace.`,
-          { parseMode: 'MarkdownV2' }
-        );
-        return;
-      }
-
-      const mei = await getMeiLimit(scope, { entityId: scope.defaultEntityIds.pj });
-      const acumulado = formatCurrencyPtBr(Number(mei.faturamentoAno));
-      const limite = formatCurrencyPtBr(Number(mei.limite));
-      const restante = formatCurrencyPtBr(Math.max(0, Number(mei.limite) - Number(mei.faturamentoAno)));
-
-      const msgLimite =
-        `📊 *Termômetro do MEI (${mei.ano}):*\n\n` +
-        `• *Faturamento Acumulado:* ${escapeMarkdownV2(acumulado)}\n` +
-        `• *Teto Anual:* ${escapeMarkdownV2(limite)}\n` +
-        `• *Restante:* ${escapeMarkdownV2(restante)}\n` +
-        `• *Uso:* ${mei.percentualUtilizado}%\n` +
-        `• *Faixa:* ${escapeMarkdownV2(mei.status.toUpperCase())}`;
-
-      await channel.sendMessage(chatId, msgLimite, { parseMode: 'MarkdownV2' });
+    if (!link) {
+      await channel.sendText(chatId, MessagesPtBr.welcomeUnlinked('meister_financas_bot'));
       return;
     }
 
-    // Command /das
-    if (rawText === '/das') {
-      if (!scope.defaultEntityIds.pj) {
-        await channel.sendMessage(chatId, `ℹ️ Não há entidade MEI vinculada.`, {
-          parseMode: 'MarkdownV2',
-        });
-        return;
-      }
+    await channel.sendText(chatId, MessagesPtBr.alreadyLinked);
+    return;
+  }
 
-      const das = await getDasStatus(scope, { entityId: scope.defaultEntityIds.pj });
-      const current = das.guias[0];
-      if (!current) {
-        await channel.sendMessage(chatId, `ℹ️ Nenhuma guia DAS pendente encontrada.`, {
-          parseMode: 'MarkdownV2',
-        });
-        return;
-      }
+  if (!link) {
+    await channel.sendText(chatId, MessagesPtBr.welcomeUnlinked('meister_financas_bot'));
+    return;
+  }
 
-      const msgDas =
-        `🧾 *Guia DAS MEI (${current.competencia}):*\n\n` +
-        `• *Valor:* ${escapeMarkdownV2(formatCurrencyPtBr(Number(current.valor)))}\n` +
-        `• *Vencimento:* ${escapeMarkdownV2(current.vencimento)}\n` +
-        `• *Status:* ${escapeMarkdownV2(current.status.toUpperCase())}`;
+  const scope = await resolveScopeForUser(link.userId);
 
-      await channel.sendMessage(chatId, msgDas, { parseMode: 'MarkdownV2' });
+  // Command Routing
+  if (text === '/ajuda') {
+    await channel.sendText(chatId, MessagesPtBr.help);
+    return;
+  }
+
+  if (text === '/desvincular') {
+    await unlinkChat(scope);
+    await channel.sendText(chatId, `🔌 *Conta desvinculada com sucesso\\.* Você não receberá mais notificações por aqui\\. Use o painel web para reconectar quando quiser\\.`);
+    return;
+  }
+
+  if (text === '/saldo') {
+    const txs = await listTransactions(scope, { pageSize: 100 });
+    let total = 0;
+    for (const t of txs.items) {
+      total += t.type === 'receita' ? Number(t.amount) : -Number(t.amount);
+    }
+    await channel.sendText(chatId, `💰 *Saldo Consolidado:* *${escapeMarkdownV2(formatBrl(total))}*`);
+    return;
+  }
+
+  if (text === '/limite') {
+    if (!scope.defaultEntityIds.pj) {
+      await channel.sendText(chatId, `ℹ️ _Essa conta não possui um perfil MEI ativo associado\\._`);
       return;
     }
-
-    // Command /potes
-    if (rawText === '/potes') {
-      const jars = await getJarsStatus(scope);
-      if (jars.jars.length === 0) {
-        await channel.sendMessage(chatId, `ℹ️ Nenhum pote orçamentário configurado.`, {
-          parseMode: 'MarkdownV2',
-        });
-        return;
-      }
-
-      let text = `🏺 *Situação dos Potes de Orçamento:*\n\n`;
-      for (const j of jars.jars) {
-        const icon = j.status === 'ok' ? '🟢' : j.status === 'atencao' ? '🟡' : '🔴';
-        text += `${icon} *${escapeMarkdownV2(j.nome)}*: ${j.percentUsado}% utilizado ` +
-          `(${escapeMarkdownV2(formatCurrencyPtBr(j.gastoMes))} de ${escapeMarkdownV2(formatCurrencyPtBr(j.tetoMes))})\n`;
-      }
-
-      await channel.sendMessage(chatId, text, { parseMode: 'MarkdownV2' });
+    const mei = await getMeiLimit(scope, { entityId: scope.defaultEntityIds.pj });
+    if (!mei) {
+      await channel.sendText(chatId, `ℹ️ _Perfil MEI não encontrado\\._`);
       return;
     }
+    const msgLimite =
+      `📊 *Termômetro do MEI (${mei.ano})*\n\n` +
+      `• Faturamento Acumulado: *${escapeMarkdownV2(formatBrl(mei.faturamentoAno))}*\n` +
+      `• Teto Anual: *${escapeMarkdownV2(formatBrl(mei.limite))}*\n` +
+      `• Restante: *${escapeMarkdownV2(formatBrl(mei.restante))}*\n` +
+      `• Utilização: *${escapeMarkdownV2(mei.percentualUtilizado.toFixed(1))}%* \\(${escapeMarkdownV2(mei.status.toUpperCase())}\\)`;
+    await channel.sendText(chatId, msgLimite);
+    return;
+  }
 
-    // Command /ultimos
-    if (rawText === '/ultimos') {
-      const res = await listTransactions(scope, { page: 1, limit: 5 });
-      if (res.data.length === 0) {
-        await channel.sendMessage(chatId, `ℹ️ Nenhum lançamento recente encontrado.`, {
-          parseMode: 'MarkdownV2',
-        });
-        return;
-      }
-
-      let text = `📋 *Últimos 5 Lançamentos:*\n\n`;
-      for (const t of res.data) {
-        const icon = t.type === 'receita' ? '🟢' : '🔴';
-        const dateStr = t.transactionDate.toISOString().slice(0, 10);
-        text += `${icon} *${escapeMarkdownV2(formatCurrencyPtBr(t.amount))}* \\- ${escapeMarkdownV2(t.description)} ` +
-          `_(${escapeMarkdownV2(dateStr)})_\n`;
-      }
-
-      await channel.sendMessage(chatId, text, { parseMode: 'MarkdownV2' });
+  if (text === '/das') {
+    const dasList = await listDas(scope);
+    if (dasList.items.length === 0) {
+      await channel.sendText(chatId, `ℹ️ _Nenhuma guia DAS encontrada para o ano atual\\._`);
       return;
     }
+    let msgDas = `🏛️ *Situação das Guias DAS*\n\n`;
+    for (const d of dasList.items.slice(0, 3)) {
+      const statusIcon = d.status === 'pago' ? '✅' : d.status === 'vencido' ? '🔴' : '🟡';
+      msgDas += `${statusIcon} *Competência ${escapeMarkdownV2(d.competence)}*\n` +
+        `• Valor: *${escapeMarkdownV2(formatBrl(d.amount))}*\n` +
+        `• Vencimento: ${escapeMarkdownV2(d.dueDate)}\n` +
+        `• Status: *${escapeMarkdownV2(d.status.toUpperCase())}*\n\n`;
+    }
+    msgDas += `🔗 [Acessar Portal PGMEI para Gerar Guia](https://www8.receita.fazenda.gov.br/SimplesNacional/Aplicacoes/ATSPO/pgmei.app/)`;
+    await channel.sendText(chatId, msgDas);
+    return;
+  }
 
-    // Free text NLP parsing via Assistant module
+  if (text === '/potes') {
+    const jarsStatus = await getJarsStatus(scope);
+    if (jarsStatus.jars.length === 0) {
+      await channel.sendText(chatId, `ℹ️ _Você ainda não ativou um plano de potes financeiros\\. Acesse a aba Potes no painel web para começar\\._`);
+      return;
+    }
+    let msgJars = `🏺 *Seus Potes Financeiros*\n\n`;
+    for (const j of jarsStatus.jars) {
+      const icon = j.status === 'estourado' ? '🚨' : j.status === 'atencao' ? '⚠️' : '🟢';
+      msgJars += `${icon} *${escapeMarkdownV2(j.name)}*\n` +
+        `• Utilizado: *${escapeMarkdownV2(formatBrl(j.usado))}* / ${escapeMarkdownV2(formatBrl(j.alocado))} \\(${escapeMarkdownV2(j.percentUsado.toFixed(0))}%\\)\n` +
+        `• Disponível: ${escapeMarkdownV2(formatBrl(j.disponivel))}\n\n`;
+    }
+    await channel.sendText(chatId, msgJars);
+    return;
+  }
+
+  if (text === '/ultimos') {
+    const txs = await listTransactions(scope, { pageSize: 5 });
+    if (txs.items.length === 0) {
+      await channel.sendText(chatId, `ℹ️ _Nenhum lançamento encontrado ainda\\._`);
+      return;
+    }
+    let msgUltimos = `📋 *Últimos Lançamentos*\n\n`;
+    for (const t of txs.items) {
+      const icon = t.type === 'receita' ? '🟢' : '🔴';
+      msgUltimos += `${icon} *${escapeMarkdownV2(t.description)}*\n` +
+        `• ${escapeMarkdownV2(formatBrl(String(t.amount)))} em ${escapeMarkdownV2(t.transactionDate.toISOString().slice(0, 10))}\n\n`;
+    }
+    await channel.sendText(chatId, msgUltimos);
+    return;
+  }
+
+  // 4. Natural Language Processing (Assistant)
+  try {
     const outcome = await proposeFromText(scope, {
-      text: rawText,
-      sourceRef: `telegram:${msg.message_id}`,
+      text,
+      sourceRef: `tg:msg:${msg.message_id}`,
     });
 
     if (outcome.kind === 'proposal') {
-      const keyboard = [
-        [
-          {
-            text: '✅ Confirmar',
-            callback_data: encodeProposalCallback(outcome.proposalId, 'confirm'),
-          },
-          {
-            text: '❌ Cancelar',
-            callback_data: encodeProposalCallback(outcome.proposalId, 'cancel'),
-          },
+      const replyMarkup = {
+        inline_keyboard: [
+          [
+            {
+              text: '✅ Confirmar',
+              callback_data: encodeProposalCallback(outcome.proposalId, 'c'),
+            },
+            {
+              text: '❌ Cancelar',
+              callback_data: encodeProposalCallback(outcome.proposalId, 'x'),
+            },
+          ],
         ],
-      ];
+      };
 
-      const proposalText = TelegramMessagesPtBr.proposalDraft({
-        type: outcome.draft.type,
-        amountFormatted: formatCurrencyPtBr(outcome.draft.amount),
-        description: outcome.draft.description,
-        categoryName: outcome.draft.categoryName,
-        dateFormatted: outcome.draft.date,
-        scope: outcome.draft.scope,
-      });
-
-      await channel.sendMessage(chatId, proposalText, {
-        parseMode: 'MarkdownV2',
-        replyMarkup: { inline_keyboard: keyboard },
-      });
-      return;
-    }
-
-    if (outcome.kind === 'question') {
-      await channel.sendMessage(
+      await channel.sendText(
         chatId,
-        `❓ ${escapeMarkdownV2(outcome.questionText)}`,
-        { parseMode: 'MarkdownV2' }
+        MessagesPtBr.proposalReady(outcome.draft),
+        { replyMarkup }
       );
-      return;
+    } else if (outcome.kind === 'question') {
+      await channel.sendText(chatId, `❓ ${escapeMarkdownV2(outcome.questionText)}`);
+    } else if (outcome.kind === 'query') {
+      if (outcome.queryKind === 'saldo') {
+        const txs = await listTransactions(scope, { pageSize: 100 });
+        let total = 0;
+        for (const t of txs.items) {
+          total += t.type === 'receita' ? Number(t.amount) : -Number(t.amount);
+        }
+        await channel.sendText(chatId, `💰 Seu saldo atual em caixa é *${escapeMarkdownV2(formatBrl(total))}*\\.`);
+      } else if (outcome.queryKind === 'limite') {
+        if (!scope.defaultEntityIds.pj) {
+          await channel.sendText(chatId, `ℹ️ _Essa conta não possui um perfil MEI ativo associado\\._`);
+          return;
+        }
+        const mei = await getMeiLimit(scope, { entityId: scope.defaultEntityIds.pj });
+        if (mei) {
+          await channel.sendText(chatId, `📊 Você utilizou *${escapeMarkdownV2(mei.percentualUtilizado.toFixed(1))}%* do limite anual do MEI \\(Resta ${escapeMarkdownV2(formatBrl(mei.restante))}\\)\\.`);
+        }
+      } else if (outcome.queryKind === 'das') {
+        const dasList = await listDas(scope);
+        await channel.sendText(chatId, `🏛️ Você tem ${dasList.items.length} guias de DAS registradas\\. Use /das para ver os detalhes\\.`);
+      } else {
+        await channel.sendText(chatId, `ℹ️ Use os comandos /saldo, /limite, /das ou /potes para consultar seus números\\.`);
+      }
+    } else if (outcome.kind === 'not_a_transaction') {
+      await channel.sendText(chatId, MessagesPtBr.notUnderstood);
+    } else {
+      await channel.sendText(chatId, `⚠️ ${escapeMarkdownV2(outcome.reason)}`);
     }
-
-    if (outcome.kind === 'not_a_transaction') {
-      await channel.sendMessage(chatId, TelegramMessagesPtBr.notUnderstood(), {
-        parseMode: 'MarkdownV2',
-      });
-      return;
-    }
-
-    if (outcome.kind === 'query') {
-      await channel.sendMessage(
-        chatId,
-        `💡 Identifiquei uma consulta (${escapeMarkdownV2(outcome.queryKind)}). Use os comandos como \`/saldo\`, \`/limite\` ou \`/potes\`.`,
-        { parseMode: 'MarkdownV2' }
-      );
-      return;
-    }
-
-    if (outcome.kind === 'refused') {
-      await channel.sendMessage(chatId, `⚠️ ${escapeMarkdownV2(outcome.reason)}`, {
-        parseMode: 'MarkdownV2',
-      });
-    }
+  } catch (err: any) {
+    console.error('[HandleUpdate] Error in assistant flow:', err);
+    await channel.sendText(chatId, `⚠️ Ocorreu um erro ao processar sua mensagem: ${escapeMarkdownV2(err.message || 'Erro inesperado')}`);
   }
-}
-
-async function buildScope(workspaceId: string, userId: string): Promise<WorkspaceScope> {
-  const membership = await prisma.workspaceMember.findFirst({
-    where: { workspaceId, userId },
-  });
-
-  const entities = await prisma.entity.findMany({
-    where: { workspaceId },
-  });
-
-  const pj = entities.find((e) => e.type === 'PJ');
-  const pf = entities.find((e) => e.type === 'PF');
-
-  return {
-    workspaceId,
-    actorUserId: userId,
-    actorRole: (membership?.role as any) || 'OWNER',
-    defaultEntityIds: {
-      pj: pj?.id,
-      pf: pf?.id,
-    },
-  };
 }
