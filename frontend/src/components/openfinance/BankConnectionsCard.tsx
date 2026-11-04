@@ -238,3 +238,5 @@ export const BankConnectionsCard: React.FC<BankConnectionsCardProps> = ({
     </div>
   );
 };
+
+export default BankConnectionsCard;

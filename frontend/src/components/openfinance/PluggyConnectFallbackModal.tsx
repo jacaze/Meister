@@ -119,3 +119,5 @@ export const PluggyConnectFallbackModal: React.FC<PluggyConnectFallbackModalProp
     </div>
   );
 };
+
+export default PluggyConnectFallbackModal;
