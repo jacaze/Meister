@@ -11,6 +11,7 @@ export const AppLayout: React.FC = () => {
   const navItems = [
     { label: 'Dashboard', path: '/', icon: 'grid_view' },
     { label: 'Lançamentos', path: '/transacoes', icon: 'receipt_long' },
+    { label: 'Extratos & Revisão', path: '/revisao', icon: 'inbox' },
     { label: 'Potes Financeiros', path: '/potes', icon: 'savings' },
     { label: 'Insights & Dicas', path: '/insights', icon: 'lightbulb' },
     ...(user?.accountType === 'mei' ? [{ label: 'Impostos & DAS', path: '/impostos', icon: 'account_balance' }] : []),
@@ -138,19 +139,19 @@ export const AppLayout: React.FC = () => {
       </div>
 
       {/* Mobile Bottom Navigation Bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#1c1b1b]/90 backdrop-blur-xl border-t border-[#ffffff0d] px-2 py-2 flex justify-around items-center">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#1c1b1b]/95 backdrop-blur-xl border-t border-[#ffffff0d] px-2 py-2 flex items-center gap-1 overflow-x-auto scrollbar-none justify-between sm:justify-around">
         {navItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
             end={item.path === '/'}
             className={({ isActive }) =>
-              `flex flex-col items-center gap-1 py-1 px-2 rounded-xl text-[10px] font-semibold transition ${
+              `flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl text-[10px] font-semibold whitespace-nowrap shrink-0 transition ${
                 isActive ? 'text-[#f2c94c]' : 'text-[#99907b]'
               }`
             }
           >
-            <span className="material-symbols-outlined text-2xl">{item.icon}</span>
+            <span className="material-symbols-outlined text-xl">{item.icon}</span>
             <span>{item.label}</span>
           </NavLink>
         ))}
