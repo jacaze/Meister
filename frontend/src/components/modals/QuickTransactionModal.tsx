@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import api from '../../api/client.js';
 import { useAuth } from '../../context/AuthContext.js';
 
@@ -14,8 +14,17 @@ interface Category {
   slug: string;
 }
 
+interface SplitItem {
+  categoryId: string;
+  categoryName: string;
+  amount: string;
+  description: string;
+  jarName?: string;
+}
+
 export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ onClose, onSaved }) => {
   const { workspace, activeEntityId } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [type, setType] = useState<'receita' | 'despesa'>('despesa');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
@@ -27,6 +36,14 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Receipts / NFC-e Vision states
+  const [scanningReceipt, setScanningReceipt] = useState(false);
+  const [receiptWarning, setReceiptWarning] = useState<string | null>(null);
+  const [receiptAccessKey, setReceiptAccessKey] = useState<string | null>(null);
+  const [receiptIssuerCnpj, setReceiptIssuerCnpj] = useState<string | null>(null);
+  const [splits, setSplits] = useState<SplitItem[] | null>(null);
+  const [useSplits, setUseSplits] = useState(true);
 
   useEffect(() => {
     api.get(`/categories?type=${type}`)
@@ -40,6 +57,62 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
       })
       .catch(() => {});
   }, [type]);
+
+  const handleReceiptFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setScanningReceipt(true);
+    setError(null);
+    setReceiptWarning(null);
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const base64Data = (reader.result as string).split(',')[1];
+          const res = await api.post('/receipts/parse', {
+            imageBase64: base64Data,
+            mimeType: file.type || 'image/jpeg',
+            entityId: entityId || undefined,
+          });
+
+          const data = res.data;
+          setType('despesa');
+          if (data.total) setAmount(data.total);
+          if (data.issuerName) {
+            setDescription(`Compra em ${data.issuerName}`);
+          } else if (data.items && data.items.length > 0) {
+            setDescription(`Nota Fiscal: ${data.items.slice(0, 2).map((i: any) => i.description).join(', ')}`);
+          }
+          if (data.issuedOn) setTransactionDate(data.issuedOn);
+          if (data.accessKey) setReceiptAccessKey(data.accessKey);
+          if (data.issuerCnpj) setReceiptIssuerCnpj(data.issuerCnpj);
+
+          if (data.duplicate?.isDuplicate) {
+            setReceiptWarning(`Atenção: Esta nota fiscal já foi registrada no sistema em ${data.duplicate.registeredAt}.`);
+          }
+
+          if (data.splitProposal && data.splitProposal.splits && data.splitProposal.splits.length > 1) {
+            setSplits(data.splitProposal.splits);
+            setUseSplits(true);
+            setCategoryId(data.splitProposal.dominantCategoryId || '');
+          } else if (data.splitProposal?.dominantCategoryId) {
+            setCategoryId(data.splitProposal.dominantCategoryId);
+            setSplits(null);
+          }
+        } catch (err: any) {
+          setError(err.response?.data?.message || 'Falha ao processar a foto da nota fiscal.');
+        } finally {
+          setScanningReceipt(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      setScanningReceipt(false);
+      setError('Erro ao ler arquivo da imagem.');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,23 +129,41 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
       return;
     }
 
-    if (!categoryId) {
+    if (!useSplits && !categoryId) {
       setError('Selecione uma categoria.');
       return;
     }
 
     setLoading(true);
     try {
-      await api.post('/transactions', {
-        type,
-        amount: Number(cleanAmount).toFixed(2),
-        description: description.trim(),
-        categoryId,
-        paymentMethod,
-        transactionDate,
-        entityId: entityId || undefined,
-        viaPersonalAccount,
-      });
+      if (useSplits && splits && splits.length > 1) {
+        await api.post('/receipts/confirm', {
+          total: Number(cleanAmount).toFixed(2),
+          description: description.trim(),
+          date: transactionDate,
+          entityId: entityId || undefined,
+          paymentMethod,
+          accessKey: receiptAccessKey || undefined,
+          issuerCnpj: receiptIssuerCnpj || undefined,
+          splits: splits.map((s) => ({
+            categoryId: s.categoryId,
+            amount: s.amount,
+            description: s.description,
+          })),
+        });
+      } else {
+        await api.post('/transactions', {
+          type,
+          amount: Number(cleanAmount).toFixed(2),
+          description: description.trim(),
+          categoryId,
+          paymentMethod,
+          transactionDate,
+          entityId: entityId || undefined,
+          viaPersonalAccount,
+          sourceRef: receiptAccessKey ? `nfe:${receiptAccessKey}` : undefined,
+        });
+      }
 
       if (onSaved) onSaved();
       onClose();
@@ -98,10 +189,40 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
           <span className="material-symbols-outlined text-xl">close</span>
         </button>
 
-        <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2.5">
+        <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2.5">
           <span className="material-symbols-outlined text-[#f2c94c]">add_circle</span>
           Novo Lançamento
         </h2>
+
+        {/* Hidden receipt file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={handleReceiptFileChange}
+        />
+
+        {/* Scan receipt button */}
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={scanningReceipt}
+          className="w-full mb-5 py-2.5 px-4 rounded-2xl bg-[#ffffff0a] hover:bg-[#ffffff12] border border-[#f2c94c]/30 hover:border-[#f2c94c] transition flex items-center justify-center gap-2.5 text-xs font-bold text-[#f2c94c]"
+        >
+          <span className="material-symbols-outlined text-base">
+            {scanningReceipt ? 'hourglass_top' : 'photo_camera'}
+          </span>
+          {scanningReceipt ? 'Analisando Nota Fiscal com IA...' : 'Fotografar / Enviar Nota Fiscal (NFC-e)'}
+        </button>
+
+        {receiptWarning && (
+          <div className="mb-4 p-3 rounded-2xl bg-[#f2c94c]/10 border border-[#f2c94c]/30 text-[#f2c94c] text-xs flex items-center gap-2">
+            <span className="material-symbols-outlined text-sm">warning</span>
+            <span>{receiptWarning}</span>
+          </div>
+        )}
 
         {error && (
           <div className="mb-5 p-3.5 rounded-xl bg-[#93000a]/30 border border-[#ffb4ab]/40 text-[#ffb4ab] text-xs font-semibold">
@@ -172,16 +293,55 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
             />
           </div>
 
+          {/* Splits Preview from NFC-e */}
+          {splits && splits.length > 1 && (
+            <div className="p-3.5 bg-[#131313] rounded-2xl border border-[#ffffff14] space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-[#f2c94c] uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-sm">call_split</span>
+                  Divisão em Potes ({splits.length} categorias)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setUseSplits(!useSplits)}
+                  className="text-[10px] text-[#99907b] underline hover:text-white"
+                >
+                  {useSplits ? 'Usar categoria única' : 'Reativar divisão'}
+                </button>
+              </div>
+              {useSplits ? (
+                <div className="space-y-1.5">
+                  {splits.map((s, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-xs py-1 border-b border-[#ffffff08] last:border-none">
+                      <div className="flex items-center gap-1.5 text-white font-medium">
+                        <span>{s.categoryName}</span>
+                        {s.jarName && (
+                          <span className="text-[10px] text-[#f2c94c] bg-[#f2c94c]/10 px-1.5 py-0.5 rounded">
+                            Pote: {s.jarName}
+                          </span>
+                        )}
+                      </div>
+                      <span className="font-bold text-white">R$ {s.amount}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-[#99907b]">Divisão desativada. O total será associado à categoria única abaixo.</p>
+              )}
+            </div>
+          )}
+
           {/* Categoria & Forma de Pagamento */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-[11px] font-bold text-[#99907b] uppercase tracking-wider mb-1.5">
-                Categoria
+                Categoria {useSplits && splits && splits.length > 1 ? '(Principal)' : ''}
               </label>
               <select
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
-                className="w-full px-3 py-2.5 bg-[#131313] border border-[#ffffff14] rounded-2xl text-sm text-white focus:outline-none focus:border-[#f2c94c] transition"
+                disabled={useSplits && !!splits && splits.length > 1}
+                className="w-full px-3 py-2.5 bg-[#131313] border border-[#ffffff14] rounded-2xl text-sm text-white focus:outline-none focus:border-[#f2c94c] transition disabled:opacity-50"
               >
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>

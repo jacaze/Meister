@@ -15,6 +15,7 @@ import workspaceRoutes from './routes/workspaceRoutes.js';
 import fiscalRoutes from './routes/fiscalRoutes.js';
 import jarsRoutes from './routes/jarsRoutes.js';
 import transferRoutes from './routes/transferRoutes.js';
+import receiptRoutes from './routes/receiptRoutes.js';
 import { assistantRoutes } from './routes/assistantRoutes.js';
 import { telegramRoutes, telegramWebhookRoute } from './routes/telegramRoutes.js';
 
@@ -27,7 +28,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   const env = options.env ?? parseEnv(process.env);
   const fastify = Fastify({
     logger: options.logger ?? env.NODE_ENV !== 'test',
-    bodyLimit: 1024 * 1024, // 1 MB default limit
+    bodyLimit: 10 * 1024 * 1024, // 10 MB for receipt images
   });
 
   registerCorrelationAndErrorHandler(fastify);
@@ -71,6 +72,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await fastify.register(fiscalRoutes, { prefix: '/api' });
   await fastify.register(jarsRoutes, { prefix: '/api' });
   await fastify.register(transferRoutes, { prefix: '/api' });
+  await fastify.register(receiptRoutes, { prefix: '/api' });
   await fastify.register(assistantRoutes, { prefix: '/api' });
   await fastify.register(telegramRoutes, { prefix: '/api' });
   await fastify.register(telegramWebhookRoute);

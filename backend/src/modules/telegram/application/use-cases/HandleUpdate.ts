@@ -1,6 +1,7 @@
 import prisma from '../../../../config/prisma.js';
 import { resolveScopeForUser } from '../../../workspace/public.js';
 import { proposeFromText, confirmProposal, cancelProposal } from '../../../assistant/public.js';
+import { parseReceiptPhoto } from '../../../receipts/public.js';
 import { getMeiLimit, listDas } from '../../../fiscal/public.js';
 import { getJarsStatus } from '../../../jars/public.js';
 import { listTransactions } from '../../../ledger/public.js';
@@ -10,6 +11,14 @@ import type { MessagingChannel } from '../ports/messaging-channel.js';
 import { linkChat } from './LinkChat.js';
 import { unlinkChat } from './GetLinkStatus.js';
 
+export interface TelegramPhotoSize {
+  readonly file_id: string;
+  readonly file_unique_id: string;
+  readonly width: number;
+  readonly height: number;
+  readonly file_size?: number;
+}
+
 export interface TelegramUpdate {
   readonly update_id: number | bigint;
   readonly message?: {
@@ -17,6 +26,8 @@ export interface TelegramUpdate {
     readonly from?: { readonly id: number; readonly is_bot: boolean; readonly first_name?: string };
     readonly chat: { readonly id: number | string; readonly type: string };
     readonly text?: string;
+    readonly photo?: readonly TelegramPhotoSize[];
+    readonly caption?: string;
   };
   readonly callback_query?: {
     readonly id: string;
@@ -90,8 +101,7 @@ export async function handleTelegramUpdate(
   }
 
   // 3. Handle Messages
-  const rawText = update.message?.text;
-  if (!update.message || typeof rawText !== 'string') {
+  if (!update.message) {
     return;
   }
 
@@ -99,12 +109,128 @@ export async function handleTelegramUpdate(
   if (msg.from?.is_bot) return;
 
   const chatId = String(msg.chat.id);
-  const text = rawText.trim();
 
   // Check link
   const link = await prisma.telegramLink.findFirst({
     where: { chatId, status: 'ativo' },
   });
+
+  // Handle Photo Messages (Receipts & Invoices)
+  if (msg.photo && msg.photo.length > 0) {
+    if (!link) {
+      await channel.sendText(chatId, MessagesPtBr.welcomeUnlinked('meister_financas_bot'));
+      return;
+    }
+
+    if (!channel.downloadFile) {
+      await channel.sendText(chatId, `⚠️ O download de fotos não está habilitado neste canal\\.`);
+      return;
+    }
+
+    await channel.sendText(chatId, `🔍 *Analisando nota fiscal / comprovante\\.\\.\\.*`);
+
+    const highestRes = msg.photo[msg.photo.length - 1];
+    if (!highestRes) {
+      return;
+    }
+
+    const file = await channel.downloadFile(highestRes.file_id);
+    if (!file) {
+      await channel.sendText(chatId, `⚠️ *Não foi possível baixar a imagem enviada\\.* Tente novamente\\.`);
+      return;
+    }
+
+    const scope = await resolveScopeForUser(link.userId);
+
+    try {
+      const parsed = await parseReceiptPhoto(scope, {
+        imageBase64: file.buffer.toString('base64'),
+        mimeType: file.mimeType ?? 'image/jpeg',
+        textOrQrUrl: msg.caption,
+      });
+
+      const targetEntityId = scope.defaultEntityIds.pj ?? scope.defaultEntityIds.pf;
+      const draft = {
+        entityId: targetEntityId,
+        type: 'despesa' as const,
+        amount: parsed.total,
+        description: parsed.issuerName ? `Compra em ${parsed.issuerName}` : 'Despesa com Nota Fiscal',
+        occurredOn: parsed.issuedOn,
+        transactionDate: parsed.issuedOn,
+        categoryId: parsed.splitProposal.dominantCategoryId,
+        categoryName: parsed.splitProposal.dominantCategoryName,
+        splits: parsed.splitProposal.isSplit
+          ? parsed.splitProposal.splits.map((s) => ({
+              categoryId: s.categoryId,
+              amount: s.amount,
+              description: s.description || s.categoryName,
+            }))
+          : undefined,
+        paymentMethod: null,
+        scope: 'pj' as const,
+        accessKey: parsed.accessKey,
+        issuerCnpj: parsed.issuerCnpj,
+      };
+
+      const proposal = await prisma.proposal.create({
+        data: {
+          workspaceId: scope.workspaceId,
+          userId: scope.actorUserId,
+          draft,
+          confidence: parsed.source === 'sefaz' ? 1.0 : 0.85,
+          ambiguous: [],
+          status: 'aberta',
+          source: 'nota_fiscal',
+          sourceRef: `tg:photo:${highestRes.file_id}`,
+          expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+        },
+      });
+
+      const replyMarkup = {
+        inline_keyboard: [
+          [
+            {
+              text: '✅ Confirmar',
+              callback_data: encodeProposalCallback(proposal.id, 'c'),
+            },
+            {
+              text: '❌ Cancelar',
+              callback_data: encodeProposalCallback(proposal.id, 'x'),
+            },
+          ],
+        ],
+      };
+
+      await channel.sendText(
+        chatId,
+        MessagesPtBr.receiptProposalReady({
+          issuerName: parsed.issuerName,
+          total: parsed.total,
+          issuedOn: parsed.issuedOn,
+          splits: parsed.splitProposal.splits.map((s) => ({
+            categoryName: s.categoryName,
+            amount: s.amount,
+            jarName: s.jarName,
+          })),
+          duplicate: parsed.duplicate?.isDuplicate,
+          duplicateDate: parsed.duplicate?.registeredAt,
+        }),
+        { replyMarkup }
+      );
+    } catch (photoErr: unknown) {
+      console.error('[HandleUpdate] Error parsing receipt photo:', photoErr);
+      const msgErr = photoErr instanceof Error ? photoErr.message : 'Erro ao processar imagem';
+      await channel.sendText(chatId, `⚠️ *Erro ao processar nota fiscal:* ${escapeMarkdownV2(msgErr)}`);
+    }
+    return;
+  }
+
+  const rawText = msg.text;
+  if (typeof rawText !== 'string') {
+    return;
+  }
+
+  const text = rawText.trim();
 
   // Handle /start with token
   if (text.startsWith('/start')) {

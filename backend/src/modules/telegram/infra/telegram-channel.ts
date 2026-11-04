@@ -95,4 +95,28 @@ export class TelegramApiChannel implements MessagingChannel {
       console.error('[TelegramApiChannel] Failed to answer callback query:', err);
     }
   }
+
+  async downloadFile(fileId: string): Promise<{ buffer: Buffer; mimeType?: string } | null> {
+    if (!this.botToken) {
+      return null;
+    }
+
+    try {
+      const metaRes = await fetch(`https://api.telegram.org/bot${this.botToken}/getFile?file_id=${fileId}`);
+      if (!metaRes.ok) return null;
+      const meta = (await metaRes.json()) as { ok: boolean; result?: { file_path?: string } };
+      if (!meta.ok || !meta.result?.file_path) return null;
+
+      const fileRes = await fetch(`https://api.telegram.org/file/bot${this.botToken}/${meta.result.file_path}`);
+      if (!fileRes.ok) return null;
+
+      const arrayBuffer = await fileRes.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const mimeType = meta.result.file_path.endsWith('.png') ? 'image/png' : 'image/jpeg';
+      return { buffer, mimeType };
+    } catch (err) {
+      console.error('[TelegramApiChannel] Failed to download file:', err);
+      return null;
+    }
+  }
 }
