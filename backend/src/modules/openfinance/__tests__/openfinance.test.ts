@@ -122,4 +122,94 @@ Data;Descrição;Valor
     const tokenRes = await createConnectToken(scope, { aggregator: fakeAggregator });
     expect(tokenRes.accessToken).toBe('test-token-123');
   });
+
+  it('PluggyClient fetches v2 transactions with cursor pagination and defensive amount parsing', async () => {
+    const { PluggyClient } = await import('../infra/PluggyClient.js');
+
+    const client = new PluggyClient({
+      clientId: 'mock-client',
+      clientSecret: 'mock-secret',
+      baseUrl: 'https://mock.pluggy.ai',
+    });
+
+    const originalFetch = globalThis.fetch;
+    const fetchCalls: Array<{ url: string; headers?: Record<string, string> }> = [];
+
+    globalThis.fetch = (async (url: any, init: any) => {
+      fetchCalls.push({ url: String(url), headers: init?.headers });
+
+      if (String(url).endsWith('/auth')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ apiKey: 'mock-api-key' }),
+        } as any;
+      }
+
+      if (String(url).includes('/v2/transactions')) {
+        // Page 1 returns a transaction and a next cursor
+        if (!String(url).includes('after=')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              results: [
+                {
+                  id: 'tx-1',
+                  description: 'Venda de Consultoria',
+                  amount: 150.75,
+                  date: '2026-11-04',
+                  type: 'CREDIT',
+                },
+              ],
+              next: '?after=cursor-xyz',
+            }),
+          } as any;
+        }
+
+        // Page 2 returns second transaction and next: null
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            results: [
+              {
+                id: 'tx-2',
+                description: 'Assinatura Software',
+                amount: 'invalid-number',
+                date: '2026-11-04',
+                type: 'DEBIT',
+              },
+            ],
+            next: null,
+          }),
+        } as any;
+      }
+
+      return { ok: false, status: 404, statusText: 'Not Found' } as any;
+    }) as any;
+
+    try {
+      const txs = await client.fetchTransactions('acc-1', {
+        from: '2026-10-01',
+        to: '2026-11-04',
+      });
+
+      expect(txs).toHaveLength(2);
+      expect(txs[0]!.id).toBe('tx-1');
+      expect(txs[0]!.amount).toBe(150.75);
+
+      // Defensive fallback for invalid/NaN amount
+      expect(txs[1]!.id).toBe('tx-2');
+      expect(txs[1]!.amount).toBe(0);
+
+      // Verify that query parameters were correctly mapped to dateFrom and dateTo
+      expect(fetchCalls[1]!.url).toContain('accountId=acc-1');
+      expect(fetchCalls[1]!.url).toContain('dateFrom=2026-10-01');
+      expect(fetchCalls[1]!.url).toContain('dateTo=2026-11-04');
+      expect(fetchCalls[2]!.url).toContain('after=cursor-xyz');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });

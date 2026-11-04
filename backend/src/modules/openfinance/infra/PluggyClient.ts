@@ -206,41 +206,70 @@ export class PluggyClient implements BankingAggregator {
   ): Promise<PluggyTransactionInfo[]> {
     const apiKey = await this.getApiKey();
 
+    const allTransactions: PluggyTransactionInfo[] = [];
     const params = new URLSearchParams();
     params.set('accountId', accountId);
-    params.set('pageSize', '500');
-    if (options?.from) params.set('from', options.from);
-    if (options?.to) params.set('to', options.to);
+    if (options?.from) params.set('dateFrom', options.from);
+    if (options?.to) params.set('dateTo', options.to);
 
-    const res = await this.fetchWithTimeout(
-      `${this.baseUrl}/transactions?${params.toString()}`,
-      {
+    let nextPath: string | null = `/v2/transactions?${params.toString()}`;
+    let pageCount = 0;
+    const maxPages = 10;
+
+    while (nextPath && pageCount < maxPages) {
+      pageCount++;
+      const url = nextPath.startsWith('http')
+        ? nextPath
+        : `${this.baseUrl}${nextPath.startsWith('/') ? '' : '/'}${nextPath}`;
+
+      const res = await this.fetchWithTimeout(url, {
         method: 'GET',
         headers: { 'X-API-KEY': apiKey },
-      }
-    );
+      });
 
-    if (!res.ok) {
-      const errorBody = await res.json().catch(() => null);
-      throw new ValidationError(
-        `Erro ao buscar transações no Pluggy: ${errorBody?.message || res.statusText}`
-      );
+      if (!res.ok) {
+        const errorBody = await res.json().catch(() => null);
+        throw new ValidationError(
+          `Erro ao buscar transações no Pluggy: ${errorBody?.message || res.statusText}`
+        );
+      }
+
+      const data = await res.json();
+      const results = Array.isArray(data.results) ? data.results : [];
+
+      for (const tx of results) {
+        const rawAmount =
+          typeof tx.amount === 'number' ? tx.amount : parseFloat(String(tx.amount || 0));
+        const amount = isNaN(rawAmount) ? 0 : rawAmount;
+
+        allTransactions.push({
+          id: String(tx.id),
+          description: String(tx.description || tx.descriptionRaw || 'Transação Bancária'),
+          descriptionRaw: tx.descriptionRaw ? String(tx.descriptionRaw) : undefined,
+          amount,
+          date: String(tx.date || new Date().toISOString()),
+          category: tx.category ? String(tx.category) : undefined,
+          categoryId: tx.categoryId ? String(tx.categoryId) : undefined,
+          type: tx.type ? String(tx.type) : undefined,
+          status: tx.status ? String(tx.status) : undefined,
+        });
+      }
+
+      if (typeof data.next === 'string' && data.next.trim().length > 0) {
+        const next = data.next.trim();
+        if (next.startsWith('http://') || next.startsWith('https://') || next.startsWith('/v2/transactions')) {
+          nextPath = next;
+        } else if (next.startsWith('?')) {
+          nextPath = `/v2/transactions${next}`;
+        } else {
+          nextPath = `/v2/transactions?${next}`;
+        }
+      } else {
+        nextPath = null;
+      }
     }
 
-    const data = await res.json();
-    const results = Array.isArray(data.results) ? data.results : [];
-
-    return results.map((tx: Record<string, any>) => ({
-      id: String(tx.id),
-      description: String(tx.description || tx.descriptionRaw || 'Transação Bancária'),
-      descriptionRaw: tx.descriptionRaw ? String(tx.descriptionRaw) : undefined,
-      amount: typeof tx.amount === 'number' ? tx.amount : parseFloat(String(tx.amount || 0)),
-      date: String(tx.date || new Date().toISOString()),
-      category: tx.category ? String(tx.category) : undefined,
-      categoryId: tx.categoryId ? String(tx.categoryId) : undefined,
-      type: tx.type ? String(tx.type) : undefined,
-      status: tx.status ? String(tx.status) : undefined,
-    }));
+    return allTransactions;
   }
 
   async syncItem(itemId: string): Promise<{ status: string }> {
