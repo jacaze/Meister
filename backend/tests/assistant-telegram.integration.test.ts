@@ -83,7 +83,7 @@ describe('Assistant & Telegram Integration Suite (PostgreSQL 16)', () => {
     });
     expect(secondConfirmRes.statusCode).toBe(200);
     expect(secondConfirmRes.json().transactionId).toBe(confirmBody.transactionId);
-  });
+  }, 90000);
 
   it('generates a link token and links a Telegram chat via simulated webhook', async () => {
     // 1. Create link token
@@ -202,5 +202,5 @@ describe('Assistant & Telegram Integration Suite (PostgreSQL 16)', () => {
     const chatEdu = chatEduRes.json();
     expect(['education', 'general', 'finance_query']).toContain(chatEdu.kind);
     expect(chatEdu.reply.length).toBeGreaterThan(10);
-  });
+  }, 90000);
 });

@@ -82,4 +82,44 @@ Data;Descrição;Valor
     expect(pairs[0]!.inId).toBe('2');
     expect(pairs[0]!.amount).toBe('500.00');
   });
+
+  it('validates and saves Pluggy configuration using BankingAggregator', async () => {
+    const { savePluggyConfig, getPluggyConfig } = await import(
+      '../application/use-cases/ConfigurePluggy.js'
+    );
+    const { createConnectToken } = await import(
+      '../application/use-cases/CreateConnectToken.js'
+    );
+
+    const fakeAggregator = {
+      validateCredentials: async () => ({ valid: true }),
+      createConnectToken: async () => 'test-token-123',
+      fetchItem: async () => ({ id: 'item-1', status: 'UPDATED', createdAt: '2026-01-01' }),
+      fetchAccounts: async () => [],
+      fetchTransactions: async () => [],
+      syncItem: async () => ({ status: 'UPDATING' }),
+    };
+
+    const config = await savePluggyConfig({
+      clientId: 'client-12345678',
+      clientSecret: 'secret-12345678',
+      aggregator: fakeAggregator,
+    });
+
+    expect(config.hasCredentials).toBe(true);
+    expect(config.clientIdMasked).toBe('clie...5678');
+
+    const readConfig = getPluggyConfig();
+    expect(readConfig.hasCredentials).toBe(true);
+
+    const scope = {
+      workspaceId: 'ws-1',
+      actorUserId: 'usr-1',
+      role: 'owner' as const,
+      defaultEntityIds: { pf: 'pf-1', pj: 'pj-1' },
+    };
+
+    const tokenRes = await createConnectToken(scope, { aggregator: fakeAggregator });
+    expect(tokenRes.accessToken).toBe('test-token-123');
+  });
 });
