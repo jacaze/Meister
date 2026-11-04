@@ -76,15 +76,15 @@ describe('Financial Education Module Unit Tests', () => {
     expect(perfectResult.correctCount).toBe(2);
     expect(perfectResult.score).toBe(100);
     expect(perfectResult.passed).toBe(true);
-    expect(perfectResult.breakdown[0].isCorrect).toBe(true);
+    expect(perfectResult.breakdown[0]!.isCorrect).toBe(true);
 
     // 2. Partial correct -> 50% (< 60% is not passed)
     const halfResult = QuizGrader.grade(sampleLesson, [1, 1]);
     expect(halfResult.correctCount).toBe(1);
     expect(halfResult.score).toBe(50);
     expect(halfResult.passed).toBe(false);
-    expect(halfResult.breakdown[1].isCorrect).toBe(false);
-    expect(halfResult.breakdown[1].explanation).toBe('X é a correta');
+    expect(halfResult.breakdown[1]!.isCorrect).toBe(false);
+    expect(halfResult.breakdown[1]!.explanation).toBe('X é a correta');
   });
 
   it('enforces RN-44 policy guard rejecting speculative investment questions', () => {

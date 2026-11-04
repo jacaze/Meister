@@ -3,6 +3,8 @@ import { ValidationError } from './errors.js';
 export const DEFAULT_TIMEZONE = 'America/Sao_Paulo';
 
 const ISO_DATE_REGEX = /^(\d{4})-(\d{2})-(\d{2})$/;
+const BR_DATE_REGEX = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+const ISO_TIMESTAMP_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
 const YEAR_MONTH_REGEX = /^(\d{4})-(\d{2})$/;
 
 function daysInMonth(year: number, month: number): number {
@@ -198,11 +200,22 @@ export class LocalDate {
       if (ISO_DATE_REGEX.test(trimmed)) {
         return LocalDate.fromIsoDate(trimmed, label);
       }
-      const parsed = new Date(trimmed);
-      if (Number.isNaN(parsed.getTime())) {
-        throw new ValidationError(`${label} inválida`);
+      const brMatch = BR_DATE_REGEX.exec(trimmed);
+      if (brMatch) {
+        const [, d, m, y] = brMatch;
+        try {
+          return new LocalDate(Number(y), Number(m), Number(d));
+        } catch {
+          throw new ValidationError(`${label} inválida`);
+        }
       }
-      return LocalDate.fromInstant(parsed, timeZone, label);
+      if (ISO_TIMESTAMP_REGEX.test(trimmed)) {
+        const parsed = new Date(trimmed);
+        if (!Number.isNaN(parsed.getTime())) {
+          return LocalDate.fromInstant(parsed, timeZone, label);
+        }
+      }
+      throw new ValidationError(`${label} inválida`);
     }
 
     throw new ValidationError(`${label} inválida`);

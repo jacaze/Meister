@@ -7,5 +7,8 @@ export default defineConfig({
     globals: false,
     testTimeout: 25000,
     fileParallelism: false,
+    env: {
+      TELEGRAM_WEBHOOK_SECRET: '',
+    },
   },
 });

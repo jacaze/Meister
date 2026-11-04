@@ -6,6 +6,7 @@ import {
   NotFoundError,
   ValidationError,
   assertAuthenticated,
+  assertCanWrite,
   normalizePageQuery,
   type WorkspaceScope,
 } from '../shared/index.js';
@@ -129,11 +130,13 @@ export async function create(
     transactionDate?: unknown;
     entityId?: unknown;
     viaPersonalAccount?: unknown;
+    sourceRef?: unknown;
   } = {},
   scope?: WorkspaceScope
 ) {
   assertAuthenticated(userId);
   const resolvedScope = scope ?? (await resolveScopeForUser(userId));
+  assertCanWrite(resolvedScope);
 
   const description = parseDescription(input.description);
   const money = parseAmountToMoney(input.amount);
@@ -157,24 +160,95 @@ export async function create(
         ? resolvedScope.defaultEntityIds.pj
         : resolvedScope.defaultEntityIds.pf;
 
-  return prisma.transaction.create({
-    data: {
-      userId,
-      workspaceId: resolvedScope.workspaceId,
-      entityId: targetEntityId,
-      categoryId: category.id,
-      description,
-      amount: money.toNumber(),
-      type,
-      paymentMethod,
-      transactionDate: transactionDate.toUtcDate(),
-      viaPersonalAccount: Boolean(input.viaPersonalAccount),
-      status: 'confirmado',
-    },
-    include: {
-      category: { select: { id: true, name: true, slug: true } },
-    },
+  const entity = await prisma.entity.findFirst({
+    where: { id: targetEntityId, workspaceId: resolvedScope.workspaceId, active: true },
   });
+  if (!entity) {
+    throw new NotFoundError('Entidade não encontrada no workspace');
+  }
+
+  const sourceRef =
+    typeof input.sourceRef === 'string' && input.sourceRef.trim()
+      ? input.sourceRef.trim()
+      : null;
+
+  if (sourceRef) {
+    const existing = await prisma.transaction.findUnique({
+      where: {
+        workspaceId_sourceRef: {
+          workspaceId: resolvedScope.workspaceId,
+          sourceRef,
+        },
+      },
+      include: {
+        category: { select: { id: true, name: true, slug: true } },
+      },
+    });
+
+    if (existing) {
+      if (!existing.deletedAt) {
+        return existing;
+      }
+      return prisma.transaction.update({
+        where: { id: existing.id },
+        data: {
+          deletedAt: null,
+          entityId: targetEntityId,
+          description,
+          amount: money.toNumber(),
+          type,
+          categoryId: category.id,
+          paymentMethod,
+          transactionDate: transactionDate.toUtcDate(),
+          viaPersonalAccount: Boolean(input.viaPersonalAccount),
+        },
+        include: {
+          category: { select: { id: true, name: true, slug: true } },
+        },
+      });
+    }
+  }
+
+  try {
+    return await prisma.transaction.create({
+      data: {
+        userId,
+        workspaceId: resolvedScope.workspaceId,
+        entityId: targetEntityId,
+        categoryId: category.id,
+        description,
+        amount: money.toNumber(),
+        type,
+        paymentMethod,
+        transactionDate: transactionDate.toUtcDate(),
+        viaPersonalAccount: Boolean(input.viaPersonalAccount),
+        status: 'confirmado',
+        sourceRef,
+      },
+      include: {
+        category: { select: { id: true, name: true, slug: true } },
+      },
+    });
+  } catch (err: unknown) {
+    const prismaErr = err as { code?: string } | null;
+    if (prismaErr?.code === 'P2002' && sourceRef) {
+      const raceExisting = await prisma.transaction.findUnique({
+        where: {
+          workspaceId_sourceRef: {
+            workspaceId: resolvedScope.workspaceId,
+            sourceRef,
+          },
+        },
+        include: {
+          category: { select: { id: true, name: true, slug: true } },
+        },
+      });
+      if (raceExisting) {
+        return raceExisting;
+      }
+    }
+    throw err;
+  }
 }
 
 export async function list(
@@ -281,9 +355,11 @@ export async function update(
 ) {
   assertAuthenticated(userId);
   const resolvedScope = scope ?? (await resolveScopeForUser(userId));
+  assertCanWrite(resolvedScope);
 
   const transaction = await prisma.transaction.findFirst({
     where: { id, workspaceId: resolvedScope.workspaceId, deletedAt: null },
+    include: { splits: true },
   });
 
   if (!transaction) {
@@ -311,7 +387,19 @@ export async function update(
   }
 
   if (input.amount !== undefined) {
-    data.amount = parseAmountToMoney(input.amount).toNumber();
+    const money = parseAmountToMoney(input.amount);
+    if (transaction.splits && transaction.splits.length > 0) {
+      let splitSum = Money.zero();
+      for (const split of transaction.splits) {
+        splitSum = splitSum.add(Money.fromDecimalString(String(split.amount).trim()));
+      }
+      if (money.cents !== splitSum.cents) {
+        throw new ValidationError(
+          `O novo valor (R$ ${money.toDecimalString()}) diverge da soma das divisões existentes (R$ ${splitSum.toDecimalString()})`
+        );
+      }
+    }
+    data.amount = money.toNumber();
   }
 
   if (input.paymentMethod !== undefined) {
@@ -359,6 +447,7 @@ export async function update(
 export async function remove(userId: string | undefined, id: string, scope?: WorkspaceScope) {
   assertAuthenticated(userId);
   const resolvedScope = scope ?? (await resolveScopeForUser(userId));
+  assertCanWrite(resolvedScope);
 
   const transaction = await prisma.transaction.findFirst({
     where: { id, workspaceId: resolvedScope.workspaceId, deletedAt: null },
@@ -368,8 +457,19 @@ export async function remove(userId: string | undefined, id: string, scope?: Wor
     throw new NotFoundError('Transação não encontrada');
   }
 
-  await prisma.transaction.update({
-    where: { id },
-    data: { deletedAt: new Date() },
-  });
+  const now = new Date();
+  if (transaction.transferGroupId) {
+    await prisma.transaction.updateMany({
+      where: {
+        transferGroupId: transaction.transferGroupId,
+        workspaceId: resolvedScope.workspaceId,
+      },
+      data: { deletedAt: now },
+    });
+  } else {
+    await prisma.transaction.update({
+      where: { id },
+      data: { deletedAt: now },
+    });
+  }
 }

@@ -122,7 +122,9 @@ export async function listTransactions(
   }
 
   const resultadoCents = totalEntradas.cents - totalDespesas.cents;
-  const resultado = Money.fromCents(resultadoCents);
+  const resultadoStr = resultadoCents < 0n
+    ? `-${Money.fromCents(-resultadoCents).toDecimalString()}`
+    : Money.fromCents(resultadoCents).toDecimalString();
 
   return {
     items,
@@ -133,7 +135,7 @@ export async function listTransactions(
     resumo: {
       totalEntradas: totalEntradas.toDecimalString(),
       totalDespesas: totalDespesas.toDecimalString(),
-      resultado: resultado.toDecimalString(),
+      resultado: resultadoStr,
     },
   };
 }

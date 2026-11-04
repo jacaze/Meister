@@ -59,6 +59,17 @@ export async function updateTransaction(
     if (!amt.isPositive()) {
       throw new ValidationError('O valor deve ser maior que zero');
     }
+    if (tx.splits && tx.splits.length > 0) {
+      let splitSum = Money.zero();
+      for (const split of tx.splits) {
+        splitSum = splitSum.add(Money.fromDecimalString(String(split.amount).trim()));
+      }
+      if (amt.cents !== splitSum.cents) {
+        throw new ValidationError(
+          `O novo valor (R$ ${amt.toDecimalString()}) diverge da soma das divisões existentes (R$ ${splitSum.toDecimalString()})`
+        );
+      }
+    }
     data.amount = Number(amt.toDecimalString());
   }
 

@@ -196,7 +196,7 @@ OFXHEADER:100
       where: { email },
       include: { memberships: true },
     });
-    const ws1Id = user1.memberships[0].workspaceId;
+    const ws1Id = user1.memberships[0]!.workspaceId;
 
     // 3. Insert a mock BankConnection directly in DB for user 1
     const connection = await prisma.bankConnection.create({

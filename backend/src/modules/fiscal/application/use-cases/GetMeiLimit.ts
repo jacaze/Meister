@@ -76,6 +76,7 @@ export async function getMeiLimit(
       workspaceId: scope.workspaceId,
       entityId: entity.id,
       type: 'receita',
+      transferGroupId: null,
       status: 'confirmado',
       deletedAt: null,
       transactionDate: {

@@ -2,12 +2,10 @@ import type { FastifyInstance } from 'fastify';
 import authMiddleware from '../middlewares/authMiddleware.js';
 import {
   createTransfer,
-  type CreateTransferInput,
-} from '../modules/ledger/public.js';
-import {
   registerOwnerWithdrawal,
+  type CreateTransferInput,
   type RegisterOwnerWithdrawalInput,
-} from '../modules/ledger/application/use-cases/CreateTransfer.js';
+} from '../modules/ledger/public.js';
 
 export async function transferRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', authMiddleware);
