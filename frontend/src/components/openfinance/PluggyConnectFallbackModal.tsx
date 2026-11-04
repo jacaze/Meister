@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { PluggyConnect } from 'react-pluggy-connect';
 import api from '../../api/client.js';
 
 interface PluggyConnectFallbackModalProps {
@@ -18,41 +19,6 @@ export const PluggyConnectFallbackModal: React.FC<PluggyConnectFallbackModalProp
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleMessage = async (event: MessageEvent) => {
-      if (!event.origin || !event.origin.includes('pluggy.ai')) return;
-
-      const raw = event.data;
-      if (!raw) return;
-
-      const item = raw?.item || raw?.payload?.item || raw?.data?.item;
-      const itemId =
-        item?.id ||
-        raw?.itemId ||
-        raw?.payload?.itemId ||
-        raw?.data?.itemId ||
-        (typeof raw === 'string' && raw.includes('item_') ? raw : null);
-
-      if (itemId) {
-        setLoading(true);
-        try {
-          await api.post('/openfinance/connect-item', { itemId });
-          onSuccess(itemId);
-          onClose();
-        } catch (err: any) {
-          setError(err.response?.data?.message || 'Falha ao vincular conexão bancária.');
-        } finally {
-          setLoading(false);
-        }
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [isOpen, onSuccess, onClose]);
-
   if (!isOpen) return null;
 
   const handleManualSubmit = async (e: React.FormEvent) => {
@@ -71,10 +37,6 @@ export const PluggyConnectFallbackModal: React.FC<PluggyConnectFallbackModalProp
       setLoading(false);
     }
   };
-
-  const pluggyUrl = connectToken
-    ? `https://connect.pluggy.ai/?connectToken=${connectToken}&includeSandbox=true`
-    : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
@@ -104,39 +66,49 @@ export const PluggyConnectFallbackModal: React.FC<PluggyConnectFallbackModalProp
           </div>
         )}
 
-        {/* Embedded Pluggy Connect Iframe */}
-        {pluggyUrl ? (
-          <div className="space-y-3">
-            <div className="w-full h-[480px] rounded-2xl overflow-hidden border border-[#ffffff14] bg-white relative">
-              {loading && (
-                <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white z-10 backdrop-blur-sm">
-                  <div className="text-center space-y-2">
-                    <span className="material-symbols-outlined text-3xl animate-spin text-[#f2c94c]">
-                      sync
-                    </span>
-                    <p className="text-xs font-bold">Importando contas e transações...</p>
-                  </div>
+        {/* Official Pluggy Connect React Component */}
+        {connectToken ? (
+          <div className="w-full min-h-[480px] rounded-2xl overflow-hidden bg-white relative flex items-center justify-center">
+            {loading && (
+              <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white z-20 backdrop-blur-sm">
+                <div className="text-center space-y-2">
+                  <span className="material-symbols-outlined text-3xl animate-spin text-[#f2c94c]">
+                    sync
+                  </span>
+                  <p className="text-xs font-bold">Importando contas e transações...</p>
                 </div>
-              )}
-              <iframe
-                src={pluggyUrl}
-                title="Pluggy Connect"
-                allow="clipboard-read; clipboard-write"
-                className="w-full h-full border-0"
+              </div>
+            )}
+            <div className="w-full h-full min-h-[480px]">
+              <PluggyConnect
+                connectToken={connectToken}
+                includeSandbox={true}
+                onSuccess={async (data: any) => {
+                  const itemId = data?.item?.id || data?.itemId;
+                  if (itemId) {
+                    setLoading(true);
+                    try {
+                      const res = await api.post('/openfinance/connect-item', { itemId });
+                      alert(
+                        `Conta bancária vinculada com sucesso! ${
+                          res.data?.importedTransactionsCount || 0
+                        } lançamentos importados para revisão.`
+                      );
+                      onSuccess(itemId);
+                      onClose();
+                    } catch (err: any) {
+                      setError(err.response?.data?.message || 'Falha ao vincular conexão bancária.');
+                    } finally {
+                      setLoading(false);
+                    }
+                  }
+                }}
+                onError={(err: any) => {
+                  console.error('PluggyConnect error:', err);
+                  setError(err?.message || 'Erro ao conectar à instituição bancária.');
+                }}
+                onClose={onClose}
               />
-            </div>
-
-            <div className="flex items-center justify-between text-xs text-[#99907b] pt-1">
-              <span>Prefere abrir em tela cheia?</span>
-              <a
-                href={pluggyUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-[#f2c94c] hover:underline font-bold flex items-center gap-1"
-              >
-                <span className="material-symbols-outlined text-sm">open_in_new</span>
-                Abrir em Nova Aba
-              </a>
             </div>
           </div>
         ) : (
