@@ -47,7 +47,8 @@ export async function confirmProposal(
       where: { id: proposal.confirmedTransactionId },
     });
     if (existingTx) {
-      return {\n        proposalId: proposal.id,
+      return {
+        proposalId: proposal.id,
         transactionId: existingTx.id,
         amount: String(existingTx.amount),
         description: existingTx.description,
@@ -92,7 +93,8 @@ export async function confirmProposal(
   }
 
   // 1. Create transaction in ledger with idempotency key sourceRef: `proposal:<id>`
-  const tx = await createTransaction(scope, {\n    entityId: draft.entityId,
+  const tx = await createTransaction(scope, {
+    entityId: draft.entityId,
     type: draft.type,
     amount: draft.amount,
     description: draft.description,
@@ -161,7 +163,8 @@ export async function confirmProposal(
       meiPercentUsed,
       meiBand,
     };
-  } catch (err) {\n    console.warn('[ConfirmProposal] Error evaluating financial impacts:', err);
+  } catch (err) {
+    console.warn('[ConfirmProposal] Error evaluating financial impacts:', err);
   }
 
   return {

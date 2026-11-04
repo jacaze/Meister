@@ -1,6 +1,8 @@
-export { ExtractionSchema, type Extraction } from './domain/extraction-schema.js';
-export { PtBrDateResolver } from './domain/pt-br-date-resolver.js';
-export { validateExtraction } from './domain/post-validations.js';
-export { proposeFromText } from './application/use-cases/ProposeFromText.js';
-export { confirmProposal } from './application/use-cases/ConfirmProposal.js';
-export { cancelProposal } from './application/use-cases/CancelProposal.js';
+export * from './domain/extraction-schema.js';
+export * from './domain/pt-br-date-resolver.js';
+export * from './domain/post-validations.js';
+export * from './application/ports/llm-extractor.js';
+export * from './application/use-cases/ProposeFromText.js';
+export * from './application/use-cases/ConfirmProposal.js';
+export * from './application/use-cases/CancelProposal.js';
+export * from './infra/gemini-extractor.js';

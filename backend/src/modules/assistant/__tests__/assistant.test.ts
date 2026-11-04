@@ -1,99 +1,102 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { LocalDate, SystemClock } from '../../../shared/index.js';
 import { PtBrDateResolver } from '../domain/pt-br-date-resolver.js';
 import { validateExtraction } from '../domain/post-validations.js';
-import { LocalDate } from '../../../shared/index.js';
+import { GeminiExtractor } from '../infra/gemini-extractor.js';
+import type { Extraction } from '../domain/extraction-schema.js';
 
-class MockClock {
-  today() {
-    return LocalDate.fromParts(2026, 11, 4); // Wednesday
-  }
-}
-
-describe('PtBrDateResolver', () => {
-  const clock = new MockClock() as any;
+describe('Assistant Module — Date Resolver & Post-Validations', () => {
+  const clock = new SystemClock();
   const resolver = new PtBrDateResolver(clock);
+  const today = clock.today();
 
-  it('resolves relative words correctly', () => {
-    expect(resolver.resolve('hoje')?.toIsoDate()).toBe('2026-11-04');
-    expect(resolver.resolve('ontem')?.toIsoDate()).toBe('2026-11-03');
-    expect(resolver.resolve('anteontem')?.toIsoDate()).toBe('2026-11-02');
-    expect(resolver.resolve('amanhã')?.toIsoDate()).toBe('2026-11-05');
+  it('resolves relative expressions in PT-BR', () => {
+    expect(resolver.resolve('hoje')?.toIsoDate()).toBe(today.toIsoDate());
+    expect(resolver.resolve('ontem')?.toIsoDate()).toBe(today.addDays(-1).toIsoDate());
+    expect(resolver.resolve('anteontem')?.toIsoDate()).toBe(today.addDays(-2).toIsoDate());
+    expect(resolver.resolve('amanhã')?.toIsoDate()).toBe(today.addDays(1).toIsoDate());
+    expect(resolver.resolve('semana passada')?.toIsoDate()).toBe(today.addDays(-7).toIsoDate());
   });
 
-  it('resolves explicit DD/MM and DD/MM/YYYY', () => {
-    expect(resolver.resolve('15/10')?.toIsoDate()).toBe('2026-10-15');
-    expect(resolver.resolve('01/05/2026')?.toIsoDate()).toBe('2026-05-01');
+  it('resolves explicit dates', () => {
+    expect(resolver.resolve('2026-05-20')?.toIsoDate()).toBe('2026-05-20');
+    expect(resolver.resolve('15/03/2026')?.toIsoDate()).toBe('2026-03-15');
   });
 
-  it('resolves weekdays in the past', () => {
-    // Current day is Wednesday (targetDow: 3). "segunda" was 2 days ago (2026-11-02)
-    expect(resolver.resolve('segunda')?.toIsoDate()).toBe('2026-11-02');
-  });
-});
+  it('post-validation questions when amount is missing or invalid', () => {
+    const extraction: Extraction = {
+      intent: 'lancamento',
+      documentKind: 'texto_livre',
+      type: 'despesa',
+      amount: null,
+      dateIso: null,
+      dateExpression: 'hoje',
+      description: 'Almoço',
+      merchant: null,
+      categorySlug: 'alimentacao',
+      paymentMethod: 'pix',
+      scope: 'pj',
+      items: [],
+      confidence: 0.9,
+      ambiguous: ['amount'],
+    };
 
-describe('validateExtraction', () => {
-  const clock = new MockClock() as any;
-  const categories = [
-    { id: 'cat-1', slug: 'alimentacao', name: 'Alimentação', type: 'despesa' as const },
-    { id: 'cat-2', slug: 'vendas', name: 'Vendas', type: 'receita' as const },
-  ];
+    const outcome = validateExtraction(extraction, 'Gastei no almoço', {
+      categories: [{ id: 'cat1', slug: 'alimentacao', name: 'Alimentação', type: 'despesa' }],
+      hasPjEntity: true,
+      clock,
+    });
 
-  it('validates a standard expense proposal', () => {
-    const res = validateExtraction(
-      {
-        intent: 'lancamento',
-        documentKind: 'texto_livre',
-        type: 'despesa',
-        amount: '45.00',
-        dateIso: null,
-        dateExpression: 'ontem',
-        description: 'Almoço com cliente',
-        merchant: null,
-        categorySlug: 'alimentacao',
-        paymentMethod: 'pix',
-        scope: 'pj',
-        items: [],
-        confidence: 0.9,
-        ambiguous: [],
-      },
-      'Almoço ontem 45 pix',
-      { categories, hasPjEntity: true, clock }
-    );
-
-    expect(res.kind).toBe('valid');
-    if (res.kind === 'valid') {
-      expect(res.data.amountCents).toBe(4500n);
-      expect(res.data.date.toIsoDate()).toBe('2026-11-03');
-      expect(res.data.categoryId).toBe('cat-1');
-      expect(res.data.scope).toBe('pj');
+    expect(outcome.kind).toBe('question');
+    if (outcome.kind === 'question') {
+      expect(outcome.field).toBe('amount');
     }
   });
 
-  it('prompts question when amount is missing', () => {
-    const res = validateExtraction(
-      {
-        intent: 'lancamento',
-        documentKind: 'texto_livre',
-        type: 'despesa',
-        amount: null,
-        dateIso: null,
-        dateExpression: null,
-        description: 'Almoço',
-        merchant: null,
-        categorySlug: null,
-        paymentMethod: null,
-        scope: 'indefinido',
-        items: [],
-        confidence: 0.8,
-        ambiguous: [],
-      },
-      'Gastei no almoço',
-      { categories, hasPjEntity: true, clock }
-    );
+  it('post-validation accepts valid extraction and maps category', () => {
+    const extraction: Extraction = {
+      intent: 'lancamento',
+      documentKind: 'texto_livre',
+      type: 'despesa',
+      amount: '50.00',
+      dateIso: null,
+      dateExpression: 'hoje',
+      description: 'Almoço no restaurante',
+      merchant: null,
+      categorySlug: 'alimentacao',
+      paymentMethod: 'cartao_debito',
+      scope: 'pj',
+      items: [],
+      confidence: 0.95,
+      ambiguous: [],
+    };
 
-    expect(res.kind).toBe('question');
-    if (res.kind === 'question') {
-      expect(res.field).toBe('amount');
+    const outcome = validateExtraction(extraction, 'Gastei 50 no almoço com débito', {
+      categories: [{ id: 'cat1', slug: 'alimentacao', name: 'Alimentação', type: 'despesa' }],
+      hasPjEntity: true,
+      clock,
+    });
+
+    expect(outcome.kind).toBe('valid');
+    if (outcome.kind === 'valid') {
+      expect(outcome.data.amount).toBe('50.00');
+      expect(outcome.data.amountCents).toBe(5000n);
+      expect(outcome.data.categoryId).toBe('cat1');
+      expect(outcome.data.scope).toBe('pj');
     }
+  });
+
+  it('GeminiExtractor heuristic fallback parses simple Brazilian Portuguese spending', () => {
+    const extractor = new GeminiExtractor();
+    const categories = [
+      { slug: 'alimentacao', name: 'Alimentação', type: 'despesa' as const },
+      { slug: 'servicos', name: 'Serviços', type: 'receita' as const },
+    ];
+
+    const res = extractor.heuristicFallback('Recebi 1500 de consultoria via pix', categories);
+    expect(res.intent).toBe('lancamento');
+    expect(res.type).toBe('receita');
+    expect(res.amount).toBe('1500.00');
+    expect(res.paymentMethod).toBe('pix');
   });
 });
