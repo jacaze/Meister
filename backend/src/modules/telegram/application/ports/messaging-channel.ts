@@ -1,6 +1,6 @@
 export interface SendMessageOptions {
   readonly parseMode?: 'MarkdownV2' | 'HTML';
-  readonly replyMarkup?: any;
+  readonly replyMarkup?: unknown;
 }
 
 export interface MessagingChannel {

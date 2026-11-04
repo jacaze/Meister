@@ -73,15 +73,17 @@ export async function handleTelegramUpdate(
           messageId,
           MessagesPtBr.proposalConfirmed(res)
         );
-      } catch (err: any) {
-        await channel.sendText(chatId, `⚠️ ${escapeMarkdownV2(err.message || 'Erro ao confirmar proposta.')}`);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Erro ao confirmar proposta.';
+        await channel.sendText(chatId, `⚠️ ${escapeMarkdownV2(message)}`);
       }
     } else if (parsed.action === 'x') {
       try {
         await cancelProposal(scope, parsed.proposalId);
         await channel.editMessageText(chatId, messageId, MessagesPtBr.proposalCancelled);
-      } catch (err: any) {
-        await channel.sendText(chatId, `⚠️ ${escapeMarkdownV2(err.message || 'Erro ao cancelar proposta.')}`);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Erro ao cancelar proposta.';
+        await channel.sendText(chatId, `⚠️ ${escapeMarkdownV2(message)}`);
       }
     }
     return;
@@ -298,8 +300,9 @@ export async function handleTelegramUpdate(
     } else {
       await channel.sendText(chatId, `⚠️ ${escapeMarkdownV2(outcome.reason)}`);
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[HandleUpdate] Error in assistant flow:', err);
-    await channel.sendText(chatId, `⚠️ Ocorreu um erro ao processar sua mensagem: ${escapeMarkdownV2(err.message || 'Erro inesperado')}`);
+    const message = err instanceof Error ? err.message : 'Erro inesperado';
+    await channel.sendText(chatId, `⚠️ Ocorreu um erro ao processar sua mensagem: ${escapeMarkdownV2(message)}`);
   }
 }

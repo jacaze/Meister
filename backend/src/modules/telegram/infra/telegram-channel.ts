@@ -13,7 +13,7 @@ export class TelegramApiChannel implements MessagingChannel {
       return;
     }
 
-    const payload: Record<string, any> = {
+    const payload: Record<string, unknown> = {
       chat_id: chatId,
       text,
       parse_mode: options?.parseMode ?? 'MarkdownV2',
@@ -50,7 +50,7 @@ export class TelegramApiChannel implements MessagingChannel {
       return;
     }
 
-    const payload: Record<string, any> = {
+    const payload: Record<string, unknown> = {
       chat_id: chatId,
       message_id: messageId,
       text,

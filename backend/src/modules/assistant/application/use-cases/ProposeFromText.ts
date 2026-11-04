@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import prisma from '../../../../config/prisma.js';
 import { assertCanWrite, SystemClock, type Clock, type WorkspaceScope } from '../../../../shared/index.js';
 import { validateExtraction, type CategoryInfo } from '../../domain/post-validations.js';
@@ -131,7 +132,7 @@ export async function proposeFromText(
         model: process.env.LLM_MODEL || 'gemini-2.5-flash',
         promptVersion: 'v1.0',
         inputHash: `hash_${input.text.length}_${Date.now()}`,
-        output: extraction as any,
+        output: extraction as unknown as Prisma.InputJsonValue,
         latencyMs,
         outcome: 'success',
       },

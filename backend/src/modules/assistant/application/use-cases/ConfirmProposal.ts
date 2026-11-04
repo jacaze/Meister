@@ -1,3 +1,4 @@
+import type { PaymentMethod } from '@prisma/client';
 import prisma from '../../../../config/prisma.js';
 import {
   assertCanWrite,
@@ -78,7 +79,7 @@ export async function confirmProposal(
     occurredOn?: string;
     transactionDate?: string;
     categoryId?: string | null;
-    paymentMethod?: any;
+    paymentMethod?: PaymentMethod | null;
     viaPersonalAccount?: boolean;
   };
 

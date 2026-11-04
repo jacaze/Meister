@@ -12,7 +12,7 @@ export function formatBrl(amount: string | number): string {
 }
 
 export const MessagesPtBr = {
-  welcomeUnlinked: (botUsername: string) =>
+  welcomeUnlinked: (_botUsername?: string) =>
     `👋 *Olá\\! Eu sou o assistente financeiro do MEIster\\.*\n\n` +
     `Para vincular sua conta e lançar despesas/receitas direto por aqui, acesse o MEIster na web em *Configurações ➔ Conexões ➔ Telegram* e clique em *Vincular*\\.`,
 

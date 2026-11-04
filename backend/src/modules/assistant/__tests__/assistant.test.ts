@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LocalDate, SystemClock } from '../../../shared/index.js';
+import { SystemClock } from '../../../shared/index.js';
 import { PtBrDateResolver } from '../domain/pt-br-date-resolver.js';
 import { validateExtraction } from '../domain/post-validations.js';
 import { GeminiExtractor } from '../infra/gemini-extractor.js';
