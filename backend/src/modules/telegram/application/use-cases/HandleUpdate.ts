@@ -3,6 +3,7 @@ import { resolveScopeForUser } from '../../../workspace/public.js';
 import { proposeFromText, confirmProposal, cancelProposal } from '../../../assistant/public.js';
 import { parseReceiptPhoto } from '../../../receipts/public.js';
 import { runDetectors, listInsights, buildMonthlyDigest, askFinances } from '../../../insights/public.js';
+import { listLessons, askEducation } from '../../../education/public.js';
 import { getMeiLimit, listDas } from '../../../fiscal/public.js';
 import { getJarsStatus } from '../../../jars/public.js';
 import { listTransactions } from '../../../ledger/public.js';
@@ -408,6 +409,36 @@ export async function handleTelegramUpdate(
     }
     const answerRes = await askFinances(scope, query);
     await channel.sendText(chatId, `💬 ${escapeMarkdownV2(answerRes.answer)}`);
+    return;
+  }
+
+  if (text === '/aprender') {
+    const lessonsData = await listLessons(scope);
+    const nextLesson = lessonsData.lessons.find((l) => l.progress.status !== 'concluida') || lessonsData.lessons[0];
+    if (!nextLesson) {
+      await channel.sendText(chatId, `🎓 *Parabéns\\!* Você já concluiu todas as lições financeiras disponíveis no MEIster\\.`);
+      return;
+    }
+    const icon = nextLesson.progress.status === 'iniciada' ? '📖' : '🎯';
+    const statusText = nextLesson.progress.status === 'iniciada' ? 'Em andamento' : 'Não iniciada';
+    const msgAprender = `${icon} *Trilha de Educação Financeira*\n\n` +
+      `*Próxima Lição:* ${escapeMarkdownV2(nextLesson.title)}\n` +
+      `• *Tempo Estimado:* ${nextLesson.estimatedMinutes} min\n` +
+      `• *Status:* ${statusText}\n\n` +
+      `📝 _${escapeMarkdownV2(nextLesson.summary)}_\n\n` +
+      `💡 _Para ler a lição completa e responder ao quiz, acesse a aba "Educação" no aplicativo web\\._`;
+    await channel.sendText(chatId, msgAprender);
+    return;
+  }
+
+  if (text.startsWith('/duvida')) {
+    const query = text.replace('/duvida', '').trim();
+    if (!query) {
+      await channel.sendText(chatId, `❓ Digite sua dúvida sobre MEI ou finanças\\. Exemplo: _/duvida quando vence o DAS\\?_`);
+      return;
+    }
+    const eduAnswer = askEducation(query);
+    await channel.sendText(chatId, `🎓 ${escapeMarkdownV2(eduAnswer.answer)}`);
     return;
   }
 
