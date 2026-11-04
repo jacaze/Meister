@@ -76,14 +76,25 @@ export async function seedDemoUser() {
   const scope = await resolveScopeForUser(user.id);
   const pjEntityId = scope.defaultEntityIds.pj!;
 
-  // Complete business profile
-  await updateBusinessProfile(scope, {
-    entityId: pjEntityId,
-    cnpj: '11.222.333/0001-81',
-    legalName: 'Lucas MEI Soluções Tecnológicas',
-    openedOn: '2026-01-10',
-    activity: 'servicos',
+  // Complete business profile if not already set
+  const currentEntity = await prisma.entity.findUnique({
+    where: { id: pjEntityId },
   });
+
+  if (!currentEntity?.cnpj) {
+    try {
+      // 33.000.167/0001-01 has valid checksum digits
+      await updateBusinessProfile(scope, {
+        entityId: pjEntityId,
+        cnpj: '33000167000101',
+        legalName: 'Lucas MEI Soluções Tecnológicas',
+        openedOn: '2026-01-10',
+        activity: 'servicos',
+      });
+    } catch (err) {
+      console.warn('CNPJ already set or skipped:', err);
+    }
+  }
 
   // Create Jar Plan if not exists
   const existingPlan = await prisma.jarPlan.findFirst({
