@@ -147,11 +147,23 @@ export async function handleTelegramUpdate(
 
   if (text === '/saldo') {
     const txs = await listTransactions(scope, { pageSize: 100 });
-    let total = 0;
+    let totalIn = 0;
+    let totalOut = 0;
     for (const t of txs.items) {
-      total += t.type === 'receita' ? Number(t.amount) : -Number(t.amount);
+      const val = Number(t.amount);
+      if (t.type === 'receita') totalIn += val;
+      else if (t.type === 'despesa') totalOut += val;
     }
-    await channel.sendText(chatId, `💰 *Saldo Consolidado:* *${escapeMarkdownV2(formatBrl(total))}*`);
+    const balance = totalIn - totalOut;
+    const balanceFormatted = formatBrl(balance);
+
+    await channel.sendText(
+      chatId,
+      `💰 *Saldo Consolidado*\n\n` +
+      `• *Total Entradas:* ${escapeMarkdownV2(formatBrl(totalIn))}\n` +
+      `• *Total Saídas:* ${escapeMarkdownV2(formatBrl(totalOut))}\n` +
+      `• *Saldo em Caixa:* *${escapeMarkdownV2(balanceFormatted)}*`
+    );
     return;
   }
 
@@ -162,26 +174,27 @@ export async function handleTelegramUpdate(
     }
     const mei = await getMeiLimit(scope, { entityId: scope.defaultEntityIds.pj });
     if (!mei) {
-      await channel.sendText(chatId, `ℹ️ _Perfil MEI não encontrado\\._`);
+      await channel.sendText(chatId, `ℹ️ _Limite MEI não disponível para a entidade selecionada\\._`);
       return;
     }
-    const msgLimite =
-      `📊 *Termômetro do MEI (${mei.ano})*\n\n` +
-      `• Faturamento Acumulado: *${escapeMarkdownV2(formatBrl(mei.faturamentoAno))}*\n` +
-      `• Teto Anual: *${escapeMarkdownV2(formatBrl(mei.limite))}*\n` +
-      `• Restante: *${escapeMarkdownV2(formatBrl(mei.restante))}*\n` +
-      `• Utilização: *${escapeMarkdownV2(mei.percentualUtilizado.toFixed(1))}%* \\(${escapeMarkdownV2(mei.status.toUpperCase())}\\)`;
-    await channel.sendText(chatId, msgLimite);
+    await channel.sendText(
+      chatId,
+      `📊 *Termômetro do Limite MEI (Ano ${mei.ano})*\n\n` +
+      `• *Teto Anual Proporcional:* ${escapeMarkdownV2(formatBrl(mei.limite))}\n` +
+      `• *Faturamento Acumulado:* ${escapeMarkdownV2(formatBrl(mei.faturamentoAno))}\n` +
+      `• *Disponível para Faturar:* ${escapeMarkdownV2(formatBrl(mei.restante))}\n` +
+      `• *Percentual Utilizado:* *${escapeMarkdownV2(mei.percentualUtilizado.toFixed(1))}%* \\(${escapeMarkdownV2(mei.status.toUpperCase())}\\)`
+    );
     return;
   }
 
   if (text === '/das') {
     const dasList = await listDas(scope);
     if (dasList.items.length === 0) {
-      await channel.sendText(chatId, `ℹ️ _Nenhuma guia DAS encontrada para o ano atual\\._`);
+      await channel.sendText(chatId, `🎉 *Nenhuma guia DAS pendente encontrada para o seu MEI\\.*`);
       return;
     }
-    let msgDas = `🏛️ *Situação das Guias DAS*\n\n`;
+    let msgDas = `🏛️ *Guias do DAS (Documento de Arrecadação do MEI)*\n\n`;
     for (const d of dasList.items.slice(0, 3)) {
       const statusIcon = d.status === 'pago' ? '✅' : d.status === 'vencido' ? '🔴' : '🟡';
       msgDas += `${statusIcon} *Competência ${escapeMarkdownV2(d.competence)}*\n` +
