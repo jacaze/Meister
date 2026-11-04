@@ -49,6 +49,51 @@ export const ProfilePage: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Telegram Link State
+  const [telegramStatus, setTelegramStatus] = useState<{ linked: boolean; chatId?: string; linkedAt?: string } | null>(null);
+  const [botUrl, setBotUrl] = useState<string | null>(null);
+  const [telegramLoading, setTelegramLoading] = useState(false);
+
+  useEffect(() => {
+    fetchTelegramStatus();
+  }, []);
+
+  const fetchTelegramStatus = async () => {
+    try {
+      const res = await api.get('/telegram/status');
+      setTelegramStatus(res.data);
+    } catch {
+      // Ignore if endpoint not reachable
+    }
+  };
+
+  const handleGenerateTelegramLink = async () => {
+    setTelegramLoading(true);
+    try {
+      const res = await api.post('/telegram/link-token');
+      setBotUrl(res.data.botUrl);
+    } catch (err: any) {
+      setErrorMessage(err.response?.data?.message || 'Erro ao gerar link de conexão com Telegram.');
+    } finally {
+      setTelegramLoading(false);
+    }
+  };
+
+  const handleUnlinkTelegram = async () => {
+    if (!confirm('Deseja realmente desvincular seu Telegram?')) return;
+    setTelegramLoading(true);
+    try {
+      await api.post('/telegram/unlink');
+      setBotUrl(null);
+      await fetchTelegramStatus();
+      setSuccessMessage('Telegram desvinculado com sucesso.');
+    } catch (err: any) {
+      setErrorMessage(err.response?.data?.message || 'Erro ao desvincular Telegram.');
+    } finally {
+      setTelegramLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (pjEntity) {
       setCnpj(pjEntity.cnpj ? formatCnpj(pjEntity.cnpj) : '');
@@ -338,6 +383,82 @@ export const ProfilePage: React.FC = () => {
           </form>
         </section>
       )}
+
+      {/* Telegram AI Assistant Connection */}
+      <section className="bg-[#1c1b1b] border border-[#ffffff0d] rounded-3xl p-6 md:p-8 shadow-lg">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-extrabold text-lg text-white">Assistente Telegram & IA</h3>
+              {telegramStatus?.linked ? (
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#4cd964]/20 text-[#4cd964] border border-[#4cd964]/30">
+                  CONECTADO
+                </span>
+              ) : (
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#99907b]/20 text-[#99907b] border border-[#ffffff0d]">
+                  NÃO VINCULADO
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-[#99907b]">
+              Lance despesas e receitas em linguagem natural por texto no Telegram com suporte da IA Gemini.
+            </p>
+          </div>
+
+          <div>
+            {telegramStatus?.linked ? (
+              <button
+                type="button"
+                onClick={handleUnlinkTelegram}
+                disabled={telegramLoading}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold text-[#ffb4ab] bg-[#eb5757]/10 hover:bg-[#eb5757]/20 border border-[#eb5757]/20 transition disabled:opacity-50"
+              >
+                {telegramLoading ? 'Processando...' : 'Desvincular Telegram'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleGenerateTelegramLink}
+                disabled={telegramLoading}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold text-[#131313] bg-[#29b6f6] hover:bg-[#60d0ff] transition shadow-[0_0_15px_rgba(41,182,246,0.25)] disabled:opacity-50 inline-flex items-center gap-2"
+              >
+                <span>Conectar Bot do Telegram</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {telegramStatus?.linked && (
+          <div className="p-4 rounded-2xl bg-[#131313] border border-[#ffffff08] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+            <div>
+              <p className="font-bold text-white">Chat ID Vinculado: <span className="font-mono text-[#f2c94c]">{telegramStatus.chatId}</span></p>
+              <p className="text-[11px] text-[#99907b]">Vinculado em: {new Date(telegramStatus.linkedAt || '').toLocaleDateString('pt-BR')}</p>
+            </div>
+            <div className="text-[#4cd964] text-xs font-semibold flex items-center gap-1">
+              Pronto para receber lançamentos
+            </div>
+          </div>
+        )}
+
+        {botUrl && !telegramStatus?.linked && (
+          <div className="mt-4 p-5 rounded-2xl bg-[#131313] border border-[#29b6f6]/30 animate-fade-in">
+            <h4 className="text-sm font-bold text-white mb-2">Clique no link abaixo para abrir o Telegram:</h4>
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+              <a
+                href={botUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-6 py-3 rounded-xl bg-[#29b6f6] hover:bg-[#60d0ff] text-[#131313] font-extrabold text-xs inline-flex items-center gap-2 transition"
+              >
+                <span>👉 Abrir no Telegram (/start)</span>
+              </a>
+              <span className="text-[11px] text-[#99907b]">
+                Válido por 10 minutos. Ao abrir, clique em <strong>INICIAR</strong> no Telegram.
+              </span>
+            </div>
+          </div>
+        )}
+      </section>
 
       {/* Workspace Entities Info */}
       <section className="bg-[#1c1b1b] border border-[#ffffff0d] rounded-3xl p-6 md:p-8 shadow-lg">
