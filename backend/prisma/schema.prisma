@@ -114,6 +114,7 @@ model Workspace {
   proposals            Proposal[]
   transactionAudits    TransactionAudit[]
   insights             Insight[]
+  bankConnections      BankConnection[]
 
   @@map("workspaces")
 }
@@ -589,4 +590,66 @@ model InsightPreference {
 
   @@unique([userId, detectorId])
   @@map("insight_preferences")
+}
+
+model BankConnection {
+  id               String    @id @default(uuid())
+  workspaceId      String    @map("workspace_id")
+  provider         String    @default("ofx") // pluggy | ofx | csv
+  itemId           String?   @map("item_id")
+  institution      String    @default("Extrato Bancário")
+  status           String    @default("ativa") // criada | atualizando | ativa | erro | revogada
+  consentExpiresAt DateTime? @map("consent_expires_at")
+  lastSyncAt       DateTime? @map("last_sync_at")
+  lastError        String?   @map("last_error")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  workspace    Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  accounts     BankAccount[]
+  transactions BankTransaction[]
+
+  @@map("bank_connections")
+}
+
+model BankAccount {
+  id                 String    @id @default(uuid())
+  connectionId       String    @map("connection_id")
+  externalId         String?   @map("external_id")
+  kind               String    @default("conta_corrente") // conta_corrente | cartao_credito | poupanca
+  name               String    @default("Conta Principal")
+  financialAccountId String?   @map("financial_account_id")
+  entityId           String?   @map("entity_id")
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  connection   BankConnection    @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  transactions BankTransaction[]
+
+  @@map("bank_accounts")
+}
+
+model BankTransaction {
+  id                    String    @id @default(uuid())
+  connectionId          String    @map("connection_id")
+  bankAccountId         String?   @map("bank_account_id")
+  provider              String    @default("ofx") // pluggy | ofx | csv
+  externalId            String    @map("external_id")
+  direction             String    // in | out
+  amount                Decimal   @db.Decimal(14, 2)
+  occurredOn            DateTime  @map("occurred_on") @db.Date
+  description           String
+  counterpart           String?
+  raw                   Json?
+  status                String    @default("nova") // nova | casada | ignorada | importada | removida
+  suggestedCategoryId   String?   @map("suggested_category_id")
+  isTransferSuspect     Boolean   @default(false) @map("is_transfer_suspect")
+  matchedTransactionId  String?   @map("matched_transaction_id")
+  importedTransactionId String?   @map("imported_transaction_id")
+  createdAt             DateTime  @default(now()) @map("created_at")
+
+  connection  BankConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  bankAccount BankAccount?   @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, externalId])
+  @@index([connectionId, status])
+  @@map("bank_transactions")
 }

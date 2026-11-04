@@ -10,6 +10,7 @@ import DasPage from './pages/DasPage.js';
 import ReportsPage from './pages/ReportsPage.js';
 import ProfilePage from './pages/ProfilePage.js';
 import InsightsPage from './pages/InsightsPage.js';
+import ReviewInboxPage from './pages/ReviewInboxPage.js';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { token, loading } = useAuth();
@@ -76,6 +77,7 @@ export const App: React.FC = () => {
             <Route path="transacoes" element={<TransactionsPage />} />
             <Route path="potes" element={<JarsPage />} />
             <Route path="insights" element={<InsightsPage />} />
+            <Route path="revisao" element={<ReviewInboxPage />} />
             <Route path="impostos" element={<DasPage />} />
             <Route path="relatorios" element={<ReportsPage />} />
             <Route path="perfil" element={<ProfilePage />} />

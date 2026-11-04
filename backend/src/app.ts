@@ -17,6 +17,7 @@ import jarsRoutes from './routes/jarsRoutes.js';
 import transferRoutes from './routes/transferRoutes.js';
 import receiptRoutes from './routes/receiptRoutes.js';
 import insightRoutes from './routes/insightRoutes.js';
+import openFinanceRoutes from './routes/openFinanceRoutes.js';
 import { assistantRoutes } from './routes/assistantRoutes.js';
 import { telegramRoutes, telegramWebhookRoute } from './routes/telegramRoutes.js';
 
@@ -75,6 +76,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await fastify.register(transferRoutes, { prefix: '/api' });
   await fastify.register(receiptRoutes, { prefix: '/api' });
   await fastify.register(insightRoutes, { prefix: '/api' });
+  await fastify.register(openFinanceRoutes, { prefix: '/api' });
   await fastify.register(assistantRoutes, { prefix: '/api' });
   await fastify.register(telegramRoutes, { prefix: '/api' });
   await fastify.register(telegramWebhookRoute);
