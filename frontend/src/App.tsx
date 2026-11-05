@@ -19,11 +19,11 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#131313] text-[#e5e2e1] flex flex-col items-center justify-center gap-3">
-        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#f2c94c] to-[#ffe8ad] flex items-center justify-center text-[#131313] font-black text-2xl shadow-[0_0_25px_rgba(242,201,76,0.4)] animate-pulse">
+      <div className="min-h-screen bg-canvas text-ink flex flex-col items-center justify-center gap-3">
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-primary to-primary-soft flex items-center justify-center text-on-primary font-black text-2xl shadow-[0_0_25px_rgba(242,201,76,0.4)] animate-pulse">
           M
         </div>
-        <p className="text-xs font-bold text-[#99907b] tracking-widest uppercase">
+        <p className="text-xs font-bold text-muted tracking-widest uppercase">
           Carregando MEIster...
         </p>
       </div>

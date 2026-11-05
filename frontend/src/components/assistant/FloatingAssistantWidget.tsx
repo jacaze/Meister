@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { Gear, Paperclip, PaperPlaneRight, X } from '@phosphor-icons/react';
 import api from '../../api/client.js';
+import Mel from '../brand/Mel.js';
+import { celebrate, haptic } from '../../lib/celebrate.js';
 
 interface ProposalData {
   id: string;
@@ -46,8 +50,8 @@ export const FloatingAssistantWidget: React.FC = () => {
       id: 'welcome',
       role: 'assistant',
       content:
-        `👋 **Olá! Sou o MEIster Copilot, seu assistente financeiro inteligente.**\n\n` +
-        `Estou aqui para facilitar a gestão do seu MEI. Você pode me pedir para:\n` +
+        `🐝 **Oi! Eu sou a Mel, sua abelha das finanças.**\n\n` +
+        `Eu organizo o seu dinheiro como um favo de mel. Pode me pedir para:\n` +
         `• **Lançar:** *"Gastei 45 no almoço"* ou *"Recebi 350 via Pix"*\n` +
         `• **Consultar:** *"Qual meu saldo?"* ou *"Como estão meus potes?"*\n` +
         `• **Tirar dúvidas:** *"Qual o teto do MEI?"* ou *"Quando vence o DAS?"*\n` +
@@ -61,6 +65,36 @@ export const FloatingAssistantWidget: React.FC = () => {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const reduceMotion = useReducedMotion();
+
+  // Botão da Mel some ao rolar para baixo (não cobre conteúdo) e volta ao rolar para cima.
+  const [fabHidden, setFabHidden] = useState(false);
+  const [showGreeting, setShowGreeting] = useState(false);
+  useEffect(() => {
+    let last = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      if (Math.abs(y - last) > 8) setFabHidden(y > last && y > 80);
+      last = y;
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    // O "oi" da Mel aparece uma vez por sessão.
+    let greeted = false;
+    try {
+      greeted = sessionStorage.getItem('mel_greeted') === '1';
+      sessionStorage.setItem('mel_greeted', '1');
+    } catch {
+      greeted = false;
+    }
+    const show = window.setTimeout(() => !greeted && setShowGreeting(true), 1800);
+    const hide = window.setTimeout(() => setShowGreeting(false), 6500);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.clearTimeout(show);
+      window.clearTimeout(hide);
+    };
+  }, []);
+  const melMood = loading || uploadingReceipt ? 'thinking' : 'idle';
 
   // Load config on mount
   const fetchConfig = async () => {
@@ -160,6 +194,9 @@ export const FloatingAssistantWidget: React.FC = () => {
             : m
         )
       );
+      haptic([12, 40, 12]);
+      celebrate('small');
+      window.dispatchEvent(new CustomEvent('transaction-saved'));
     } catch (err: any) {
       alert(err.response?.data?.message || 'Falha ao confirmar lançamento.');
     }
@@ -266,14 +303,14 @@ export const FloatingAssistantWidget: React.FC = () => {
           {parts.map((part, pIdx) => {
             if (part.startsWith('**') && part.endsWith('**')) {
               return (
-                <strong key={pIdx} className="text-white font-bold">
+                <strong key={pIdx} className="text-ink font-bold">
                   {part.slice(2, -2)}
                 </strong>
               );
             }
             if (part.startsWith('*') && part.endsWith('*')) {
               return (
-                <em key={pIdx} className="italic text-[#d0c5af]">
+                <em key={pIdx} className="italic text-ink-soft">
                   {part.slice(1, -1)}
                 </em>
               );
@@ -287,113 +324,147 @@ export const FloatingAssistantWidget: React.FC = () => {
 
   return (
     <>
-      {/* Floating Action Button (Copilot) */}
-      <button
-        onClick={() => setIsOpen((prev) => !prev)}
-        className="fixed bottom-36 md:bottom-24 right-6 z-40 w-14 h-14 rounded-full bg-gradient-to-tr from-[#1f1d18] via-[#2a261f] to-[#3a3220] border-2 border-[#f2c94c] text-[#f2c94c] flex items-center justify-center shadow-[0_0_25px_rgba(242,201,76,0.35)] hover:shadow-[0_0_35px_rgba(242,201,76,0.6)] hover:scale-105 active:scale-95 transition-all duration-200 group"
-        title="Assistente MEIster IA"
-      >
-        <span className="material-symbols-outlined text-2xl group-hover:rotate-12 transition-transform duration-300">
-          auto_awesome
-        </span>
+      {/* Botão da Mel (assistente) */}
+      <AnimatePresence>
+        {!isOpen && !fabHidden && (
+          <motion.div
+            className="fixed right-4 z-40 bottom-[calc(96px+env(safe-area-inset-bottom))] md:bottom-8 md:right-8 flex items-end gap-2"
+            initial={{ opacity: 0, scale: 0.6, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.6, y: 20 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 26 }}
+          >
+            <AnimatePresence>
+              {showGreeting && (
+                <motion.button
+                  onClick={() => setIsOpen(true)}
+                  initial={{ opacity: 0, x: 12, scale: 0.9 }}
+                  animate={{ opacity: 1, x: 0, scale: 1 }}
+                  exit={{ opacity: 0, x: 8, scale: 0.9 }}
+                  className="mb-3 max-w-[180px] rounded-2xl rounded-br-md bg-card px-3.5 py-2.5 text-left text-sm font-semibold text-ink shadow-[var(--shadow-float)] ring-1 ring-ink/5"
+                >
+                  Oi! Posso anotar um gasto pra você? 🍯
+                </motion.button>
+              )}
+            </AnimatePresence>
+            <motion.button
+              onClick={() => {
+                haptic(10);
+                setShowGreeting(false);
+                setIsOpen(true);
+              }}
+              whileHover={reduceMotion ? undefined : { scale: 1.06, rotate: -4 }}
+              whileTap={{ scale: 0.9 }}
+              aria-label="Abrir assistente Mel"
+              className="relative grid h-16 w-16 place-items-center rounded-full bg-gradient-to-b from-primary-soft to-primary shadow-[var(--shadow-honey)] ring-4 ring-card"
+            >
+              <Mel size={52} mood={showGreeting ? 'wave' : 'idle'} />
+              <span
+                className={`absolute right-0.5 top-0.5 h-3.5 w-3.5 rounded-full ring-2 ring-card ${
+                  config.hasApiKey ? 'bg-success' : 'bg-primary-deep'
+                }`}
+                title={config.hasApiKey ? 'IA Gemini ativa' : 'Modo local'}
+              />
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-        {/* Live Status Indicator Dot */}
-        <span
-          className={`absolute top-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-[#131313] ${
-            config.hasApiKey ? 'bg-[#27ae60] shadow-[0_0_8px_#27ae60]' : 'bg-[#f2c94c]'
-          }`}
-          title={config.hasApiKey ? 'Gemini IA Ativo' : 'Modo Heurístico Local'}
-        />
-      </button>
-
-      {/* Floating Chat Drawer Window */}
+      {/* Painel do chat: tela cheia no celular, janela flutuante no desktop */}
+      <AnimatePresence>
       {isOpen && (
-        <div className="fixed bottom-24 md:bottom-24 right-4 md:right-8 z-50 w-[360px] sm:w-[420px] max-w-[calc(100vw-32px)] h-[580px] max-h-[calc(100vh-140px)] rounded-3xl bg-[#1c1b1b] border border-[#ffffff1a] shadow-[0_12px_45px_rgba(0,0,0,0.7)] flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200">
-          {/* Header */}
-          <div className="p-4 bg-[#201f1f] border-b border-[#ffffff0d] flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#f2c94c] to-[#ffe8ad] flex items-center justify-center text-[#131313] shadow-[0_0_12px_rgba(242,201,76,0.3)]">
-                <span className="material-symbols-outlined text-lg font-bold">auto_awesome</span>
+        <motion.div
+          role="dialog"
+          aria-label="Assistente Mel"
+          initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 40, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 40, scale: 0.97 }}
+          transition={{ type: 'spring', stiffness: 360, damping: 32 }}
+          className="fixed inset-0 z-[55] flex flex-col overflow-hidden bg-card pt-safe pb-safe md:inset-auto md:bottom-8 md:right-8 md:h-[640px] md:max-h-[calc(100dvh-64px)] md:w-[420px] md:rounded-[28px] md:pt-0 md:pb-0 md:shadow-[var(--shadow-float)] md:ring-1 md:ring-ink/5"
+        >
+          {/* Cabeçalho */}
+          <div className="shrink-0 flex items-center justify-between gap-3 border-b border-ink/5 bg-gradient-to-b from-primary-soft/70 to-card px-4 py-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-card ring-2 ring-primary/50">
+                <Mel size={42} mood={melMood} />
               </div>
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-extrabold text-white">MEIster Copilot</h3>
-                  {config.hasApiKey ? (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#27ae60]/20 text-[#27ae60] border border-[#27ae60]/30 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#27ae60] animate-pulse" />
-                      Gemini ⚡
-                    </span>
-                  ) : (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#f2c94c]/20 text-[#f2c94c] border border-[#f2c94c]/30">
-                      Local 🤖
-                    </span>
-                  )}
+                  <h3 className="text-base font-extrabold text-ink">Mel</h3>
+                  <span
+                    className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                      config.hasApiKey ? 'bg-success/10 text-success' : 'bg-primary/20 text-brand'
+                    }`}
+                  >
+                    <span className={`h-1.5 w-1.5 rounded-full ${config.hasApiKey ? 'bg-success animate-pulse' : 'bg-primary-deep'}`} />
+                    {config.hasApiKey ? 'IA ativa' : 'Modo local'}
+                  </span>
                 </div>
-                <p className="text-[10px] text-[#99907b]">Gestão financeira em linguagem natural</p>
+                <p className="truncate text-xs text-muted">
+                  {loading || uploadingReceipt ? 'pensando…' : 'sua abelha das finanças'}
+                </p>
               </div>
             </div>
 
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setShowConfig((prev) => !prev)}
-                className={`p-1.5 rounded-xl transition ${
-                  showConfig
-                    ? 'bg-[#f2c94c] text-[#131313]'
-                    : 'text-[#99907b] hover:text-white hover:bg-[#2a2a2a]'
+                aria-label="Status da IA"
+                className={`grid h-10 w-10 place-items-center rounded-full transition ${
+                  showConfig ? 'bg-primary text-on-primary' : 'text-muted hover:bg-field hover:text-ink'
                 }`}
-                title="Configurar Chave Gemini"
               >
-                <span className="material-symbols-outlined text-lg">settings</span>
+                <Gear size={20} />
               </button>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-1.5 text-[#99907b] hover:text-white hover:bg-[#2a2a2a] rounded-xl transition"
-                title="Minimizar"
+                aria-label="Fechar assistente"
+                className="grid h-10 w-10 place-items-center rounded-full text-muted transition hover:bg-field hover:text-ink"
               >
-                <span className="material-symbols-outlined text-lg">close</span>
+                <X size={20} weight="bold" />
               </button>
             </div>
           </div>
 
           {/* Gemini Config Sub-Panel */}
           {showConfig ? (
-            <div className="p-5 flex-1 overflow-y-auto space-y-4 bg-[#181818] border-b border-[#ffffff0d]">
+            <div className="p-5 flex-1 overflow-y-auto space-y-4 bg-card border-b border-ink/5">
               <div className="flex items-center justify-between">
-                <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[#f2c94c] text-lg">key</span>
+                <h4 className="text-sm font-bold text-ink flex items-center gap-2">
+                  <span className="material-symbols-outlined text-brand text-lg">key</span>
                   Conexão Google Gemini API
                 </h4>
                 <button
                   onClick={() => setShowConfig(false)}
-                  className="text-xs text-[#99907b] hover:text-white underline"
+                  className="text-xs text-muted hover:text-ink underline"
                 >
                   Voltar ao chat
                 </button>
               </div>
 
-              <p className="text-xs text-[#d0c5af] leading-relaxed">
+              <p className="text-xs text-ink-soft leading-relaxed">
                 Adicione sua chave para ativar inteligência artificial generativa em tempo real, visão de cupons fiscais e respostas contextuais personalizadas para o seu MEI.
               </p>
 
               {/* Status Box */}
-              <div className="p-3 rounded-2xl bg-[#201f1f] border border-[#ffffff0d] text-xs space-y-1">
+              <div className="p-3 rounded-2xl bg-card-2 border border-ink/5 text-xs space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-[#99907b]">Status atual:</span>
-                  <span className={`font-bold ${config.hasApiKey ? 'text-[#27ae60]' : 'text-[#f2c94c]'}`}>
+                  <span className="text-muted">Status atual:</span>
+                  <span className={`font-bold ${config.hasApiKey ? 'text-success' : 'text-brand'}`}>
                     {config.hasApiKey ? 'Conectado e Ativo' : 'Não configurado (modo local)'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[#99907b]">Modelo:</span>
-                  <span className="font-mono text-white text-[11px]">{config.model}</span>
+                  <span className="text-muted">Modelo:</span>
+                  <span className="font-mono text-ink text-[11px]">{config.model}</span>
                 </div>
               </div>
 
               {/* Deployment Info */}
-              <div className="text-[11px] text-[#99907b] bg-[#ffffff05] p-3 rounded-xl border border-[#ffffff0a] space-y-1.5">
-                <p className="font-semibold text-white">Configuração Centralizada:</p>
+              <div className="text-[11px] text-muted bg-ink/4 p-3 rounded-xl border border-ink/4 space-y-1.5">
+                <p className="font-semibold text-ink">Configuração Centralizada:</p>
                 <p>
-                  As credenciais de Inteligência Artificial do Google Gemini são configuradas exclusivamente nas variáveis de ambiente do deploy da plataforma (<code className="text-white font-mono">GEMINI_API_KEY</code>).
+                  As credenciais de Inteligência Artificial do Google Gemini são configuradas exclusivamente nas variáveis de ambiente do deploy da plataforma (<code className="text-ink font-mono">GEMINI_API_KEY</code>).
                 </p>
                 <p>
                   Usuários e workspaces compartilham o modelo provisionado com segurança, sem necessidade de chaves locais.
@@ -404,7 +475,7 @@ export const FloatingAssistantWidget: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowConfig(false)}
-                  className="w-full py-2.5 px-4 rounded-xl bg-[#2a2a2a] hover:bg-[#333] text-white text-xs font-bold transition"
+                  className="w-full py-2.5 px-4 rounded-xl bg-field hover:bg-raised text-ink text-xs font-bold transition"
                 >
                   Voltar ao Chat
                 </button>
@@ -425,48 +496,48 @@ export const FloatingAssistantWidget: React.FC = () => {
                       <div
                         className={`max-w-[88%] p-3.5 rounded-2xl text-xs leading-relaxed ${
                           isUser
-                            ? 'bg-[#2a2a2a] text-white rounded-br-none border border-[#ffffff0d]'
-                            : 'bg-[#151515] text-[#e5e2e1] rounded-bl-none border border-[#ffffff14] shadow-md'
+                            ? 'bg-field text-ink rounded-br-none border border-ink/5'
+                            : 'bg-card text-ink rounded-bl-none border border-ink/8 shadow-md'
                         }`}
                       >
                         {renderFormatted(msg.content)}
 
                         {/* Interactive Proposal Card */}
                         {msg.proposal && (
-                          <div className="mt-3 p-3 rounded-xl bg-[#201f1f] border border-[#f2c94c]/40 space-y-2">
+                          <div className="mt-3 p-3 rounded-xl bg-card-2 border border-primary/40 space-y-2">
                             <div className="flex items-center justify-between">
                               <span
                                 className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md ${
                                   msg.proposal.type === 'receita'
-                                    ? 'bg-[#27ae60]/20 text-[#27ae60]'
-                                    : 'bg-[#eb5757]/20 text-[#eb5757]'
+                                    ? 'bg-success/20 text-success'
+                                    : 'bg-danger/20 text-danger'
                                 }`}
                               >
                                 {msg.proposal.type === 'receita' ? '▲ Receita' : '▼ Despesa'}
                               </span>
-                              <span className="text-[10px] text-[#99907b] uppercase font-bold">
+                              <span className="text-[10px] text-muted uppercase font-bold">
                                 {msg.proposal.scope === 'pj' ? '🏢 PJ' : '👤 PF'}
                               </span>
                             </div>
 
                             <div className="flex items-baseline justify-between">
-                              <span className="text-base font-extrabold text-white">
+                              <span className="text-base font-extrabold text-ink">
                                 R$ {msg.proposal.amount.replace('.', ',')}
                               </span>
-                              <span className="text-[11px] text-[#f2c94c] font-semibold truncate max-w-[150px]">
+                              <span className="text-[11px] text-brand font-semibold truncate max-w-[150px]">
                                 {msg.proposal.categoryName}
                               </span>
                             </div>
 
-                            <p className="text-[11px] text-[#d0c5af]">{msg.proposal.description}</p>
+                            <p className="text-[11px] text-ink-soft">{msg.proposal.description}</p>
 
                             {/* Buttons */}
                             {msg.proposalStatus === 'pending' && (
-                              <div className="flex gap-2 pt-1 border-t border-[#ffffff0d]">
+                              <div className="flex gap-2 pt-1 border-t border-ink/5">
                                 <button
                                   type="button"
                                   onClick={() => handleConfirmProposal(msg.id, msg.proposal!.id)}
-                                  className="flex-1 py-1.5 px-2 rounded-lg bg-[#27ae60] hover:bg-[#219653] text-white text-[11px] font-bold transition flex items-center justify-center gap-1 shadow-sm"
+                                  className="flex-1 py-1.5 px-2 rounded-lg bg-success hover:bg-success text-ink text-[11px] font-bold transition flex items-center justify-center gap-1 shadow-sm"
                                 >
                                   <span className="material-symbols-outlined text-sm">check</span>
                                   Confirmar
@@ -474,7 +545,7 @@ export const FloatingAssistantWidget: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={() => handleCancelProposal(msg.id, msg.proposal!.id)}
-                                  className="py-1.5 px-2.5 rounded-lg bg-[#2a2a2a] hover:bg-[#333] text-[#99907b] hover:text-white text-[11px] font-semibold transition"
+                                  className="py-1.5 px-2.5 rounded-lg bg-field hover:bg-raised text-muted hover:text-ink text-[11px] font-semibold transition"
                                 >
                                   Cancelar
                                 </button>
@@ -482,14 +553,14 @@ export const FloatingAssistantWidget: React.FC = () => {
                             )}
 
                             {msg.proposalStatus === 'confirmed' && (
-                              <div className="pt-1 text-[11px] font-bold text-[#27ae60] flex items-center gap-1">
+                              <div className="pt-1 text-[11px] font-bold text-success flex items-center gap-1">
                                 <span className="material-symbols-outlined text-sm">check_circle</span>
                                 Lançado no Livro-Caixa
                               </div>
                             )}
 
                             {msg.proposalStatus === 'cancelled' && (
-                              <div className="pt-1 text-[11px] font-semibold text-[#99907b] flex items-center gap-1">
+                              <div className="pt-1 text-[11px] font-semibold text-muted flex items-center gap-1">
                                 <span className="material-symbols-outlined text-sm">cancel</span>
                                 Proposta descartada
                               </div>
@@ -498,7 +569,7 @@ export const FloatingAssistantWidget: React.FC = () => {
                         )}
                       </div>
 
-                      <span className="text-[9px] text-[#706c64] px-1">
+                      <span className="text-[9px] text-faint px-1">
                         {msg.timestamp}
                         {msg.isAiGenerated && ' • Gerado com Gemini'}
                       </span>
@@ -507,8 +578,8 @@ export const FloatingAssistantWidget: React.FC = () => {
                 })}
 
                 {loading && (
-                  <div className="flex items-center gap-2 p-3 max-w-[70%] rounded-2xl bg-[#151515] border border-[#ffffff14] text-xs text-[#99907b]">
-                    <span className="material-symbols-outlined text-sm animate-spin text-[#f2c94c]">
+                  <div className="flex items-center gap-2 p-3 max-w-[70%] rounded-2xl bg-card border border-ink/8 text-xs text-muted">
+                    <span className="material-symbols-outlined text-sm animate-spin text-brand">
                       sync
                     </span>
                     <span>Analisando...</span>
@@ -516,8 +587,8 @@ export const FloatingAssistantWidget: React.FC = () => {
                 )}
 
                 {uploadingReceipt && (
-                  <div className="flex items-center gap-2 p-3 max-w-[70%] rounded-2xl bg-[#151515] border border-[#ffffff14] text-xs text-[#99907b]">
-                    <span className="material-symbols-outlined text-sm animate-spin text-[#f2c94c]">
+                  <div className="flex items-center gap-2 p-3 max-w-[70%] rounded-2xl bg-card border border-ink/8 text-xs text-muted">
+                    <span className="material-symbols-outlined text-sm animate-spin text-brand">
                       document_scanner
                     </span>
                     <span>Processando visão de comprovante...</span>
@@ -528,7 +599,7 @@ export const FloatingAssistantWidget: React.FC = () => {
               </div>
 
               {/* Quick Prompt Suggestions */}
-              <div className="px-3 py-1.5 bg-[#171717] border-t border-[#ffffff08] flex items-center gap-1.5 overflow-x-auto scrollbar-none shrink-0">
+              <div className="px-3 py-1.5 bg-card border-t border-ink/4 flex items-center gap-1.5 overflow-x-auto scrollbar-none shrink-0">
                 {[
                   'Qual meu saldo?',
                   'Gastei 45 no almoço',
@@ -540,7 +611,7 @@ export const FloatingAssistantWidget: React.FC = () => {
                     key={idx}
                     type="button"
                     onClick={() => handleSendMessage(chip)}
-                    className="text-[10px] whitespace-nowrap px-2.5 py-1 rounded-lg bg-[#201f1f] hover:bg-[#2a2a2a] border border-[#ffffff0d] text-[#d0c5af] hover:text-white transition"
+                    className="text-[10px] whitespace-nowrap px-2.5 py-1 rounded-lg bg-card-2 hover:bg-field border border-ink/5 text-ink-soft hover:text-ink transition"
                   >
                     {chip}
                   </button>
@@ -548,7 +619,7 @@ export const FloatingAssistantWidget: React.FC = () => {
               </div>
 
               {/* Input Area */}
-              <div className="p-3 bg-[#201f1f] border-t border-[#ffffff0d] shrink-0">
+              <div className="p-3 bg-card-2 border-t border-ink/5 shrink-0">
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -568,34 +639,37 @@ export const FloatingAssistantWidget: React.FC = () => {
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploadingReceipt || loading}
-                    className="p-2.5 rounded-xl text-[#99907b] hover:text-[#f2c94c] hover:bg-[#2a2a2a] transition disabled:opacity-50"
-                    title="Escanear Comprovante / Foto"
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-muted transition hover:bg-field hover:text-brand disabled:opacity-50"
+                    aria-label="Enviar foto de nota ou comprovante"
                   >
-                    <span className="material-symbols-outlined text-lg">attach_file</span>
+                    <Paperclip size={22} />
                   </button>
 
                   <input
                     type="text"
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
-                    placeholder="Digite um gasto, ganho ou dúvida..."
-                    className="flex-1 px-3.5 py-2.5 bg-[#131313] border border-[#ffffff14] rounded-xl text-xs text-white focus:outline-none focus:border-[#f2c94c] transition"
+                    placeholder="Ex.: gastei 45 no almoço"
+                    aria-label="Mensagem para a Mel"
+                    className="min-w-0 flex-1 rounded-full border border-ink/10 bg-canvas px-4 py-3 text-sm text-ink transition focus:border-primary focus:outline-none"
                   />
 
-                  <button
+                  <motion.button
                     type="submit"
+                    whileTap={{ scale: 0.88 }}
                     disabled={loading || !inputText.trim()}
-                    className="p-2.5 rounded-xl bg-[#f2c94c] text-[#131313] hover:scale-105 active:scale-95 transition disabled:opacity-40 disabled:hover:scale-100 flex items-center justify-center"
-                    title="Enviar"
+                    aria-label="Enviar"
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary text-on-primary shadow-[var(--shadow-honey)] transition disabled:opacity-40 disabled:shadow-none"
                   >
-                    <span className="material-symbols-outlined text-lg font-bold">send</span>
-                  </button>
+                    <PaperPlaneRight size={20} weight="fill" />
+                  </motion.button>
                 </form>
               </div>
             </>
           )}
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </>
   );
 };

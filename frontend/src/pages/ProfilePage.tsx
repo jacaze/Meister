@@ -149,44 +149,44 @@ export const ProfilePage: React.FC = () => {
     <div className="space-y-6 max-w-4xl">
       {/* Header */}
       <div>
-        <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2">
-          <span className="material-symbols-outlined text-[#f2c94c] text-3xl">settings</span>
+        <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-ink flex items-center gap-2">
+          <span className="material-symbols-outlined text-brand text-3xl">settings</span>
           Perfil & Configurações
         </h1>
-        <p className="text-xs md:text-sm text-[#d0c5af] mt-1">
+        <p className="text-xs md:text-sm text-ink-soft mt-1">
           Gerencie seus dados de usuário, parâmetros fiscais MEI e contas vinculadas.
         </p>
       </div>
 
       {/* User Information Card */}
-      <section className="bg-[#1c1b1b] border border-[#ffffff0d] rounded-3xl p-6 md:p-8 shadow-lg">
+      <section className="bg-card border border-ink/5 rounded-3xl p-6 md:p-8 shadow-lg">
         <div className="flex items-center gap-4 mb-6">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#f2c94c] to-[#ffe8ad] text-[#131313] flex items-center justify-center font-extrabold text-2xl shadow-lg">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-primary to-primary-soft text-on-primary flex items-center justify-center font-extrabold text-2xl shadow-lg">
             {user?.name.charAt(0).toUpperCase()}
           </div>
           <div>
-            <h2 className="text-xl font-bold text-white">{user?.name}</h2>
-            <p className="text-xs text-[#99907b]">{user?.email}</p>
-            <span className="inline-block mt-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#2a2a2a] text-[#f2c94c] uppercase tracking-wider">
+            <h2 className="text-xl font-bold text-ink">{user?.name}</h2>
+            <p className="text-xs text-muted">{user?.email}</p>
+            <span className="inline-block mt-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-field text-brand uppercase tracking-wider">
               {user?.accountType === 'mei' ? 'Conta MEI / PJ + PF' : 'Pessoa Física'}
             </span>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-[#99907b] pt-4 border-t border-[#ffffff08]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-muted pt-4 border-t border-ink/4">
           <div>
-            <span className="block text-[10px] uppercase font-bold text-[#99907b]">
+            <span className="block text-[10px] uppercase font-bold text-muted">
               Workspace ID
             </span>
-            <span className="font-mono text-[#d0c5af] mt-0.5 block truncate">
+            <span className="font-mono text-ink-soft mt-0.5 block truncate">
               {workspace?.workspace.id || '-'}
             </span>
           </div>
           <div>
-            <span className="block text-[10px] uppercase font-bold text-[#99907b]">
+            <span className="block text-[10px] uppercase font-bold text-muted">
               Plano de Assinatura
             </span>
-            <span className="text-[#d0c5af] font-bold capitalize mt-0.5 block">
+            <span className="text-ink-soft font-bold capitalize mt-0.5 block">
               {workspace?.workspace.plan || 'Free MEIster'}
             </span>
           </div>
@@ -195,27 +195,27 @@ export const ProfilePage: React.FC = () => {
 
       {/* Business Profile (MEI) Form */}
       {user?.accountType === 'mei' && (
-        <section className="bg-[#1c1b1b] border border-[#ffffff0d] rounded-3xl p-6 md:p-8 shadow-xl relative">
+        <section className="bg-card border border-ink/5 rounded-3xl p-6 md:p-8 shadow-xl relative">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-[#f2c94c]/10 text-[#f2c94c] flex items-center justify-center">
+              <div className="w-10 h-10 rounded-2xl bg-primary/10 text-brand flex items-center justify-center">
                 <span className="material-symbols-outlined text-xl">storefront</span>
               </div>
               <div>
-                <h3 className="font-extrabold text-lg text-white">Dados da Empresa MEI</h3>
-                <p className="text-xs text-[#99907b]">
+                <h3 className="font-extrabold text-lg text-ink">Dados da Empresa MEI</h3>
+                <p className="text-xs text-muted">
                   Essenciais para cálculo do limite proporcional e valores exatos do DAS.
                 </p>
               </div>
             </div>
 
             {pjEntity?.profileComplete ? (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-[#27ae60]/10 text-[#27ae60] border border-[#27ae60]/20">
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-success/10 text-success border border-success/20">
                 <span className="material-symbols-outlined text-xs">check_circle</span>
                 Completo
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-[#f2c94c]/10 text-[#f2c94c] border border-[#f2c94c]/20">
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-primary/10 text-brand border border-primary/20">
                 <span className="material-symbols-outlined text-xs">pending</span>
                 Pendente
               </span>
@@ -223,14 +223,14 @@ export const ProfilePage: React.FC = () => {
           </div>
 
           {successMessage && (
-            <div className="mb-6 p-4 rounded-2xl bg-[#27ae60]/10 border border-[#27ae60]/20 text-[#27ae60] text-xs font-bold flex items-center gap-2">
+            <div className="mb-6 p-4 rounded-2xl bg-success/10 border border-success/20 text-success text-xs font-bold flex items-center gap-2">
               <span className="material-symbols-outlined text-base">check_circle</span>
               {successMessage}
             </div>
           )}
 
           {errorMessage && (
-            <div className="mb-6 p-4 rounded-2xl bg-[#eb5757]/10 border border-[#eb5757]/20 text-[#ffb4ab] text-xs font-bold flex items-center gap-2">
+            <div className="mb-6 p-4 rounded-2xl bg-danger/10 border border-danger/20 text-danger text-xs font-bold flex items-center gap-2">
               <span className="material-symbols-outlined text-base">error</span>
               {errorMessage}
             </div>
@@ -240,7 +240,7 @@ export const ProfilePage: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* CNPJ */}
               <div>
-                <label className="text-xs font-bold text-[#99907b] uppercase tracking-wider block mb-1">
+                <label className="text-xs font-bold text-muted uppercase tracking-wider block mb-1">
                   CNPJ
                 </label>
                 <input
@@ -249,22 +249,22 @@ export const ProfilePage: React.FC = () => {
                   value={cnpj}
                   onChange={handleCnpjChange}
                   maxLength={18}
-                  className="w-full bg-[#131313] text-sm text-[#e5e2e1] rounded-xl px-3.5 py-2.5 border border-[#ffffff0d] focus:outline-none focus:border-[#f2c94c] font-mono"
+                  className="w-full bg-canvas text-sm text-ink rounded-xl px-3.5 py-2.5 border border-ink/5 focus:outline-none focus:border-primary font-mono"
                 />
               </div>
 
               {/* Data de Abertura */}
               <div>
-                <label className="text-xs font-bold text-[#99907b] uppercase tracking-wider block mb-1">
+                <label className="text-xs font-bold text-muted uppercase tracking-wider block mb-1">
                   Data de Abertura do MEI
                 </label>
                 <input
                   type="date"
                   value={openedOn}
                   onChange={(e) => setOpenedOn(e.target.value)}
-                  className="w-full bg-[#131313] text-sm text-[#e5e2e1] rounded-xl px-3.5 py-2.5 border border-[#ffffff0d] focus:outline-none focus:border-[#f2c94c]"
+                  className="w-full bg-canvas text-sm text-ink rounded-xl px-3.5 py-2.5 border border-ink/5 focus:outline-none focus:border-primary"
                 />
-                <span className="text-[10px] text-[#99907b] mt-1 block">
+                <span className="text-[10px] text-muted mt-1 block">
                   Define o cálculo proporcional do limite MEI se aberto no ano corrente.
                 </span>
               </div>
@@ -273,7 +273,7 @@ export const ProfilePage: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Razão Social */}
               <div>
-                <label className="text-xs font-bold text-[#99907b] uppercase tracking-wider block mb-1">
+                <label className="text-xs font-bold text-muted uppercase tracking-wider block mb-1">
                   Razão Social
                 </label>
                 <input
@@ -281,13 +281,13 @@ export const ProfilePage: React.FC = () => {
                   placeholder="Ex: João Vitor da Silva 12345678900"
                   value={legalName}
                   onChange={(e) => setLegalName(e.target.value)}
-                  className="w-full bg-[#131313] text-sm text-[#e5e2e1] rounded-xl px-3.5 py-2.5 border border-[#ffffff0d] focus:outline-none focus:border-[#f2c94c]"
+                  className="w-full bg-canvas text-sm text-ink rounded-xl px-3.5 py-2.5 border border-ink/5 focus:outline-none focus:border-primary"
                 />
               </div>
 
               {/* Nome Fantasia */}
               <div>
-                <label className="text-xs font-bold text-[#99907b] uppercase tracking-wider block mb-1">
+                <label className="text-xs font-bold text-muted uppercase tracking-wider block mb-1">
                   Nome Fantasia
                 </label>
                 <input
@@ -295,22 +295,22 @@ export const ProfilePage: React.FC = () => {
                   placeholder="Ex: JV Serviços Digitais"
                   value={tradeName}
                   onChange={(e) => setTradeName(e.target.value)}
-                  className="w-full bg-[#131313] text-sm text-[#e5e2e1] rounded-xl px-3.5 py-2.5 border border-[#ffffff0d] focus:outline-none focus:border-[#f2c94c]"
+                  className="w-full bg-canvas text-sm text-ink rounded-xl px-3.5 py-2.5 border border-ink/5 focus:outline-none focus:border-primary"
                 />
               </div>
             </div>
 
             {/* Atividade Principal */}
             <div>
-              <label className="text-xs font-bold text-[#99907b] uppercase tracking-wider block mb-1">
+              <label className="text-xs font-bold text-muted uppercase tracking-wider block mb-1">
                 Atividade Principal (Define o valor exato do DAS)
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <label
                   className={`flex flex-col p-3 rounded-2xl border cursor-pointer transition ${
                     activity === 'comercio'
-                      ? 'bg-[#2a2a2a] border-[#f2c94c] text-white'
-                      : 'bg-[#131313] border-[#ffffff0d] text-[#99907b]'
+                      ? 'bg-field border-primary text-ink'
+                      : 'bg-canvas border-ink/5 text-muted'
                   }`}
                 >
                   <div className="flex items-center gap-2">
@@ -320,18 +320,18 @@ export const ProfilePage: React.FC = () => {
                       value="comercio"
                       checked={activity === 'comercio'}
                       onChange={() => setActivity('comercio')}
-                      className="text-[#f2c94c] focus:ring-0"
+                      className="text-brand focus:ring-0"
                     />
-                    <strong className="text-xs text-white">Comércio / Indústria</strong>
+                    <strong className="text-xs text-ink">Comércio / Indústria</strong>
                   </div>
-                  <span className="text-[11px] text-[#99907b] mt-1">ICMS (+ R$ 1,00)</span>
+                  <span className="text-[11px] text-muted mt-1">ICMS (+ R$ 1,00)</span>
                 </label>
 
                 <label
                   className={`flex flex-col p-3 rounded-2xl border cursor-pointer transition ${
                     activity === 'servicos'
-                      ? 'bg-[#2a2a2a] border-[#f2c94c] text-white'
-                      : 'bg-[#131313] border-[#ffffff0d] text-[#99907b]'
+                      ? 'bg-field border-primary text-ink'
+                      : 'bg-canvas border-ink/5 text-muted'
                   }`}
                 >
                   <div className="flex items-center gap-2">
@@ -341,18 +341,18 @@ export const ProfilePage: React.FC = () => {
                       value="servicos"
                       checked={activity === 'servicos'}
                       onChange={() => setActivity('servicos')}
-                      className="text-[#f2c94c] focus:ring-0"
+                      className="text-brand focus:ring-0"
                     />
-                    <strong className="text-xs text-white">Serviços</strong>
+                    <strong className="text-xs text-ink">Serviços</strong>
                   </div>
-                  <span className="text-[11px] text-[#99907b] mt-1">ISS (+ R$ 5,00)</span>
+                  <span className="text-[11px] text-muted mt-1">ISS (+ R$ 5,00)</span>
                 </label>
 
                 <label
                   className={`flex flex-col p-3 rounded-2xl border cursor-pointer transition ${
                     activity === 'misto'
-                      ? 'bg-[#2a2a2a] border-[#f2c94c] text-white'
-                      : 'bg-[#131313] border-[#ffffff0d] text-[#99907b]'
+                      ? 'bg-field border-primary text-ink'
+                      : 'bg-canvas border-ink/5 text-muted'
                   }`}
                 >
                   <div className="flex items-center gap-2">
@@ -362,11 +362,11 @@ export const ProfilePage: React.FC = () => {
                       value="misto"
                       checked={activity === 'misto'}
                       onChange={() => setActivity('misto')}
-                      className="text-[#f2c94c] focus:ring-0"
+                      className="text-brand focus:ring-0"
                     />
-                    <strong className="text-xs text-white">Comércio e Serviços</strong>
+                    <strong className="text-xs text-ink">Comércio e Serviços</strong>
                   </div>
-                  <span className="text-[11px] text-[#99907b] mt-1">ICMS + ISS (+ R$ 6,00)</span>
+                  <span className="text-[11px] text-muted mt-1">ICMS + ISS (+ R$ 6,00)</span>
                 </label>
               </div>
             </div>
@@ -375,7 +375,7 @@ export const ProfilePage: React.FC = () => {
               <button
                 type="submit"
                 disabled={saving}
-                className="bg-[#f2c94c] hover:bg-[#ffe8ad] text-[#131313] font-bold text-xs md:text-sm px-6 py-3 rounded-2xl shadow-[0_0_20px_rgba(242,201,76,0.25)] transition disabled:opacity-50"
+                className="bg-primary hover:bg-primary-soft text-on-primary font-bold text-xs md:text-sm px-6 py-3 rounded-2xl shadow-[0_0_20px_rgba(242,201,76,0.25)] transition disabled:opacity-50"
               >
                 {saving ? 'Salvando...' : 'Salvar Dados da Empresa'}
               </button>
@@ -385,22 +385,22 @@ export const ProfilePage: React.FC = () => {
       )}
 
       {/* Telegram AI Assistant Connection */}
-      <section className="bg-[#1c1b1b] border border-[#ffffff0d] rounded-3xl p-6 md:p-8 shadow-lg">
+      <section className="bg-card border border-ink/5 rounded-3xl p-6 md:p-8 shadow-lg">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-extrabold text-lg text-white">Assistente Telegram & IA</h3>
+              <h3 className="font-extrabold text-lg text-ink">Assistente Telegram & IA</h3>
               {telegramStatus?.linked ? (
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#4cd964]/20 text-[#4cd964] border border-[#4cd964]/30">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-success/20 text-success border border-success/30">
                   CONECTADO
                 </span>
               ) : (
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#99907b]/20 text-[#99907b] border border-[#ffffff0d]">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-muted/20 text-muted border border-ink/5">
                   NÃO VINCULADO
                 </span>
               )}
             </div>
-            <p className="text-xs text-[#99907b]">
+            <p className="text-xs text-muted">
               Lance despesas e receitas em linguagem natural por texto no Telegram com suporte da IA Gemini.
             </p>
           </div>
@@ -411,7 +411,7 @@ export const ProfilePage: React.FC = () => {
                 type="button"
                 onClick={handleUnlinkTelegram}
                 disabled={telegramLoading}
-                className="px-4 py-2.5 rounded-xl text-xs font-bold text-[#ffb4ab] bg-[#eb5757]/10 hover:bg-[#eb5757]/20 border border-[#eb5757]/20 transition disabled:opacity-50"
+                className="px-4 py-2.5 rounded-xl text-xs font-bold text-danger bg-danger/10 hover:bg-danger/20 border border-danger/20 transition disabled:opacity-50"
               >
                 {telegramLoading ? 'Processando...' : 'Desvincular Telegram'}
               </button>
@@ -420,7 +420,7 @@ export const ProfilePage: React.FC = () => {
                 type="button"
                 onClick={handleGenerateTelegramLink}
                 disabled={telegramLoading}
-                className="px-5 py-2.5 rounded-xl text-xs font-bold text-[#131313] bg-[#29b6f6] hover:bg-[#60d0ff] transition shadow-[0_0_15px_rgba(41,182,246,0.25)] disabled:opacity-50 inline-flex items-center gap-2"
+                className="px-5 py-2.5 rounded-xl text-xs font-bold text-on-primary bg-info hover:bg-info transition shadow-[0_0_15px_rgba(41,182,246,0.25)] disabled:opacity-50 inline-flex items-center gap-2"
               >
                 <span>Conectar Bot do Telegram</span>
               </button>
@@ -429,30 +429,30 @@ export const ProfilePage: React.FC = () => {
         </div>
 
         {telegramStatus?.linked && (
-          <div className="p-4 rounded-2xl bg-[#131313] border border-[#ffffff08] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+          <div className="p-4 rounded-2xl bg-canvas border border-ink/4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
             <div>
-              <p className="font-bold text-white">Chat ID Vinculado: <span className="font-mono text-[#f2c94c]">{telegramStatus.chatId}</span></p>
-              <p className="text-[11px] text-[#99907b]">Vinculado em: {new Date(telegramStatus.linkedAt || '').toLocaleDateString('pt-BR')}</p>
+              <p className="font-bold text-ink">Chat ID Vinculado: <span className="font-mono text-brand">{telegramStatus.chatId}</span></p>
+              <p className="text-[11px] text-muted">Vinculado em: {new Date(telegramStatus.linkedAt || '').toLocaleDateString('pt-BR')}</p>
             </div>
-            <div className="text-[#4cd964] text-xs font-semibold flex items-center gap-1">
+            <div className="text-success text-xs font-semibold flex items-center gap-1">
               Pronto para receber lançamentos
             </div>
           </div>
         )}
 
         {botUrl && !telegramStatus?.linked && (
-          <div className="mt-4 p-5 rounded-2xl bg-[#131313] border border-[#29b6f6]/30 animate-fade-in">
-            <h4 className="text-sm font-bold text-white mb-2">Clique no link abaixo para abrir o Telegram:</h4>
+          <div className="mt-4 p-5 rounded-2xl bg-canvas border border-info/30 animate-fade-in">
+            <h4 className="text-sm font-bold text-ink mb-2">Clique no link abaixo para abrir o Telegram:</h4>
             <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
               <a
                 href={botUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-6 py-3 rounded-xl bg-[#29b6f6] hover:bg-[#60d0ff] text-[#131313] font-extrabold text-xs inline-flex items-center gap-2 transition"
+                className="px-6 py-3 rounded-xl bg-info hover:bg-info text-on-primary font-extrabold text-xs inline-flex items-center gap-2 transition"
               >
                 <span>👉 Abrir no Telegram (/start)</span>
               </a>
-              <span className="text-[11px] text-[#99907b]">
+              <span className="text-[11px] text-muted">
                 Válido por 10 minutos. Ao abrir, clique em <strong>INICIAR</strong> no Telegram.
               </span>
             </div>
@@ -461,9 +461,9 @@ export const ProfilePage: React.FC = () => {
       </section>
 
       {/* Workspace Entities Info */}
-      <section className="bg-[#1c1b1b] border border-[#ffffff0d] rounded-3xl p-6 md:p-8 shadow-lg">
-        <h3 className="font-extrabold text-lg text-white mb-1">Entidades Vinculadas</h3>
-        <p className="text-xs text-[#99907b] mb-4">
+      <section className="bg-card border border-ink/5 rounded-3xl p-6 md:p-8 shadow-lg">
+        <h3 className="font-extrabold text-lg text-ink mb-1">Entidades Vinculadas</h3>
+        <p className="text-xs text-muted mb-4">
           Isolamento estrito entre finanças da empresa (PJ) e despesas pessoais (PF).
         </p>
 
@@ -471,20 +471,20 @@ export const ProfilePage: React.FC = () => {
           {workspace?.entities.map((ent) => (
             <div
               key={ent.id}
-              className="p-4 rounded-2xl bg-[#131313] border border-[#ffffff08] flex items-center justify-between"
+              className="p-4 rounded-2xl bg-canvas border border-ink/4 flex items-center justify-between"
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#2a2a2a] text-[#f2c94c] flex items-center justify-center font-bold text-sm">
+                <div className="w-10 h-10 rounded-xl bg-field text-brand flex items-center justify-center font-bold text-sm">
                   {ent.kind === 'pj' ? 'PJ' : 'PF'}
                 </div>
                 <div>
-                  <h4 className="font-bold text-sm text-white">{ent.name}</h4>
-                  <p className="text-[11px] text-[#99907b]">
+                  <h4 className="font-bold text-sm text-ink">{ent.name}</h4>
+                  <p className="text-[11px] text-muted">
                     {ent.kind === 'pj' ? 'Pessoa Jurídica (Empresa)' : 'Pessoa Física (Pessoal)'}
                   </p>
                 </div>
               </div>
-              <span className="text-xs font-mono text-[#99907b]">{ent.id}</span>
+              <span className="text-xs font-mono text-muted">{ent.id}</span>
             </div>
           ))}
         </div>
@@ -494,7 +494,7 @@ export const ProfilePage: React.FC = () => {
       <div className="pt-4 flex justify-end">
         <button
           onClick={logout}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold text-[#ffb4ab] bg-[#eb5757]/10 hover:bg-[#eb5757]/20 border border-[#eb5757]/20 transition"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold text-danger bg-danger/10 hover:bg-danger/20 border border-danger/20 transition"
         >
           <span className="material-symbols-outlined text-base">logout</span>
           Encerrar Sessão

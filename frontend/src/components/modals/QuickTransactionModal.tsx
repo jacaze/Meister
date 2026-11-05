@@ -1,6 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { motion } from 'motion/react';
+import { Camera, CircleNotch } from '@phosphor-icons/react';
 import api from '../../api/client.js';
 import { useAuth } from '../../context/AuthContext.js';
+import Sheet from '../ui/Sheet.js';
+import Mel from '../brand/Mel.js';
+import { celebrate, haptic } from '../../lib/celebrate.js';
 
 interface QuickTransactionModalProps {
   readonly onClose: () => void;
@@ -25,6 +30,12 @@ interface SplitItem {
 export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ onClose, onSaved }) => {
   const { workspace, activeEntityId } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Mantém o painel montado durante a animação de saída antes de avisar o pai.
+  const [open, setOpen] = useState(true);
+  const close = () => {
+    setOpen(false);
+    window.setTimeout(onClose, 260);
+  };
   const [type, setType] = useState<'receita' | 'despesa'>('despesa');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
@@ -166,8 +177,9 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
       }
 
       if (onSaved) onSaved();
-      onClose();
-      // Reload or trigger custom event
+      haptic([12, 40, 12]);
+      celebrate('small');
+      close();
       window.dispatchEvent(new CustomEvent('transaction-saved'));
     } catch (err: any) {
       setError(err.response?.data?.message || 'Falha ao salvar lançamento.');
@@ -178,21 +190,36 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
 
   const selectedEntity = workspace?.entities.find((e) => e.id === entityId);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-[#1c1b1b] border border-[#ffffff14] rounded-3xl w-full max-w-lg p-6 md:p-8 shadow-2xl relative">
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-6 right-6 text-[#99907b] hover:text-white p-1 rounded-full hover:bg-[#2a2a2a] transition"
-        >
-          <span className="material-symbols-outlined text-xl">close</span>
-        </button>
+  const footer = (
+    <div className="flex items-center gap-3">
+      <button
+        type="button"
+        onClick={close}
+        className="h-12 flex-1 rounded-2xl text-sm font-bold text-muted transition hover:bg-field hover:text-ink"
+      >
+        Cancelar
+      </button>
+      <motion.button
+        type="submit"
+        form="quick-tx-form"
+        whileTap={{ scale: 0.97 }}
+        disabled={loading}
+        className="h-12 flex-[2] rounded-2xl bg-primary text-sm font-extrabold text-on-primary shadow-[var(--shadow-honey)] transition disabled:opacity-50"
+      >
+        {loading ? 'Salvando…' : 'Confirmar lançamento'}
+      </motion.button>
+    </div>
+  );
 
-        <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2.5">
-          <span className="material-symbols-outlined text-[#f2c94c]">add_circle</span>
-          Novo Lançamento
-        </h2>
+  return (
+    <Sheet
+      open={open}
+      onClose={close}
+      title="Novo lançamento"
+      subtitle="A Mel anota pra você 🍯"
+      icon={<Mel size={44} mood={loading || scanningReceipt ? 'thinking' : 'idle'} />}
+      footer={footer}
+    >
 
         {/* Hidden receipt file input */}
         <input
@@ -209,37 +236,35 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={scanningReceipt}
-          className="w-full mb-5 py-2.5 px-4 rounded-2xl bg-[#ffffff0a] hover:bg-[#ffffff12] border border-[#f2c94c]/30 hover:border-[#f2c94c] transition flex items-center justify-center gap-2.5 text-xs font-bold text-[#f2c94c]"
+          className="w-full mb-5 min-h-12 py-3 px-4 rounded-2xl bg-primary-soft/60 hover:bg-primary-soft border border-dashed border-primary transition flex items-center justify-center gap-2.5 text-sm font-bold text-brand"
         >
-          <span className="material-symbols-outlined text-base">
-            {scanningReceipt ? 'hourglass_top' : 'photo_camera'}
-          </span>
-          {scanningReceipt ? 'Analisando Nota Fiscal com IA...' : 'Fotografar / Enviar Nota Fiscal (NFC-e)'}
+          {scanningReceipt ? <CircleNotch size={20} className="animate-spin" /> : <Camera size={20} weight="duotone" />}
+          {scanningReceipt ? 'A Mel está lendo a nota…' : 'Fotografar nota fiscal'}
         </button>
 
         {receiptWarning && (
-          <div className="mb-4 p-3 rounded-2xl bg-[#f2c94c]/10 border border-[#f2c94c]/30 text-[#f2c94c] text-xs flex items-center gap-2">
+          <div className="mb-4 p-3 rounded-2xl bg-primary/10 border border-primary/30 text-brand text-xs flex items-center gap-2">
             <span className="material-symbols-outlined text-sm">warning</span>
             <span>{receiptWarning}</span>
           </div>
         )}
 
         {error && (
-          <div className="mb-5 p-3.5 rounded-xl bg-[#93000a]/30 border border-[#ffb4ab]/40 text-[#ffb4ab] text-xs font-semibold">
+          <div className="mb-5 p-3.5 rounded-xl bg-danger/30 border border-danger/40 text-danger text-xs font-semibold">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form id="quick-tx-form" onSubmit={handleSubmit} className="space-y-4">
           {/* Type Selector (Receita / Despesa) */}
-          <div className="grid grid-cols-2 gap-2 p-1 bg-[#131313] rounded-2xl border border-[#ffffff0d]">
+          <div className="grid grid-cols-2 gap-2 p-1 bg-canvas rounded-2xl border border-ink/5">
             <button
               type="button"
               onClick={() => setType('despesa')}
               className={`py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${
                 type === 'despesa'
-                  ? 'bg-[#eb5757] text-white shadow-[0_0_15px_rgba(235,87,87,0.3)]'
-                  : 'text-[#99907b] hover:text-white'
+                  ? 'bg-danger text-ink shadow-[0_0_15px_rgba(235,87,87,0.3)]'
+                  : 'text-muted hover:text-ink'
               }`}
             >
               <span className="material-symbols-outlined text-sm">trending_down</span>
@@ -250,8 +275,8 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
               onClick={() => setType('receita')}
               className={`py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${
                 type === 'receita'
-                  ? 'bg-[#27ae60] text-white shadow-[0_0_15px_rgba(39,174,96,0.3)]'
-                  : 'text-[#99907b] hover:text-white'
+                  ? 'bg-success text-ink shadow-[0_0_15px_rgba(39,174,96,0.3)]'
+                  : 'text-muted hover:text-ink'
               }`}
             >
               <span className="material-symbols-outlined text-sm">trending_up</span>
@@ -261,11 +286,11 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
 
           {/* Valor */}
           <div>
-            <label className="block text-[11px] font-bold text-[#99907b] uppercase tracking-wider mb-1.5">
+            <label className="block text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5">
               Valor (R$)
             </label>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold text-[#99907b]">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold text-muted">
                 R$
               </span>
               <input
@@ -273,7 +298,7 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0,00"
-                className="w-full pl-12 pr-4 py-3 bg-[#131313] border border-[#ffffff14] rounded-2xl text-xl font-bold text-white focus:outline-none focus:border-[#f2c94c] transition"
+                className="w-full pl-12 pr-4 py-3 bg-canvas border border-ink/8 rounded-2xl text-xl font-bold text-ink focus:outline-none focus:border-primary transition"
                 autoFocus
               />
             </div>
@@ -281,7 +306,7 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
 
           {/* Descrição */}
           <div>
-            <label className="block text-[11px] font-bold text-[#99907b] uppercase tracking-wider mb-1.5">
+            <label className="block text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5">
               Descrição
             </label>
             <input
@@ -289,22 +314,22 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Ex: Venda de serviço, Almoço comercial, Material"
-              className="w-full px-4 py-3 bg-[#131313] border border-[#ffffff14] rounded-2xl text-sm font-medium text-white focus:outline-none focus:border-[#f2c94c] transition"
+              className="w-full px-4 py-3 bg-canvas border border-ink/8 rounded-2xl text-sm font-medium text-ink focus:outline-none focus:border-primary transition"
             />
           </div>
 
           {/* Splits Preview from NFC-e */}
           {splits && splits.length > 1 && (
-            <div className="p-3.5 bg-[#131313] rounded-2xl border border-[#ffffff14] space-y-2.5">
+            <div className="p-3.5 bg-canvas rounded-2xl border border-ink/8 space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-[#f2c94c] uppercase tracking-wider flex items-center gap-1.5">
+                <span className="text-[11px] font-bold text-brand uppercase tracking-wider flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-sm">call_split</span>
                   Divisão em Potes ({splits.length} categorias)
                 </span>
                 <button
                   type="button"
                   onClick={() => setUseSplits(!useSplits)}
-                  className="text-[10px] text-[#99907b] underline hover:text-white"
+                  className="text-[10px] text-muted underline hover:text-ink"
                 >
                   {useSplits ? 'Usar categoria única' : 'Reativar divisão'}
                 </button>
@@ -312,21 +337,21 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
               {useSplits ? (
                 <div className="space-y-1.5">
                   {splits.map((s, idx) => (
-                    <div key={idx} className="flex items-center justify-between text-xs py-1 border-b border-[#ffffff08] last:border-none">
-                      <div className="flex items-center gap-1.5 text-white font-medium">
+                    <div key={idx} className="flex items-center justify-between text-xs py-1 border-b border-ink/4 last:border-none">
+                      <div className="flex items-center gap-1.5 text-ink font-medium">
                         <span>{s.categoryName}</span>
                         {s.jarName && (
-                          <span className="text-[10px] text-[#f2c94c] bg-[#f2c94c]/10 px-1.5 py-0.5 rounded">
+                          <span className="text-[10px] text-brand bg-primary/10 px-1.5 py-0.5 rounded">
                             Pote: {s.jarName}
                           </span>
                         )}
                       </div>
-                      <span className="font-bold text-white">R$ {s.amount}</span>
+                      <span className="font-bold text-ink">R$ {s.amount}</span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-[#99907b]">Divisão desativada. O total será associado à categoria única abaixo.</p>
+                <p className="text-xs text-muted">Divisão desativada. O total será associado à categoria única abaixo.</p>
               )}
             </div>
           )}
@@ -334,14 +359,14 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
           {/* Categoria & Forma de Pagamento */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-bold text-[#99907b] uppercase tracking-wider mb-1.5">
+              <label className="block text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5">
                 Categoria {useSplits && splits && splits.length > 1 ? '(Principal)' : ''}
               </label>
               <select
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
                 disabled={useSplits && !!splits && splits.length > 1}
-                className="w-full px-3 py-2.5 bg-[#131313] border border-[#ffffff14] rounded-2xl text-sm text-white focus:outline-none focus:border-[#f2c94c] transition disabled:opacity-50"
+                className="w-full px-3 py-2.5 bg-canvas border border-ink/8 rounded-2xl text-sm text-ink focus:outline-none focus:border-primary transition disabled:opacity-50"
               >
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -352,13 +377,13 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-[#99907b] uppercase tracking-wider mb-1.5">
+              <label className="block text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5">
                 Forma de Pagamento
               </label>
               <select
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
-                className="w-full px-3 py-2.5 bg-[#131313] border border-[#ffffff14] rounded-2xl text-sm text-white focus:outline-none focus:border-[#f2c94c] transition capitalize"
+                className="w-full px-3 py-2.5 bg-canvas border border-ink/8 rounded-2xl text-sm text-ink focus:outline-none focus:border-primary transition capitalize"
               >
                 <option value="pix">PIX</option>
                 <option value="cartao_debito">Cartão de Débito</option>
@@ -373,26 +398,26 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
           {/* Data & Entidade */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-bold text-[#99907b] uppercase tracking-wider mb-1.5">
+              <label className="block text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5">
                 Data do Lançamento
               </label>
               <input
                 type="date"
                 value={transactionDate}
                 onChange={(e) => setTransactionDate(e.target.value)}
-                className="w-full px-3 py-2.5 bg-[#131313] border border-[#ffffff14] rounded-2xl text-sm text-white focus:outline-none focus:border-[#f2c94c] transition"
+                className="w-full px-3 py-2.5 bg-canvas border border-ink/8 rounded-2xl text-sm text-ink focus:outline-none focus:border-primary transition"
               />
             </div>
 
             {workspace && workspace.entities.length > 1 && (
               <div>
-                <label className="block text-[11px] font-bold text-[#99907b] uppercase tracking-wider mb-1.5">
+                <label className="block text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5">
                   Conta / Entidade
                 </label>
                 <select
                   value={entityId}
                   onChange={(e) => setEntityId(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-[#131313] border border-[#ffffff14] rounded-2xl text-sm text-white focus:outline-none focus:border-[#f2c94c] transition"
+                  className="w-full px-3 py-2.5 bg-canvas border border-ink/8 rounded-2xl text-sm text-ink focus:outline-none focus:border-primary transition"
                 >
                   {workspace.entities.map((e) => (
                     <option key={e.id} value={e.id}>
@@ -406,39 +431,21 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
 
           {/* Via Personal Account Checkbox (MEI Reality) */}
           {selectedEntity?.kind === 'pj' && (
-            <label className="flex items-center gap-3 p-3 bg-[#131313] rounded-2xl border border-[#ffffff0d] cursor-pointer hover:border-[#f2c94c]/40 transition">
+            <label className="flex items-center gap-3 p-3 bg-canvas rounded-2xl border border-ink/5 cursor-pointer hover:border-primary/40 transition">
               <input
                 type="checkbox"
                 checked={viaPersonalAccount}
                 onChange={(e) => setViaPersonalAccount(e.target.checked)}
-                className="w-4 h-4 rounded text-[#f2c94c] focus:ring-0 bg-[#2a2a2a] border-[#ffffff1a]"
+                className="w-4 h-4 rounded text-brand focus:ring-0 bg-field border-ink/10"
               />
-              <span className="text-xs text-[#d0c5af]">
+              <span className="text-xs text-ink-soft">
                 Pago/recebido através da conta bancária física (PF)?
               </span>
             </label>
           )}
 
-          {/* Buttons */}
-          <div className="pt-2 flex items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-5 py-2.5 rounded-2xl text-sm font-semibold text-[#99907b] hover:text-white hover:bg-[#2a2a2a] transition"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-6 py-2.5 rounded-2xl bg-[#f2c94c] text-[#131313] text-sm font-bold shadow-[0_0_20px_rgba(242,201,76,0.3)] hover:scale-[1.02] active:scale-[0.98] transition disabled:opacity-50"
-            >
-              {loading ? 'Salvando...' : 'Confirmar Lançamento'}
-            </button>
-          </div>
         </form>
-      </div>
-    </div>
+    </Sheet>
   );
 };
 
