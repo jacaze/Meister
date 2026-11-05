@@ -164,6 +164,36 @@ describe('Assistant & Telegram Integration Suite (PostgreSQL 16)', () => {
       },
     });
     expect(saldoRes.statusCode).toBe(200);
+
+    // 6. Deduplication (P-TG1): 5 concurrent deliveries of the same update_id result in exactly 1 processed record
+    const duplicateUpdateId = 880000000 + Math.floor(Math.random() * 1000000);
+    const dupPayload = {
+      update_id: duplicateUpdateId,
+      message: {
+        message_id: 10,
+        from: { id: 123456, is_bot: false },
+        chat: { id: fakeChatId, type: 'private' },
+        text: '/saldo',
+      },
+    };
+    const dupResponses = await Promise.all(
+      Array.from({ length: 5 }, () =>
+        app.inject({
+          method: 'POST',
+          url: '/telegram/webhook',
+          headers: { 'x-telegram-bot-api-secret-token': 'test_webhook_secret_telegram_32_chars_long' },
+          payload: dupPayload,
+        })
+      )
+    );
+    for (const r of dupResponses) {
+      expect(r.statusCode).toBe(200);
+    }
+    const inboundRows = await prisma.inboundUpdate.findMany({
+      where: { updateId: BigInt(duplicateUpdateId) },
+    });
+    expect(inboundRows).toHaveLength(1);
+    expect(inboundRows[0]!.status).toBe('processada');
   });
 
   it('checks assistant config and processes conversational chat', async () => {

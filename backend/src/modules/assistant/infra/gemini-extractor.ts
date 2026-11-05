@@ -43,6 +43,7 @@ Data de referência (hoje): ${input.referenceDateIso || new Date().toISOString()
         const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(15000),
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: systemPrompt }] },
             contents: [{ role: 'user', parts: [{ text: userContent }] }],
@@ -99,6 +100,7 @@ Extraia: total da compra (string decimal "0.00"), data, estabelecimento (merchan
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(15000),
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: systemPrompt }] },
           contents: [

@@ -77,8 +77,35 @@ export async function handleTelegramUpdate(
       'code' in err &&
       (err as { code: unknown }).code === 'P2002'
     ) {
-      // Replay concorrente ou reenviado pelo Telegram: descarta silenciosamente
-      return;
+      // Replay / reprocessamento: tenta assumir o registro apenas se falhou anteriormente ('erro')
+      // ou se ficou preso em 'processando' há mais de 5 minutos (queda do processo).
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      const claimed = await prisma.inboundUpdate.updateMany({
+        where: {
+          updateId,
+          OR: [
+            { status: 'erro' },
+            { status: 'processando', receivedAt: { lt: fiveMinutesAgo } },
+          ],
+        },
+        data: {
+          status: 'processando',
+          error: null,
+          attempts: { increment: 1 },
+        },
+      });
+
+      if (claimed.count > 0) {
+        const existing = await prisma.inboundUpdate.findUnique({
+          where: { updateId },
+        });
+        inboundRecordId = existing?.id ?? null;
+      } else {
+        // Já processada com sucesso ou ainda dentro da janela de processamento ativa: descarta
+        return;
+      }
+    } else {
+      throw err;
     }
   }
 

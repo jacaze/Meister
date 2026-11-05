@@ -4,6 +4,7 @@ import { buildApp } from '../src/app.js';
 import prisma from '../src/config/prisma.js';
 import { getMeiLimit } from '../src/modules/fiscal/application/use-cases/GetMeiLimit.js';
 import { createTransaction, createTransfer, deleteTransaction, listTransactions } from '../src/modules/ledger/public.js';
+import { defaultEventBus } from '../src/shared/index.js';
 import type { WorkspaceScope } from '../src/shared/scope.js';
 
 describe('Ledger & Transactions Hardening Integration Suite (PostgreSQL 16)', () => {
@@ -570,6 +571,142 @@ describe('Ledger & Transactions Hardening Integration Suite (PostgreSQL 16)', ()
       expect(dashAfterData?.totalDespesas).toBe(dashBeforeData?.totalDespesas);
       expect(listAfter.resumo.totalEntradas).toBe(listBefore.resumo.totalEntradas);
       expect(listAfter.resumo.totalDespesas).toBe(listBefore.resumo.totalDespesas);
+    });
+
+    it('N4b/N4c: sanitiza sourceRef rejeitando namespaces reservados e prefixando referências livres', async () => {
+      const u = await registerAndLogin('n4_sourceref');
+
+      const reserved = ['pluggy:x', 'ofx:x', 'csv:x', 'proposal:x', 'tg:msg:1', 'tg:photo:x', 'mei:x', 'PLUGGY:x'];
+      for (const ref of reserved) {
+        const res = await app.inject({
+          method: 'POST',
+          url: '/api/transactions',
+          headers: { authorization: `Bearer ${u.token}` },
+          payload: {
+            description: 'tentativa reservada',
+            amount: '10.00',
+            type: 'despesa',
+            categoryId: u.catDespesa.id,
+            transactionDate: '2026-11-04',
+            entityId: u.pjEntity.id,
+            sourceRef: ref,
+          },
+        });
+        expect(res.statusCode).toBe(400);
+      }
+
+      // Referência livre deve ser aceita e prefixada com manual:
+      const freeRes = await app.inject({
+        method: 'POST',
+        url: '/api/transactions',
+        headers: { authorization: `Bearer ${u.token}` },
+        payload: {
+          description: 'livre',
+          amount: '15.00',
+          type: 'despesa',
+          categoryId: u.catDespesa.id,
+          transactionDate: '2026-11-04',
+          entityId: u.pjEntity.id,
+          sourceRef: 'minha-referencia',
+        },
+      });
+      expect(freeRes.statusCode).toBe(201);
+      const createdTx = await prisma.transaction.findUnique({ where: { id: freeRes.json().id } });
+      expect(createdTx?.sourceRef).toBe('manual:minha-referencia');
+    });
+
+    it('TR1d: GET /api/transactions (resumo legado) não soma transferências em entradas/despesas', async () => {
+      const u = await registerAndLogin('tr1d_legado');
+
+      const resumoBefore = (await app.inject({
+        method: 'GET',
+        url: '/api/transactions',
+        headers: { authorization: `Bearer ${u.token}` },
+      })).json().resumo;
+
+      await createTransfer(u.scope, {
+        fromAccountId: u.accPf.id,
+        toAccountId: u.accPj.id,
+        amount: '10000.00',
+        occurredOn: '2026-11-04',
+      });
+
+      const resumoAfter = (await app.inject({
+        method: 'GET',
+        url: '/api/transactions',
+        headers: { authorization: `Bearer ${u.token}` },
+      })).json().resumo;
+
+      expect(resumoAfter.totalEntradas).toBe(resumoBefore.totalEntradas);
+      expect(resumoAfter.totalDespesas).toBe(resumoBefore.totalDespesas);
+    });
+
+    it('TS4b: bloqueia alteração de transactionDate em perna de transferência via PUT', async () => {
+      const u = await registerAndLogin('ts4b_data');
+
+      const transferRes = await app.inject({
+        method: 'POST',
+        url: '/api/transfers',
+        headers: { authorization: `Bearer ${u.token}` },
+        payload: {
+          fromAccountId: u.accPf.id,
+          toAccountId: u.accPj.id,
+          amount: '200.00',
+          occurredOn: '2026-11-04',
+        },
+      });
+      expect(transferRes.statusCode).toBe(201);
+      const { transferGroupId } = transferRes.json();
+      const legs = await prisma.transaction.findMany({ where: { transferGroupId } });
+      const leg1 = legs[0]!;
+
+      const putDateRes = await app.inject({
+        method: 'PUT',
+        url: `/api/transactions/${leg1.id}`,
+        headers: { authorization: `Bearer ${u.token}` },
+        payload: { transactionDate: '2026-12-25' },
+      });
+      expect(putDateRes.statusCode).toBe(400);
+      expect(putDateRes.json().message).toContain('transferência');
+    });
+
+    it('N2b: restaurações atômicas concorrentes publicam exatamente 1 evento transaction.created', async () => {
+      const u = await registerAndLogin('n2b_eventos');
+
+      let publishedEvents = 0;
+      defaultEventBus.subscribe<{ workspaceId?: string }>('transaction.created', (event) => {
+        if (event.payload?.workspaceId === u.wsId) {
+          publishedEvents++;
+        }
+      });
+
+      const ref = `nfe:EV_${Date.now()}`;
+      const initial = await createTransaction(u.scope, {
+        type: 'despesa',
+        amount: '50.00',
+        description: 'lançamento para restaurar',
+        occurredOn: '2026-11-04',
+        sourceRef: ref,
+        categoryId: u.catDespesa.id,
+      });
+
+      await deleteTransaction(u.scope, initial.id);
+      publishedEvents = 0;
+
+      await Promise.allSettled(
+        Array.from({ length: 6 }, () =>
+          createTransaction(u.scope, {
+            type: 'despesa',
+            amount: '50.00',
+            description: 'restauração concorrente',
+            occurredOn: '2026-11-04',
+            sourceRef: ref,
+            categoryId: u.catDespesa.id,
+          })
+        )
+      );
+
+      expect(publishedEvents).toBe(1);
     });
   });
 });
