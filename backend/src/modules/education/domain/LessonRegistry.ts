@@ -1,5 +1,4 @@
 import { CURATED_LESSONS, type Lesson } from './Lesson.js';
-import { Money } from '../../../shared/index.js';
 
 export interface FiscalPlaceholders {
   readonly limite_mei: string;

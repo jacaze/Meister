@@ -46,17 +46,73 @@ export async function handleTelegramUpdate(
   const updateId = BigInt(update.update_id);
 
   // 1. Deduplication with inbound_updates table
+  const rawChatId = String(
+    update.message?.chat.id ??
+    update.callback_query?.message?.chat.id ??
+    'unknown'
+  );
+  const kind = update.callback_query
+    ? 'callback'
+    : update.message?.photo
+    ? 'photo'
+    : update.message?.text?.startsWith('/')
+    ? 'command'
+    : 'text';
+
+  let inboundRecordId: string | null = null;
   try {
-    const existing = await prisma.inboundUpdate.findUnique({
-      where: { updateId },
+    const record = await prisma.inboundUpdate.create({
+      data: {
+        updateId,
+        chatId: rawChatId,
+        kind,
+        status: 'processando',
+      },
     });
-    if (existing && (existing.status === 'processada' || existing.status === 'ignorada')) {
-      return;
+    inboundRecordId = record.id;
+  } catch (err: unknown) {
+    if (
+      typeof err === 'object' &&
+      err !== null &&
+      'code' in err &&
+      (err as { code: unknown }).code === 'P2002'
+    ) {
+      // Replay / reprocessamento: tenta assumir o registro apenas se falhou anteriormente ('erro')
+      // ou se ficou preso em 'processando' há mais de 5 minutos (queda do processo).
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      const claimed = await prisma.inboundUpdate.updateMany({
+        where: {
+          updateId,
+          OR: [
+            { status: 'erro' },
+            { status: 'processando', receivedAt: { lt: fiveMinutesAgo } },
+          ],
+        },
+        data: {
+          status: 'processando',
+          error: null,
+          attempts: { increment: 1 },
+        },
+      });
+
+      if (claimed.count > 0) {
+        const existing = await prisma.inboundUpdate.findUnique({
+          where: { updateId },
+        });
+        inboundRecordId = existing?.id ?? null;
+      } else {
+        // Já processada com sucesso ou ainda dentro da janela de processamento ativa: descarta
+        return;
+      }
+    } else {
+      throw err;
     }
-  } catch {
-    // If inbound_updates table is inaccessible, proceed safely
   }
 
+  let outcomeStatus: 'processada' | 'erro' = 'processada';
+  let outcomeError: string | undefined;
+
+  try {
   // 2. Handle Callback Queries (Button Clicks)
   if (update.callback_query && typeof update.callback_query.data === 'string') {
     const cb = update.callback_query;
@@ -504,5 +560,21 @@ export async function handleTelegramUpdate(
     console.error('[HandleUpdate] Error in assistant flow:', err);
     const message = err instanceof Error ? err.message : 'Erro inesperado';
     await channel.sendText(chatId, `⚠️ Ocorreu um erro ao processar sua mensagem: ${escapeMarkdownV2(message)}`);
+  }
+  } catch (err: unknown) {
+    outcomeStatus = 'erro';
+    outcomeError = err instanceof Error ? err.message : String(err);
+    throw err;
+  } finally {
+    if (inboundRecordId) {
+      await prisma.inboundUpdate.update({
+        where: { id: inboundRecordId },
+        data: {
+          status: outcomeStatus,
+          error: outcomeError ?? null,
+          processedAt: new Date(),
+        },
+      }).catch(() => null);
+    }
   }
 }

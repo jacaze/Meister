@@ -6,6 +6,7 @@ export async function transactionRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', authMiddleware);
 
   fastify.get('/transactions', transactionController.list);
+  fastify.get<{ Params: { id: string } }>('/transactions/:id', transactionController.getById);
   fastify.post('/transactions', transactionController.create);
   fastify.put<{ Params: { id: string } }>('/transactions/:id', transactionController.update);
   fastify.delete<{ Params: { id: string } }>('/transactions/:id', transactionController.remove);

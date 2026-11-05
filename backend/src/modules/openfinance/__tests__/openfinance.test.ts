@@ -83,44 +83,47 @@ Data;Descrição;Valor
     expect(pairs[0]!.amount).toBe('500.00');
   });
 
-  it('validates and saves Pluggy configuration using BankingAggregator', async () => {
-    const { savePluggyConfig, getPluggyConfig } = await import(
+  it('reads Pluggy configuration from environment and creates connect token', async () => {
+    const { getPluggyConfig } = await import(
       '../application/use-cases/ConfigurePluggy.js'
     );
     const { createConnectToken } = await import(
       '../application/use-cases/CreateConnectToken.js'
     );
 
-    const fakeAggregator = {
-      validateCredentials: async () => ({ valid: true }),
-      createConnectToken: async () => 'test-token-123',
-      fetchItem: async () => ({ id: 'item-1', status: 'UPDATED', createdAt: '2026-01-01' }),
-      fetchAccounts: async () => [],
-      fetchTransactions: async () => [],
-      syncItem: async () => ({ status: 'UPDATING' }),
-    };
+    const prevId = process.env.PLUGGY_CLIENT_ID;
+    const prevSec = process.env.PLUGGY_CLIENT_SECRET;
+    try {
+      process.env.PLUGGY_CLIENT_ID = 'client-12345678';
+      process.env.PLUGGY_CLIENT_SECRET = 'secret-12345678';
 
-    const config = await savePluggyConfig({
-      clientId: 'client-12345678',
-      clientSecret: 'secret-12345678',
-      aggregator: fakeAggregator,
-    });
+      const readConfig = getPluggyConfig();
+      expect(readConfig.hasCredentials).toBe(true);
 
-    expect(config.hasCredentials).toBe(true);
-    expect(config.clientIdMasked).toBe('clie...5678');
+      const fakeAggregator = {
+        validateCredentials: async () => ({ valid: true }),
+        createConnectToken: async () => 'test-token-123',
+        fetchItem: async () => ({ id: 'item-1', status: 'UPDATED', createdAt: '2026-01-01' }),
+        fetchAccounts: async () => [],
+        fetchTransactions: async () => [],
+        syncItem: async () => ({ status: 'UPDATING' }),
+      };
 
-    const readConfig = getPluggyConfig();
-    expect(readConfig.hasCredentials).toBe(true);
+      const scope = {
+        workspaceId: 'ws-1',
+        actorUserId: 'usr-1',
+        role: 'owner' as const,
+        defaultEntityIds: { pf: 'pf-1', pj: 'pj-1' },
+      };
 
-    const scope = {
-      workspaceId: 'ws-1',
-      actorUserId: 'usr-1',
-      role: 'owner' as const,
-      defaultEntityIds: { pf: 'pf-1', pj: 'pj-1' },
-    };
-
-    const tokenRes = await createConnectToken(scope, { aggregator: fakeAggregator });
-    expect(tokenRes.accessToken).toBe('test-token-123');
+      const tokenRes = await createConnectToken(scope, { aggregator: fakeAggregator });
+      expect(tokenRes.accessToken).toBe('test-token-123');
+    } finally {
+      if (prevId !== undefined) process.env.PLUGGY_CLIENT_ID = prevId;
+      else delete process.env.PLUGGY_CLIENT_ID;
+      if (prevSec !== undefined) process.env.PLUGGY_CLIENT_SECRET = prevSec;
+      else delete process.env.PLUGGY_CLIENT_SECRET;
+    }
   });
 
   it('PluggyClient fetches v2 transactions with cursor pagination and defensive amount parsing', async () => {
@@ -135,15 +138,15 @@ Data;Descrição;Valor
     const originalFetch = globalThis.fetch;
     const fetchCalls: Array<{ url: string; headers?: Record<string, string> }> = [];
 
-    globalThis.fetch = (async (url: any, init: any) => {
-      fetchCalls.push({ url: String(url), headers: init?.headers });
+    globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      fetchCalls.push({ url: String(url), headers: init?.headers as Record<string, string> | undefined });
 
       if (String(url).endsWith('/auth')) {
         return {
           ok: true,
           status: 200,
           json: async () => ({ apiKey: 'mock-api-key' }),
-        } as any;
+        } as unknown as Response;
       }
 
       if (String(url).includes('/v2/transactions')) {
@@ -164,7 +167,7 @@ Data;Descrição;Valor
               ],
               next: '?after=cursor-xyz',
             }),
-          } as any;
+          } as unknown as Response;
         }
 
         // Page 2 returns second transaction and next: null
@@ -183,11 +186,11 @@ Data;Descrição;Valor
             ],
             next: null,
           }),
-        } as any;
+        } as unknown as Response;
       }
 
-      return { ok: false, status: 404, statusText: 'Not Found' } as any;
-    }) as any;
+      return { ok: false, status: 404, statusText: 'Not Found' } as unknown as Response;
+    }) as unknown as typeof fetch;
 
     try {
       const txs = await client.fetchTransactions('acc-1', {

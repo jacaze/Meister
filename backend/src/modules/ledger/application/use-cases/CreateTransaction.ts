@@ -40,6 +40,7 @@ export async function createTransaction(
   assertCanWrite(scope);
 
   // 1. Idempotency by sourceRef
+  let existingDeletedId: string | null = null;
   if (input.sourceRef) {
     const existing = await prisma.transaction.findUnique({
       where: {
@@ -54,7 +55,10 @@ export async function createTransaction(
       },
     });
     if (existing) {
-      return existing;
+      if (!existing.deletedAt) {
+        return existing;
+      }
+      existingDeletedId = existing.id;
     }
   }
 
@@ -136,82 +140,181 @@ export async function createTransaction(
       );
     }
   } else {
-    if (status === 'confirmado' && (input.type === 'receita' || input.type === 'despesa')) {
-      if (!categoryId) {
-        throw new ValidationError('A categoria é obrigatória');
-      }
+    if (categoryId) {
       const cat = await prisma.category.findFirst({
         where: { id: categoryId, workspaceId: scope.workspaceId },
       });
       if (!cat) {
         throw new ValidationError('Categoria não encontrada');
       }
-      if (cat.type !== input.type) {
+      if (status === 'confirmado' && (input.type === 'receita' || input.type === 'despesa') && cat.type !== input.type) {
         throw new ValidationError(`Categoria "${cat.name}" não é do tipo ${input.type}`);
       }
+    } else if (status === 'confirmado' && (input.type === 'receita' || input.type === 'despesa')) {
+      throw new ValidationError('A categoria é obrigatória');
     }
   }
 
   const txDateDb = new Date(`${localDate.toIsoDate()}T00:00:00.000Z`);
 
-  const created = await prisma.transaction.create({
-    data: {
-      workspaceId: scope.workspaceId,
-      entityId,
-      userId: scope.actorUserId,
-      type: (input.type === 'receita' || input.type === 'despesa') ? input.type : 'despesa',
-      description,
-      amount: Number(amountMoney.toDecimalString()),
-      paymentMethod: input.paymentMethod ?? null,
-      transactionDate: txDateDb,
-      origin: input.origin ?? 'manual',
-      status,
-      categoryId: (input.splits && input.splits.length > 0) ? null : categoryId,
-      sourceRef: input.sourceRef ?? null,
-      viaPersonalAccount: Boolean(input.viaPersonalAccount),
-      splits: (input.splits && input.splits.length > 0)
-        ? {
-            create: input.splits.map((s, idx) => ({
-              categoryId: s.categoryId,
-              amount: Number(Money.fromDecimalString(String(s.amount)).toDecimalString()),
-              description: s.description?.trim() || null,
-              position: idx,
-            })),
-          }
-        : undefined,
-      audits: {
-        create: {
-          workspaceId: scope.workspaceId,
-          actor: scope.actorUserId,
-          action: 'create',
-          after: {
-            amount: amountMoney.toDecimalString(),
-            type: input.type,
-            description,
-            date: localDate.toIsoDate(),
+  let created;
+  let isRestorationWinner = false;
+  if (existingDeletedId) {
+    const restoreResult = await prisma.$transaction(async (tx) => {
+      const claimed = await tx.transaction.updateMany({
+        where: { id: existingDeletedId, deletedAt: { not: null } },
+        data: { deletedAt: null },
+      });
+
+      const includeConfig = {
+        category: { select: { id: true, name: true, slug: true } },
+        splits: true,
+      };
+
+      if (claimed.count === 0) {
+        // Outra requisição simultânea já restaurou este lançamento: devolve o estado atual
+        const existingTx = await tx.transaction.findUniqueOrThrow({
+          where: { id: existingDeletedId },
+          include: includeConfig,
+        });
+        return { tx: existingTx, won: false };
+      }
+
+      // Sempre limpa splits antigos para evitar corrupção de dados ao restaurar
+      await tx.transactionSplit.deleteMany({
+        where: { transactionId: existingDeletedId },
+      });
+
+      const updated = await tx.transaction.update({
+        where: { id: existingDeletedId },
+        data: {
+          entityId,
+          userId: scope.actorUserId,
+          type: (input.type === 'receita' || input.type === 'despesa') ? input.type : 'despesa',
+          description,
+          amount: Number(amountMoney.toDecimalString()),
+          paymentMethod: input.paymentMethod ?? null,
+          transactionDate: txDateDb,
+          origin: input.origin ?? 'manual',
+          status,
+          categoryId: (input.splits && input.splits.length > 0) ? null : categoryId,
+          viaPersonalAccount: Boolean(input.viaPersonalAccount),
+          splits: (input.splits && input.splits.length > 0)
+            ? {
+                create: input.splits.map((s, idx) => ({
+                  categoryId: s.categoryId,
+                  amount: Number(Money.fromDecimalString(String(s.amount)).toDecimalString()),
+                  description: s.description?.trim() || null,
+                  position: idx,
+                })),
+              }
+            : undefined,
+          audits: {
+            create: {
+              workspaceId: scope.workspaceId,
+              actor: scope.actorUserId,
+              action: 'restore',
+              after: {
+                amount: amountMoney.toDecimalString(),
+                type: input.type,
+                description,
+                date: localDate.toIsoDate(),
+              },
+            },
           },
         },
-      },
-    },
-    include: {
-      category: { select: { id: true, name: true, slug: true } },
-      splits: true,
-    },
-  });
+        include: includeConfig,
+      });
 
-  defaultEventBus.publish({
-    name: 'transaction.created',
-    occurredAt: new Date(),
-    payload: {
-      workspaceId: scope.workspaceId,
-      entityId,
-      transactionId: created.id,
-      type: created.type,
-      amount: amountMoney.toDecimalString(),
-      occurredOn: localDate.toIsoDate(),
-      status: created.status,
-    },
-  });
+      return { tx: updated, won: true };
+    });
+
+    created = restoreResult.tx;
+    isRestorationWinner = restoreResult.won;
+  } else {
+    try {
+      created = await prisma.transaction.create({
+        data: {
+          workspaceId: scope.workspaceId,
+          entityId,
+          userId: scope.actorUserId,
+          type: (input.type === 'receita' || input.type === 'despesa') ? input.type : 'despesa',
+          description,
+          amount: Number(amountMoney.toDecimalString()),
+          paymentMethod: input.paymentMethod ?? null,
+          transactionDate: txDateDb,
+          origin: input.origin ?? 'manual',
+          status,
+          categoryId: (input.splits && input.splits.length > 0) ? null : categoryId,
+          sourceRef: input.sourceRef ?? null,
+          viaPersonalAccount: Boolean(input.viaPersonalAccount),
+          splits: (input.splits && input.splits.length > 0)
+            ? {
+                create: input.splits.map((s, idx) => ({
+                  categoryId: s.categoryId,
+                  amount: Number(Money.fromDecimalString(String(s.amount)).toDecimalString()),
+                  description: s.description?.trim() || null,
+                  position: idx,
+                })),
+              }
+            : undefined,
+          audits: {
+            create: {
+              workspaceId: scope.workspaceId,
+              actor: scope.actorUserId,
+              action: 'create',
+              after: {
+                amount: amountMoney.toDecimalString(),
+                type: input.type,
+                description,
+                date: localDate.toIsoDate(),
+              },
+            },
+          },
+        },
+        include: {
+          category: { select: { id: true, name: true, slug: true } },
+          splits: true,
+        },
+      });
+    } catch (err: unknown) {
+      const prismaErr = err as { code?: string } | null;
+      if (prismaErr?.code === 'P2002' && input.sourceRef) {
+        const race = await prisma.transaction.findUnique({
+          where: {
+            workspaceId_sourceRef: {
+              workspaceId: scope.workspaceId,
+              sourceRef: input.sourceRef,
+            },
+          },
+          include: {
+            category: { select: { id: true, name: true, slug: true } },
+            splits: true,
+          },
+        });
+        if (race) {
+          return race;
+        }
+      }
+      throw err;
+    }
+  }
+
+  if (!existingDeletedId || isRestorationWinner) {
+    defaultEventBus.publish({
+      name: 'transaction.created',
+      occurredAt: new Date(),
+      payload: {
+        workspaceId: scope.workspaceId,
+        entityId,
+        transactionId: created.id,
+        type: created.type,
+        amount: amountMoney.toDecimalString(),
+        occurredOn: localDate.toIsoDate(),
+        status: created.status,
+      },
+    });
+  }
 
   return created;
 }

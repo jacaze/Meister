@@ -7,5 +7,9 @@ export default defineConfig({
     globals: false,
     testTimeout: 25000,
     fileParallelism: false,
+    env: {
+      TELEGRAM_WEBHOOK_SECRET: 'test_webhook_secret_telegram_32_chars_long',
+      GEMINI_API_KEY: '',
+    },
   },
 });

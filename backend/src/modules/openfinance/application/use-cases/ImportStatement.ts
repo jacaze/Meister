@@ -122,7 +122,7 @@ export async function importStatement(
   }));
 
   const suspects = TransferDetector.findSuspectPairs(candidates);
-  let transferSuspectsCount = suspects.length;
+  const transferSuspectsCount = suspects.length;
 
   for (const pair of suspects) {
     await prisma.bankTransaction.updateMany({

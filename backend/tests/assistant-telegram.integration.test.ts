@@ -105,11 +105,28 @@ describe('Assistant & Telegram Integration Suite (PostgreSQL 16)', () => {
     });
     expect(statusBefore.json().linked).toBe(false);
 
-    // 3. Send /start <token> update via webhook
+    // 2b. Zero Trust: reject webhook without secret header or with wrong secret
+    const webhookNoSecret = await app.inject({
+      method: 'POST',
+      url: '/telegram/webhook',
+      payload: { update_id: 1, message: { text: 'oi' } },
+    });
+    expect(webhookNoSecret.statusCode).toBe(401);
+
+    const webhookWrongSecret = await app.inject({
+      method: 'POST',
+      url: '/telegram/webhook',
+      headers: { 'x-telegram-bot-api-secret-token': 'wrong-secret' },
+      payload: { update_id: 1, message: { text: 'oi' } },
+    });
+    expect(webhookWrongSecret.statusCode).toBe(401);
+
+    // 3. Send /start <token> update via webhook with valid secret
     const fakeChatId = `chat_${Date.now()}`;
     const webhookRes = await app.inject({
       method: 'POST',
       url: '/telegram/webhook',
+      headers: { 'x-telegram-bot-api-secret-token': 'test_webhook_secret_telegram_32_chars_long' },
       payload: {
         update_id: Math.floor(Math.random() * 1000000),
         message: {
@@ -131,10 +148,11 @@ describe('Assistant & Telegram Integration Suite (PostgreSQL 16)', () => {
     expect(statusAfter.json().linked).toBe(true);
     expect(statusAfter.json().chatId).toBe(fakeChatId);
 
-    // 5. Send command /saldo via webhook
+    // 5. Send command /saldo via webhook with valid secret
     const saldoRes = await app.inject({
       method: 'POST',
       url: '/telegram/webhook',
+      headers: { 'x-telegram-bot-api-secret-token': 'test_webhook_secret_telegram_32_chars_long' },
       payload: {
         update_id: Math.floor(Math.random() * 1000000),
         message: {
@@ -146,6 +164,36 @@ describe('Assistant & Telegram Integration Suite (PostgreSQL 16)', () => {
       },
     });
     expect(saldoRes.statusCode).toBe(200);
+
+    // 6. Deduplication (P-TG1): 5 concurrent deliveries of the same update_id result in exactly 1 processed record
+    const duplicateUpdateId = 880000000 + Math.floor(Math.random() * 1000000);
+    const dupPayload = {
+      update_id: duplicateUpdateId,
+      message: {
+        message_id: 10,
+        from: { id: 123456, is_bot: false },
+        chat: { id: fakeChatId, type: 'private' },
+        text: '/saldo',
+      },
+    };
+    const dupResponses = await Promise.all(
+      Array.from({ length: 5 }, () =>
+        app.inject({
+          method: 'POST',
+          url: '/telegram/webhook',
+          headers: { 'x-telegram-bot-api-secret-token': 'test_webhook_secret_telegram_32_chars_long' },
+          payload: dupPayload,
+        })
+      )
+    );
+    for (const r of dupResponses) {
+      expect(r.statusCode).toBe(200);
+    }
+    const inboundRows = await prisma.inboundUpdate.findMany({
+      where: { updateId: BigInt(duplicateUpdateId) },
+    });
+    expect(inboundRows).toHaveLength(1);
+    expect(inboundRows[0]!.status).toBe('processada');
   });
 
   it('checks assistant config and processes conversational chat', async () => {
@@ -158,6 +206,15 @@ describe('Assistant & Telegram Integration Suite (PostgreSQL 16)', () => {
     expect(configRes.statusCode).toBe(200);
     expect(configRes.json()).toHaveProperty('hasApiKey');
     expect(configRes.json()).toHaveProperty('model');
+
+    // 1b. Security: POST /api/assistant/config must not exist (credentials managed via deploy env)
+    const postConfigRes = await app.inject({
+      method: 'POST',
+      url: '/api/assistant/config',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { apiKey: 'malicious-api-key' },
+    });
+    expect(postConfigRes.statusCode).toBe(404);
 
     // 2. Chat with proposal intent
     const chatPropRes = await app.inject({

@@ -105,7 +105,11 @@ export async function listTransactions(
     prisma.transaction.count({ where }),
     prisma.transaction.findMany({
       where,
-      select: { amount: true, type: true },
+      select: {
+        amount: true,
+        type: true,
+        transferGroupId: true,
+      },
     }),
   ]);
 
@@ -113,6 +117,9 @@ export async function listTransactions(
   let totalDespesas = Money.zero();
 
   for (const row of allMatching) {
+    if (row.transferGroupId) {
+      continue;
+    }
     const amt = Money.fromDecimalString(row.amount.toString());
     if (row.type === 'receita') {
       totalEntradas = totalEntradas.add(amt);
@@ -122,7 +129,9 @@ export async function listTransactions(
   }
 
   const resultadoCents = totalEntradas.cents - totalDespesas.cents;
-  const resultado = Money.fromCents(resultadoCents);
+  const resultadoStr = resultadoCents < 0n
+    ? `-${Money.fromCents(-resultadoCents).toDecimalString()}`
+    : Money.fromCents(resultadoCents).toDecimalString();
 
   return {
     items,
@@ -133,7 +142,7 @@ export async function listTransactions(
     resumo: {
       totalEntradas: totalEntradas.toDecimalString(),
       totalDespesas: totalDespesas.toDecimalString(),
-      resultado: resultado.toDecimalString(),
+      resultado: resultadoStr,
     },
   };
 }

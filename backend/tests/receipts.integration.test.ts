@@ -66,8 +66,8 @@ describe('Receipts & NFC-e Integration Suite (PostgreSQL 16)', () => {
         accessKey,
         issuerCnpj: '00000000000191',
         splits: [
-          { categoryId: cat1.id, amount: '100.00', description: 'Materiais de Escritório' },
-          { categoryId: cat2.id, amount: '50.00', description: 'Café e Limpeza' },
+          { categoryId: cat1!.id, amount: '100.00', description: 'Materiais de Escritório' },
+          { categoryId: cat2!.id, amount: '50.00', description: 'Café e Limpeza' },
         ],
       },
     });

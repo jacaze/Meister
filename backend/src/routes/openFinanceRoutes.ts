@@ -6,7 +6,6 @@ import {
   approveImportedTransaction,
   ignoreImportedTransaction,
   getPluggyConfig,
-  savePluggyConfig,
   createConnectToken,
   connectPluggyItem,
   syncPluggyConnection,
@@ -24,25 +23,6 @@ export async function openFinanceRoutes(fastify: FastifyInstance) {
     return reply.status(200).send(config);
   });
 
-  // 2. Save and Validate Pluggy Credentials
-  fastify.post<{
-    Body: {
-      clientId?: string;
-      clientSecret?: string;
-    };
-  }>('/openfinance/config', async (request, reply) => {
-    const body = request.body || {};
-    const result = await savePluggyConfig({
-      clientId: body.clientId || '',
-      clientSecret: body.clientSecret || '',
-    });
-    return reply.status(200).send({
-      ...result,
-      message: result.hasCredentials
-        ? 'Credenciais do Pluggy validadas e ativadas com sucesso!'
-        : 'Credenciais do Pluggy removidas.',
-    });
-  });
 
   // 3. Create Connect Token for Widget
   fastify.post('/openfinance/connect-token', async (request, reply) => {

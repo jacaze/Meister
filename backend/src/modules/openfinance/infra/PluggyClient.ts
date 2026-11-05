@@ -39,8 +39,8 @@ export class PluggyClient implements BankingAggregator {
         signal: controller.signal,
       });
       return res;
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') {
         throw new Error(`Timeout de comunicação com a API do Pluggy (${this.timeoutMs}ms)`);
       }
       throw err;
@@ -90,9 +90,10 @@ export class PluggyClient implements BankingAggregator {
       };
 
       return apiKey;
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof ValidationError) throw err;
-      throw new ValidationError(`Erro ao conectar ao Pluggy: ${err.message}`);
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new ValidationError(`Erro ao conectar ao Pluggy: ${msg}`);
     }
   }
 
@@ -100,8 +101,9 @@ export class PluggyClient implements BankingAggregator {
     try {
       await this.getApiKey();
       return { valid: true };
-    } catch (err: any) {
-      return { valid: false, error: err.message };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { valid: false, error: msg };
     }
   }
 
@@ -189,7 +191,7 @@ export class PluggyClient implements BankingAggregator {
     const data = await res.json();
     const results = Array.isArray(data.results) ? data.results : [];
 
-    return results.map((acc: Record<string, any>) => ({
+    return results.map((acc: Record<string, unknown>) => ({
       id: String(acc.id),
       type: String(acc.type || 'BANK'),
       subtype: acc.subtype ? String(acc.subtype) : undefined,

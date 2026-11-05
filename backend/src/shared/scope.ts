@@ -22,7 +22,7 @@ export function assertCanWrite(scope: WorkspaceScope): void {
   if (!scope || !scope.workspaceId || !scope.actorUserId) {
     throw new UnauthorizedError('Não autenticado');
   }
-  if (scope.role === 'viewer') {
+  if (scope.role !== 'owner' && scope.role !== 'editor') {
     throw new ForbiddenError('Apenas membros com permissão de edição podem alterar dados');
   }
 }
