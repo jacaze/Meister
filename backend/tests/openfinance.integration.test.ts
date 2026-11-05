@@ -160,15 +160,14 @@ OFXHEADER:100
     expect(invalidConnectRes.statusCode).toBe(400);
     expect(invalidConnectRes.json().message).toContain('itemId');
 
-    // 3. Clear credentials endpoint
-    const clearRes = await app.inject({
+    // 3. Security: POST /api/openfinance/config must not exist (credentials managed exclusively via deploy env)
+    const postConfigRes = await app.inject({
       method: 'POST',
       url: '/api/openfinance/config',
       headers: { authorization: `Bearer ${token}` },
-      payload: { clientId: '', clientSecret: '' },
+      payload: { clientId: 'malicious-client', clientSecret: 'malicious-secret' },
     });
-    expect(clearRes.statusCode).toBe(200);
-    expect(clearRes.json().hasCredentials).toBe(false);
+    expect(postConfigRes.statusCode).toBe(404);
   });
 
   it('lists and deletes bank connections with strict workspace isolation (IDOR protection)', async () => {

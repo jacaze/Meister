@@ -39,11 +39,8 @@ export const FloatingAssistantWidget: React.FC = () => {
     model: 'gemini-3.5-flash',
   });
 
-  // Settings form states
-  const [inputKey, setInputKey] = useState('');
+  // Settings status
   const [selectedModel, setSelectedModel] = useState('gemini-3.5-flash');
-  const [configLoading, setConfigLoading] = useState(false);
-  const [configStatus, setConfigStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Chat states
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -88,55 +85,7 @@ export const FloatingAssistantWidget: React.FC = () => {
     }
   }, [messages, isOpen]);
 
-  // Handle Save Gemini API Key
-  const handleSaveConfig = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setConfigLoading(true);
-    setConfigStatus(null);
 
-    try {
-      const res = await api.post('/assistant/config', {
-        apiKey: inputKey.trim() || undefined,
-        model: selectedModel,
-      });
-      setConfig({
-        hasApiKey: res.data.hasApiKey,
-        maskedKey: res.data.maskedKey || null,
-        model: res.data.model || selectedModel,
-      });
-      setConfigStatus({ type: 'success', message: res.data.message });
-      setInputKey('');
-      setTimeout(() => setShowConfig(false), 1500);
-    } catch (err: any) {
-      setConfigStatus({
-        type: 'error',
-        message: err.response?.data?.message || 'Falha ao validar a chave da Google Gemini API.',
-      });
-    } finally {
-      setConfigLoading(false);
-    }
-  };
-
-  // Handle Remove Key
-  const handleRemoveKey = async () => {
-    if (!confirm('Deseja realmente desconectar sua chave Gemini? O assistente voltará ao modo heurístico local.')) {
-      return;
-    }
-    setConfigLoading(true);
-    try {
-      await api.post('/assistant/config', { apiKey: '' });
-      setConfig({ hasApiKey: false, maskedKey: null, model: 'gemini-1.5-flash' });
-      setConfigStatus({ type: 'success', message: 'Chave removida. Modo local ativado.' });
-      setTimeout(() => setShowConfig(false), 1200);
-    } catch (err: any) {
-      setConfigStatus({
-        type: 'error',
-        message: err.response?.data?.message || 'Falha ao remover a chave.',
-      });
-    } finally {
-      setConfigLoading(false);
-    }
-  };
 
   // Handle Send Message
   const handleSendMessage = async (customText?: string) => {
@@ -448,81 +397,26 @@ export const FloatingAssistantWidget: React.FC = () => {
                 </div>
               </div>
 
-              {/* Form */}
-              <form onSubmit={handleSaveConfig} className="space-y-3 pt-1">
-                <div>
-                  <label className="text-[11px] font-bold text-[#99907b] uppercase block mb-1">
-                    Chave de API do Gemini (AIzaSy...)
-                  </label>
-                  <input
-                    type="password"
-                    value={inputKey}
-                    onChange={(e) => setInputKey(e.target.value)}
-                    placeholder={config.hasApiKey ? 'Substituir chave...' : 'Cole aqui sua chave AIza...'}
-                    className="w-full px-3.5 py-2.5 bg-[#131313] border border-[#ffffff14] rounded-xl text-xs text-white focus:outline-none focus:border-[#f2c94c] transition"
-                  />
-                </div>
+              {/* Deployment Info */}
+              <div className="text-[11px] text-[#99907b] bg-[#ffffff05] p-3 rounded-xl border border-[#ffffff0a] space-y-1.5">
+                <p className="font-semibold text-white">Configuração Centralizada:</p>
+                <p>
+                  As credenciais de Inteligência Artificial do Google Gemini são configuradas exclusivamente nas variáveis de ambiente do deploy da plataforma (<code className="text-white font-mono">GEMINI_API_KEY</code>).
+                </p>
+                <p>
+                  Usuários e workspaces compartilham o modelo provisionado com segurança, sem necessidade de chaves locais.
+                </p>
+              </div>
 
-                <div>
-                  <label className="text-[11px] font-bold text-[#99907b] uppercase block mb-1">
-                    Modelo Gemini
-                  </label>
-                  <select
-                    value={selectedModel}
-                    onChange={(e) => setSelectedModel(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-[#131313] border border-[#ffffff14] rounded-xl text-xs text-white focus:outline-none focus:border-[#f2c94c] transition"
-                  >
-                    <option value="gemini-3.5-flash">gemini-3.5-flash (Recomendado, Rápido e Estável)</option>
-                    <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite (Ultra Leve)</option>
-                    <option value="gemini-3.8-flash">gemini-3.8-flash (Alta Performance)</option>
-                  </select>
-                </div>
-
-                <div className="pt-1 flex items-center justify-between text-[11px]">
-                  <a
-                    href="https://aistudio.google.com/app/apikey"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[#f2c94c] hover:underline flex items-center gap-1 font-semibold"
-                  >
-                    <span className="material-symbols-outlined text-sm">open_in_new</span>
-                    Obter chave gratuita no Google AI Studio
-                  </a>
-                </div>
-
-                {configStatus && (
-                  <div
-                    className={`p-2.5 rounded-xl text-xs font-medium ${
-                      configStatus.type === 'success'
-                        ? 'bg-[#27ae60]/15 text-[#27ae60] border border-[#27ae60]/30'
-                        : 'bg-[#eb5757]/15 text-[#eb5757] border border-[#eb5757]/30'
-                    }`}
-                  >
-                    {configStatus.message}
-                  </div>
-                )}
-
-                <div className="flex gap-2 pt-2">
-                  <button
-                    type="submit"
-                    disabled={configLoading || !inputKey.trim()}
-                    className="flex-1 py-2.5 px-4 rounded-xl bg-[#f2c94c] text-[#131313] text-xs font-bold shadow-[0_0_15px_rgba(242,201,76,0.3)] hover:scale-[1.02] active:scale-[0.98] transition disabled:opacity-50"
-                  >
-                    {configLoading ? 'Validando...' : 'Salvar e Validar'}
-                  </button>
-
-                  {config.hasApiKey && (
-                    <button
-                      type="button"
-                      onClick={handleRemoveKey}
-                      disabled={configLoading}
-                      className="py-2.5 px-3 rounded-xl bg-[#eb5757]/15 text-[#eb5757] border border-[#eb5757]/30 text-xs font-bold hover:bg-[#eb5757]/25 transition"
-                    >
-                      Remover
-                    </button>
-                  )}
-                </div>
-              </form>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowConfig(false)}
+                  className="w-full py-2.5 px-4 rounded-xl bg-[#2a2a2a] hover:bg-[#333] text-white text-xs font-bold transition"
+                >
+                  Voltar ao Chat
+                </button>
+              </div>
             </div>
           ) : (
             <>

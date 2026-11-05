@@ -159,6 +159,15 @@ describe('Assistant & Telegram Integration Suite (PostgreSQL 16)', () => {
     expect(configRes.json()).toHaveProperty('hasApiKey');
     expect(configRes.json()).toHaveProperty('model');
 
+    // 1b. Security: POST /api/assistant/config must not exist (credentials managed via deploy env)
+    const postConfigRes = await app.inject({
+      method: 'POST',
+      url: '/api/assistant/config',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { apiKey: 'malicious-api-key' },
+    });
+    expect(postConfigRes.statusCode).toBe(404);
+
     // 2. Chat with proposal intent
     const chatPropRes = await app.inject({
       method: 'POST',
