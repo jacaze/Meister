@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { Camera, CircleNotch } from '../ui/icons.js';
+import { Camera, CircleNotch, WarningCircle, TrendDown, TrendUp, ArrowsSplit } from '../ui/icons.js';
 import api from '../../api/client.js';
 import { useAuth } from '../../context/AuthContext.js';
 import Sheet from '../ui/Sheet.js';
@@ -244,7 +244,7 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
 
         {receiptWarning && (
           <div className="mb-4 p-3 rounded-2xl bg-primary/10 border border-primary/30 text-brand text-xs flex items-center gap-2">
-            <span className="material-symbols-outlined text-sm">warning</span>
+            <WarningCircle size={16} weight="bold" />
             <span>{receiptWarning}</span>
           </div>
         )}
@@ -267,7 +267,7 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
                   : 'text-muted hover:text-ink'
               }`}
             >
-              <span className="material-symbols-outlined text-sm">trending_down</span>
+              <TrendDown size={16} weight="bold" />
               Despesa (Saída)
             </button>
             <button
@@ -279,7 +279,7 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
                   : 'text-muted hover:text-ink'
               }`}
             >
-              <span className="material-symbols-outlined text-sm">trending_up</span>
+              <TrendUp size={16} weight="bold" />
               Receita (Entrada)
             </button>
           </div>
@@ -323,7 +323,7 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
             <div className="p-3.5 bg-canvas rounded-2xl border border-ink/8 space-y-2.5">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-brand uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-sm">call_split</span>
+                  <ArrowsSplit size={14} weight="bold" />
                   Divisão em Potes ({splits.length} categorias)
                 </span>
                 <button
