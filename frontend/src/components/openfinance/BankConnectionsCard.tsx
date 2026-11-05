@@ -154,8 +154,10 @@ export const BankConnectionsCard: React.FC<BankConnectionsCardProps> = ({
 
       {/* List of Connections */}
       {connections.length === 0 ? (
-        <div className="text-center py-8 px-4 border border-dashed border-ink/10 rounded-2xl bg-canvas space-y-2">
-          <Bank size={36} className="text-muted mx-auto" weight="duotone" />
+        <div className="text-center py-8 px-4 rounded-2xl bg-card-2 ring-1 ring-ink/5 space-y-2">
+          <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-primary-soft text-brand">
+            <Bank size={30} weight="duotone" />
+          </span>
           <p className="text-xs font-bold text-ink">Nenhuma instituição bancária conectada</p>
           <p className="text-xs text-muted max-w-sm mx-auto">
             Conecte sua conta jurídica ou pessoal via Open Finance para puxar extratos automaticamente, ou importe arquivos OFX / CSV abaixo.

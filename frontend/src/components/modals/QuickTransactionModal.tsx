@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { motion } from 'motion/react';
-import { Camera, CircleNotch, WarningCircle, TrendDown, TrendUp, ArrowsSplit } from '../ui/icons.js';
+import { motion, useReducedMotion } from 'motion/react';
+import { Camera, CircleNotch, WarningCircle, TrendDown, TrendUp, ArrowsSplit, CaretRight } from '../ui/icons.js';
 import api from '../../api/client.js';
 import { useAuth } from '../../context/AuthContext.js';
 import Sheet from '../ui/Sheet.js';
@@ -30,6 +30,7 @@ interface SplitItem {
 export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ onClose, onSaved }) => {
   const { workspace, activeEntityId } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const reduceMotion = useReducedMotion();
   // Mantém o painel montado durante a animação de saída antes de avisar o pai.
   const [open, setOpen] = useState(true);
   const close = () => {
@@ -236,10 +237,18 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={scanningReceipt}
-          className="w-full mb-5 min-h-12 py-3 px-4 rounded-2xl bg-primary-soft/60 hover:bg-primary-soft border border-dashed border-primary transition flex items-center justify-center gap-2.5 text-sm font-bold text-brand"
+          className="group w-full mb-5 min-h-14 p-2.5 pr-4 rounded-2xl bg-card-2 ring-1 ring-ink/5 hover:ring-primary/50 hover:bg-primary-soft/40 transition flex items-center gap-3 text-left disabled:opacity-70"
         >
-          {scanningReceipt ? <CircleNotch size={20} className="animate-spin" /> : <Camera size={20} weight="duotone" />}
-          {scanningReceipt ? 'A Mel está lendo a nota…' : 'Fotografar nota fiscal'}
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-brand transition group-hover:bg-primary group-hover:text-on-primary">
+            {scanningReceipt ? <CircleNotch size={20} className="animate-spin" /> : <Camera size={20} weight="duotone" />}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold text-ink">
+              {scanningReceipt ? 'A Mel está lendo a nota…' : 'Fotografar nota fiscal'}
+            </span>
+            <span className="block text-xs text-muted">Valor, data e descrição preenchidos sozinhos</span>
+          </span>
+          {!scanningReceipt && <CaretRight size={16} weight="bold" className="text-faint transition group-hover:translate-x-0.5 group-hover:text-brand" />}
         </button>
 
         {receiptWarning && (
@@ -256,32 +265,60 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
         )}
 
         <form id="quick-tx-form" onSubmit={handleSubmit} className="space-y-4">
-          {/* Type Selector (Receita / Despesa) */}
-          <div className="grid grid-cols-2 gap-2 p-1 bg-canvas rounded-2xl border border-ink/5">
-            <button
-              type="button"
-              onClick={() => setType('despesa')}
-              className={`py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${
-                type === 'despesa'
-                  ? 'bg-danger text-ink shadow-[0_0_15px_rgba(235,87,87,0.3)]'
-                  : 'text-muted hover:text-ink'
-              }`}
+          {/* Type Selector (Receita / Despesa): pílula deslizante com mola */}
+          <div role="radiogroup" aria-label="Tipo de lançamento" className="relative grid grid-cols-2 p-1 bg-canvas rounded-2xl ring-1 ring-ink/5">
+            <motion.span
+              aria-hidden
+              className="absolute inset-y-1 left-1 w-[calc(50%-4px)] overflow-hidden rounded-xl"
+              initial={false}
+              animate={{ x: type === 'despesa' ? '0%' : '100%' }}
+              transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 380, damping: 32, mass: 0.9 }}
             >
-              <TrendDown size={16} weight="bold" />
-              Despesa (Saída)
-            </button>
-            <button
-              type="button"
-              onClick={() => setType('receita')}
-              className={`py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${
-                type === 'receita'
-                  ? 'bg-success text-ink shadow-[0_0_15px_rgba(39,174,96,0.3)]'
-                  : 'text-muted hover:text-ink'
-              }`}
-            >
-              <TrendUp size={16} weight="bold" />
-              Receita (Entrada)
-            </button>
+              <motion.span
+                className="absolute inset-0 bg-danger shadow-[0_6px_18px_-6px_rgb(168_73_47_/_0.55)]"
+                initial={false}
+                animate={{ opacity: type === 'despesa' ? 1 : 0 }}
+                transition={{ duration: reduceMotion ? 0 : 0.28, ease: 'easeOut' }}
+              />
+              <motion.span
+                className="absolute inset-0 bg-success shadow-[0_6px_18px_-6px_rgb(21_135_74_/_0.6)]"
+                initial={false}
+                animate={{ opacity: type === 'receita' ? 1 : 0 }}
+                transition={{ duration: reduceMotion ? 0 : 0.28, ease: 'easeOut' }}
+              />
+            </motion.span>
+            {([
+              { value: 'despesa', label: 'Despesa (Saída)', Icon: TrendDown },
+              { value: 'receita', label: 'Receita (Entrada)', Icon: TrendUp },
+            ] as const).map(({ value, label, Icon }) => {
+              const selected = type === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => {
+                    if (selected) return;
+                    haptic(8);
+                    setType(value);
+                  }}
+                  className={`relative z-10 min-h-[44px] rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors duration-300 ${
+                    selected ? 'text-white' : 'text-muted hover:text-ink'
+                  }`}
+                >
+                  <motion.span
+                    initial={false}
+                    animate={selected && !reduceMotion ? { y: value === 'despesa' ? [0, 3, 0] : [0, -3, 0], scale: [1, 1.15, 1] } : { y: 0, scale: 1 }}
+                    transition={{ duration: 0.4, ease: 'easeOut' }}
+                    className="flex"
+                  >
+                    <Icon size={16} weight="bold" />
+                  </motion.span>
+                  {label}
+                </button>
+              );
+            })}
           </div>
 
           {/* Valor */}

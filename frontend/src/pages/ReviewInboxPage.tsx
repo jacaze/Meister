@@ -416,7 +416,7 @@ export const ReviewInboxPage: React.FC = () => {
             ))}
           </div>
         ) : items.length === 0 ? (
-          <div className="text-center py-12 px-4 bg-canvas rounded-2xl border border-dashed border-ink/10 space-y-2">
+          <div className="text-center py-12 px-4 bg-card-2 rounded-2xl ring-1 ring-ink/5 space-y-2">
             <Mel size={64} mood="happy" />
             <p className="text-sm font-bold text-ink">Nenhuma transação {statusFilter === 'nova' ? 'pendente de revisão' : statusFilter}</p>
             <p className="text-xs text-muted max-w-sm mx-auto">
