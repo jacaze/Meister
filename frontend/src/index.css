@@ -204,6 +204,15 @@
     .glass-btn-honey { background: var(--color-primary); }
   }
 
+  /* Bater de asas do BeeIcon (só com movimento permitido). */
+  @keyframes bee-flutter {
+    from { transform: scaleY(1); }
+    to { transform: scaleY(0.72); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .group:hover [class*='bee-flutter'] { animation: none !important; }
+  }
+
   .card-surface {
     background: var(--color-card);
     border: 1px solid rgb(28 27 27 / 0.06);

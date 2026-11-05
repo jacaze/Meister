@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import api from '../api/client.js';
 import Sheet from '../components/ui/Sheet.js';
 import RichText from '../components/ui/RichText.js';
+import BeeIcon from '../components/brand/BeeIcon.js';
 import Mel from '../components/brand/Mel.js';
 import { celebrate, haptic } from '../lib/celebrate.js';
 import { useToast } from '../components/ui/Toast.js';
@@ -18,7 +19,6 @@ import {
   SealCheck,
   ArrowRight,
   CircleNotch,
-  Sparkle,
   Confetti,
   Lightbulb,
 } from '../components/ui/icons.js';
@@ -218,9 +218,9 @@ export const EducationPage: React.FC = () => {
         <button
           type="button"
           onClick={handleStartQuiz}
-          className="flex-1 sm:flex-none min-h-[44px] px-6 py-2.5 rounded-2xl bg-primary text-on-primary text-xs font-extrabold hover:bg-primary-deep transition flex items-center justify-center gap-2 shadow-[var(--shadow-honey)]"
+          className="group flex-1 sm:flex-none min-h-[44px] px-6 py-2.5 rounded-2xl bg-primary text-on-primary text-xs font-extrabold hover:bg-primary-deep transition flex items-center justify-center gap-2 shadow-[var(--shadow-honey)]"
         >
-          <Sparkle size={16} weight="bold" />
+          <BeeIcon size={18} weight="bold" flutter />
           <span>Fazer Quiz</span>
         </button>
       </div>

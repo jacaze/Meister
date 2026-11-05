@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import Sheet from '../ui/Sheet.js';
 import Mel from '../brand/Mel.js';
-import { CircleNotch, Sparkle } from '../ui/icons.js';
+import { CircleNotch } from '../ui/icons.js';
+import BeeIcon from '../brand/BeeIcon.js';
 import api from '../../api/client.js';
 import { useToast } from '../ui/Toast.js';
 import { celebrate, haptic } from '../../lib/celebrate.js';
@@ -116,9 +117,9 @@ export const ConfigurePlanSheet: React.FC<ConfigurePlanSheetProps> = ({
         type="button"
         onClick={handleSubmit}
         disabled={loading}
-        className="flex-1 min-h-[44px] px-4 py-2.5 rounded-2xl bg-primary text-on-primary font-bold text-sm hover:bg-primary-deep flex items-center justify-center gap-2 transition disabled:opacity-50 active:scale-95 shadow-[var(--shadow-honey)]"
+        className="group flex-1 min-h-[44px] px-4 py-2.5 rounded-2xl bg-primary text-on-primary font-bold text-sm hover:bg-primary-deep flex items-center justify-center gap-2 transition disabled:opacity-50 active:scale-95 shadow-[var(--shadow-honey)]"
       >
-        {loading ? <CircleNotch size={18} className="animate-spin" /> : <Sparkle size={18} weight="bold" />}
+        {loading ? <CircleNotch size={18} className="animate-spin" /> : <BeeIcon size={20} weight="bold" flutter />}
         Aplicar Plano
       </button>
     </div>
