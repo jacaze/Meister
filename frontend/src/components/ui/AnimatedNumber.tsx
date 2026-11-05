@@ -8,8 +8,8 @@ interface AnimatedNumberProps {
   readonly className?: string;
 }
 
-const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-export const formatBRL = (n: number) => brl.format(n);
+import { formatBRL } from '../../lib/money.js';
+export { formatBRL };
 
 /** Conta do valor anterior até o novo quando entra na tela (sem re-render por quadro). */
 export const AnimatedNumber: React.FC<AnimatedNumberProps> = ({
