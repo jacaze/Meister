@@ -166,8 +166,16 @@ export const ReviewInboxPage: React.FC = () => {
   const handleOpenPluggyConnect = async () => {
     setConnecting(true);
     try {
+      // 1. Checagem prévia de configuração do Pluggy
+      const configRes = await api.get('/openfinance/config');
+      if (!configRes.data?.hasCredentials) {
+        setIsConfigModalOpen(true);
+        return;
+      }
+
+      // 2. Obtenção do token de conexão
       const res = await api.post('/openfinance/connect-token');
-      const connectToken = res.data?.connectToken;
+      const connectToken = res.data?.accessToken || res.data?.connectToken;
 
       if (!connectToken) {
         throw new Error('Servidor não retornou token de conexão Pluggy.');
