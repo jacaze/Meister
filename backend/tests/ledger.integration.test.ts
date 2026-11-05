@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app.js';
 import prisma from '../src/config/prisma.js';
 import { getMeiLimit } from '../src/modules/fiscal/application/use-cases/GetMeiLimit.js';
-import { createTransaction, createTransfer, deleteTransaction } from '../src/modules/ledger/public.js';
+import { createTransaction, createTransfer, deleteTransaction, listTransactions } from '../src/modules/ledger/public.js';
 import type { WorkspaceScope } from '../src/shared/scope.js';
 
 describe('Ledger & Transactions Hardening Integration Suite (PostgreSQL 16)', () => {
@@ -465,6 +465,111 @@ describe('Ledger & Transactions Hardening Integration Suite (PostgreSQL 16)', ()
         where: { transactionId: t1.id, action: 'restore' },
       });
       expect(auditsRestore).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('🟠 P1 Hardening: N4, TS4, TS5 e TR1', () => {
+    it('N4: deve rejeitar POST /api/transactions com sourceRef em namespace reservado (pluggy:, ofx:, mei:)', async () => {
+      const u = await registerAndLogin('n4_namespace');
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/transactions',
+        headers: { authorization: `Bearer ${u.token}` },
+        payload: {
+          description: 'Tentativa de sequestro de sourceRef do Pluggy',
+          amount: '1.00',
+          type: 'receita',
+          categoryId: u.catReceita.id,
+          transactionDate: '2026-11-04',
+          sourceRef: 'pluggy:tx-external-999',
+        },
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().message).toContain('Namespace');
+    });
+
+    it('TS4 & TS5: deve rejeitar PUT amount em perna de transferência e troca de tipo sem categoria', async () => {
+      const u = await registerAndLogin('ts4_ts5');
+
+      // 1. Criar transferência
+      const transferRes = await app.inject({
+        method: 'POST',
+        url: '/api/transfers',
+        headers: { authorization: `Bearer ${u.token}` },
+        payload: {
+          fromAccountId: u.accPf.id,
+          toAccountId: u.accPj.id,
+          amount: '80.00',
+          occurredOn: '2026-11-04',
+          description: 'Transferência para teste de integridade',
+        },
+      });
+      expect(transferRes.statusCode).toBe(201);
+      const { transferGroupId } = transferRes.json();
+
+      const legs = await prisma.transaction.findMany({
+        where: { transferGroupId },
+      });
+      expect(legs).toHaveLength(2);
+      const leg1 = legs[0]!;
+
+      // TS4: tentar alterar amount de uma perna deve retornar 400
+      const putAmountRes = await app.inject({
+        method: 'PUT',
+        url: `/api/transactions/${leg1.id}`,
+        headers: { authorization: `Bearer ${u.token}` },
+        payload: { amount: '1.00' },
+      });
+      expect(putAmountRes.statusCode).toBe(400);
+      expect(putAmountRes.json().message).toContain('transferência');
+
+      // TS5: tentar alterar type de uma perna (sem categoria) deve retornar 400, não 500
+      const putTypeRes = await app.inject({
+        method: 'PUT',
+        url: `/api/transactions/${leg1.id}`,
+        headers: { authorization: `Bearer ${u.token}` },
+        payload: { type: 'receita' },
+      });
+      expect(putTypeRes.statusCode).toBe(400);
+    });
+
+    it('TR1: transferência não altera total de entradas/despesas no resumo do ledger nem no dashboard', async () => {
+      const u = await registerAndLogin('tr1_resumo');
+
+      const dashBefore = await app.inject({
+        method: 'GET',
+        url: '/api/dashboard',
+        headers: { authorization: `Bearer ${u.token}` },
+      });
+      const dashBeforeData = dashBefore.json().periodo;
+      const listBefore = await listTransactions(u.scope, {});
+
+      // Executa transferência de 5000 entre PF e PJ
+      await app.inject({
+        method: 'POST',
+        url: '/api/transfers',
+        headers: { authorization: `Bearer ${u.token}` },
+        payload: {
+          fromAccountId: u.accPf.id,
+          toAccountId: u.accPj.id,
+          amount: '5000.00',
+          occurredOn: '2026-11-04',
+        },
+      });
+
+      const dashAfter = await app.inject({
+        method: 'GET',
+        url: '/api/dashboard',
+        headers: { authorization: `Bearer ${u.token}` },
+      });
+      const dashAfterData = dashAfter.json().periodo;
+      const listAfter = await listTransactions(u.scope, {});
+
+      // Faturamento e despesas devem permanecer inalterados
+      expect(dashAfterData?.totalEntradas).toBe(dashBeforeData?.totalEntradas);
+      expect(dashAfterData?.totalDespesas).toBe(dashBeforeData?.totalDespesas);
+      expect(listAfter.resumo.totalEntradas).toBe(listBefore.resumo.totalEntradas);
+      expect(listAfter.resumo.totalDespesas).toBe(listBefore.resumo.totalDespesas);
     });
   });
 });

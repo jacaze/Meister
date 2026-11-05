@@ -105,7 +105,11 @@ export async function listTransactions(
     prisma.transaction.count({ where }),
     prisma.transaction.findMany({
       where,
-      select: { amount: true, type: true },
+      select: {
+        amount: true,
+        type: true,
+        transferGroupId: true,
+      },
     }),
   ]);
 
@@ -113,6 +117,9 @@ export async function listTransactions(
   let totalDespesas = Money.zero();
 
   for (const row of allMatching) {
+    if (row.transferGroupId) {
+      continue;
+    }
     const amt = Money.fromDecimalString(row.amount.toString());
     if (row.type === 'receita') {
       totalEntradas = totalEntradas.add(amt);

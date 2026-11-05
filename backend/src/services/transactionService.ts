@@ -173,6 +173,19 @@ export async function create(
       : null;
 
   if (sourceRef) {
+    const lowerRef = sourceRef.toLowerCase();
+    if (
+      lowerRef.startsWith('pluggy:') ||
+      lowerRef.startsWith('ofx:') ||
+      lowerRef.startsWith('mei:')
+    ) {
+      throw new ValidationError(
+        'Namespace de sourceRef reservado para integrações do sistema (pluggy, ofx, mei).'
+      );
+    }
+  }
+
+  if (sourceRef) {
     const existing = await prisma.transaction.findUnique({
       where: {
         workspaceId_sourceRef: {
@@ -399,6 +412,14 @@ export async function update(
     throw new NotFoundError('Transação não encontrada');
   }
 
+  if (transaction.transferGroupId) {
+    if (input.amount !== undefined || input.type !== undefined) {
+      throw new ValidationError(
+        'Não é permitido alterar o valor ou tipo de uma perna de transferência diretamente. Use a rota de transferências.'
+      );
+    }
+  }
+
   const data: {
     description?: string;
     amount?: number;
@@ -457,8 +478,13 @@ export async function update(
     assertCategoryType(category, targetType);
     data.categoryId = category.id;
   } else if (input.type !== undefined && input.type !== transaction.type) {
+    if (!transaction.categoryId) {
+      throw new ValidationError(
+        'O lançamento não possui categoria associada; informe uma nova categoria compatível com o tipo'
+      );
+    }
     const currentCategory = await prisma.category.findUnique({
-      where: { id: transaction.categoryId ?? undefined },
+      where: { id: transaction.categoryId },
     });
     if (!currentCategory || currentCategory.type !== targetType) {
       throw new ValidationError(

@@ -63,6 +63,7 @@ function buildWhere(
   const where: Prisma.TransactionWhereInput = {
     workspaceId: scope.workspaceId,
     deletedAt: null,
+    transferGroupId: null,
   };
 
   if (entityId) where.entityId = entityId;
@@ -259,11 +260,11 @@ export async function getSummary(
       _sum: { amount: true },
     }),
     prisma.transaction.aggregate({
-      where: { workspaceId: resolvedScope.workspaceId, deletedAt: null, type: 'receita' },
+      where: { workspaceId: resolvedScope.workspaceId, deletedAt: null, transferGroupId: null, type: 'receita' },
       _sum: { amount: true },
     }),
     prisma.transaction.aggregate({
-      where: { workspaceId: resolvedScope.workspaceId, deletedAt: null, type: 'despesa' },
+      where: { workspaceId: resolvedScope.workspaceId, deletedAt: null, transferGroupId: null, type: 'despesa' },
       _sum: { amount: true },
     }),
     prisma.transaction.groupBy({
@@ -276,6 +277,7 @@ export async function getSummary(
       where: {
         workspaceId: resolvedScope.workspaceId,
         deletedAt: null,
+        transferGroupId: null,
         transactionDate: { gte: seriesStart, lte: seriesEnd },
       },
       select: { type: true, amount: true, transactionDate: true },
