@@ -1,9 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../api/client.js';
-import { TelegramLogo } from '../components/ui/icons.js';
 import { useAuth } from '../context/AuthContext.js';
+import { useToast } from '../components/ui/Toast.js';
+import Mel from '../components/brand/Mel.js';
+import ConfirmDialog from '../components/ui/ConfirmDialog.js';
+import {
+  UserCircle,
+  Gear,
+  Storefront,
+  TelegramLogo,
+  ShieldCheck,
+  SignOut,
+  CheckCircle,
+  WarningCircle,
+  CircleNotch,
+  ArrowSquareOut,
+  FileText,
+} from '../components/ui/icons.js';
 
-// Strict Brazilian CNPJ check digit algorithm
+// Algoritmo oficial de validação de dígitos verificadores do CNPJ
 function isValidCnpj(cnpj: string): boolean {
   const digits = cnpj.replace(/\D/g, '');
   if (digits.length !== 14) return false;
@@ -37,34 +52,106 @@ function formatCnpj(val: string): string {
 
 export const ProfilePage: React.FC = () => {
   const { user, workspace, refreshWorkspace, logout } = useAuth();
+  const toast = useToast();
 
-  const pjEntity = workspace?.entities.find((e) => e.kind === 'pj');
+  const pjEntity = useMemo(() => {
+    return workspace?.entities.find((e) => e.kind === 'pj');
+  }, [workspace]);
 
+  // Form states for business profile
   const [cnpj, setCnpj] = useState('');
   const [legalName, setLegalName] = useState('');
   const [tradeName, setTradeName] = useState('');
   const [openedOn, setOpenedOn] = useState('');
   const [activity, setActivity] = useState<'comercio' | 'servicos' | 'misto'>('servicos');
-
+  const [isFormDirty, setIsFormDirty] = useState(false);
+  const [formInitialized, setFormInitialized] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Telegram Link State
-  const [telegramStatus, setTelegramStatus] = useState<{ linked: boolean; chatId?: string; linkedAt?: string } | null>(null);
+  const [telegramStatus, setTelegramStatus] = useState<{
+    readonly linked: boolean;
+    readonly chatId?: string;
+    readonly linkedAt?: string;
+  } | null>(null);
   const [botUrl, setBotUrl] = useState<string | null>(null);
   const [telegramLoading, setTelegramLoading] = useState(false);
 
-  useEffect(() => {
-    fetchTelegramStatus();
-  }, []);
+  // Dialogs
+  const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
+  const [isUnlinkDialogOpen, setIsUnlinkDialogOpen] = useState(false);
 
-  const fetchTelegramStatus = async () => {
+  const fetchTelegramStatus = useCallback(async () => {
     try {
       const res = await api.get('/telegram/status');
       setTelegramStatus(res.data);
     } catch {
-      // Ignore if endpoint not reachable
+      // Endpoint opcional se bot não configurado
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTelegramStatus();
+  }, [fetchTelegramStatus]);
+
+  // Popula o formulário apenas uma vez quando a entidade carregar, evitando sobrescrever a digitação do usuário
+  useEffect(() => {
+    if (pjEntity && !formInitialized) {
+      setCnpj(pjEntity.cnpj ? formatCnpj(pjEntity.cnpj) : '');
+      setLegalName(pjEntity.legalName || '');
+      setTradeName(pjEntity.name || '');
+      setOpenedOn(pjEntity.openedOn ? pjEntity.openedOn.slice(0, 10) : '');
+      setActivity(pjEntity.activity || 'servicos');
+      setFormInitialized(true);
+    }
+  }, [pjEntity, formInitialized]);
+
+  const handleCnpjChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatCnpj(e.target.value);
+    setCnpj(formatted);
+    setIsFormDirty(true);
+  };
+
+  const handleSaveBusinessProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pjEntity) return;
+
+    const cleanCnpj = cnpj.replace(/\D/g, '');
+    if (!cleanCnpj) {
+      toast.error('Informe o CNPJ da sua empresa MEI.');
+      return;
+    }
+
+    if (!isValidCnpj(cleanCnpj)) {
+      toast.error('CNPJ inválido. Verifique os dígitos informados.');
+      return;
+    }
+
+    if (!openedOn) {
+      toast.error('Informe a data de abertura do MEI para o cálculo do limite anual.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await api.put(`/entities/${pjEntity.id}/business-profile`, {
+        cnpj: cleanCnpj,
+        legalName: legalName.trim() || null,
+        openedOn,
+        activity,
+      });
+
+      await refreshWorkspace();
+      setIsFormDirty(false);
+      toast.success('Dados da empresa MEI atualizados com sucesso!');
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && 'response' in err && (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          ? (err as { response: { data: { message: string } } }).response.data.message
+          : 'Erro ao salvar perfil empresarial.';
+      toast.error(msg);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -72,176 +159,149 @@ export const ProfilePage: React.FC = () => {
     setTelegramLoading(true);
     try {
       const res = await api.post('/telegram/link-token');
-      setBotUrl(res.data.botUrl);
-    } catch (err: any) {
-      setErrorMessage(err.response?.data?.message || 'Erro ao gerar link de conexão com Telegram.');
+      const url = res.data?.botUrl;
+
+      // Validação estrita de segurança da URL
+      if (typeof url === 'string' && url.startsWith('https://t.me/')) {
+        setBotUrl(url);
+        toast.info('Link do Telegram gerado! Clique no botão abaixo para iniciar.');
+      } else {
+        throw new Error('A URL retornada para o bot do Telegram é inválida.');
+      }
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && 'response' in err && (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          ? (err as { response: { data: { message: string } } }).response.data.message
+          : 'Erro ao gerar link de conexão com Telegram.';
+      toast.error(msg);
     } finally {
       setTelegramLoading(false);
     }
   };
 
-  const handleUnlinkTelegram = async () => {
-    if (!confirm('Deseja realmente desvincular seu Telegram?')) return;
+  const confirmUnlinkTelegram = async () => {
     setTelegramLoading(true);
     try {
       await api.post('/telegram/unlink');
       setBotUrl(null);
       await fetchTelegramStatus();
-      setSuccessMessage('Telegram desvinculado com sucesso.');
-    } catch (err: any) {
-      setErrorMessage(err.response?.data?.message || 'Erro ao desvincular Telegram.');
+      setIsUnlinkDialogOpen(false);
+      toast.success('Telegram desvinculado com sucesso.');
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && 'response' in err && (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          ? (err as { response: { data: { message: string } } }).response.data.message
+          : 'Erro ao desvincular Telegram.';
+      toast.error(msg);
     } finally {
       setTelegramLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (pjEntity) {
-      setCnpj(pjEntity.cnpj ? formatCnpj(pjEntity.cnpj) : '');
-      setLegalName(pjEntity.legalName || '');
-      setTradeName(pjEntity.name || '');
-      setOpenedOn(pjEntity.openedOn ? pjEntity.openedOn.slice(0, 10) : '');
-      setActivity(pjEntity.activity || 'servicos');
-    }
-  }, [pjEntity]);
+  const handleExportData = () => {
+    const exportObject = {
+      usuario: {
+        id: user?.id,
+        nome: user?.name,
+        email: user?.email,
+        tipoConta: user?.accountType,
+      },
+      workspace: {
+        id: workspace?.workspace?.id,
+        nome: workspace?.workspace?.name,
+        entidades: workspace?.entities,
+      },
+      exportadoEm: new Date().toISOString(),
+    };
 
-  const handleCnpjChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatCnpj(e.target.value);
-    setCnpj(formatted);
-  };
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(exportObject, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute('href', dataStr);
+    downloadAnchor.setAttribute('download', `meister-backup-${new Date().toISOString().slice(0, 10)}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
 
-  const handleSaveBusinessProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSuccessMessage(null);
-    setErrorMessage(null);
-
-    if (!pjEntity) {
-      setErrorMessage('Entidade PJ não encontrada neste workspace.');
-      return;
-    }
-
-    const cleanCnpj = cnpj.replace(/\D/g, '');
-    if (cleanCnpj && !isValidCnpj(cleanCnpj)) {
-      setErrorMessage('CNPJ inválido. Verifique os dígitos informados.');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      await api.put(`/entities/${pjEntity.id}/business-profile`, {
-        cnpj: cleanCnpj || undefined,
-        legalName: legalName.trim() || undefined,
-        tradeName: tradeName.trim() || undefined,
-        openedOn: openedOn || undefined,
-        activity,
-      });
-
-      await refreshWorkspace();
-      setSuccessMessage('Perfil empresarial atualizado com sucesso!');
-      setTimeout(() => setSuccessMessage(null), 4000);
-    } catch (err: any) {
-      setErrorMessage(err.response?.data?.message || 'Erro ao salvar perfil empresarial.');
-    } finally {
-      setSaving(false);
-    }
+    toast.success('Arquivo de dados exportado com sucesso.');
   };
 
   return (
-    <div className="space-y-6 max-w-4xl">
-      {/* Header */}
+    <div className="space-y-6 max-w-4xl mx-auto pb-16">
+      {/* Top Header */}
       <div>
-        <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-ink flex items-center gap-2">
-          <span className="material-symbols-outlined text-brand text-3xl">settings</span>
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-ink tracking-tight flex items-center gap-2.5">
+          <Gear size={28} className="text-brand" weight="duotone" />
           Perfil & Configurações
         </h1>
-        <p className="text-xs md:text-sm text-ink-soft mt-1">
-          Gerencie seus dados de usuário, parâmetros fiscais MEI e contas vinculadas.
+        <p className="text-xs sm:text-sm text-muted mt-0.5">
+          Gerenciamento da sua conta, parâmetros fiscais da empresa e integrações ativas.
         </p>
       </div>
 
-      {/* User Information Card */}
-      <section className="bg-card border border-ink/5 rounded-3xl p-6 md:p-8 shadow-lg">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-primary to-primary-soft text-on-primary flex items-center justify-center font-extrabold text-2xl shadow-lg">
-            {user?.name.charAt(0).toUpperCase()}
+      {/* 1. Conta & Segurança */}
+      <section className="card-surface p-6 md:p-8 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-primary text-on-primary flex items-center justify-center font-extrabold text-2xl shadow-[var(--shadow-honey)]">
+              {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+            </div>
+            <div>
+              <h2 className="text-lg font-extrabold text-ink">{user?.name}</h2>
+              <p className="text-xs text-muted">{user?.email}</p>
+              <span className="inline-block mt-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-field text-brand uppercase tracking-wider border border-ink/5">
+                {user?.accountType === 'mei' ? 'Conta MEI (PJ + PF)' : 'Pessoa Física'}
+              </span>
+            </div>
           </div>
-          <div>
-            <h2 className="text-xl font-bold text-ink">{user?.name}</h2>
-            <p className="text-xs text-muted">{user?.email}</p>
-            <span className="inline-block mt-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-field text-brand uppercase tracking-wider">
-              {user?.accountType === 'mei' ? 'Conta MEI / PJ + PF' : 'Pessoa Física'}
-            </span>
-          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsLogoutDialogOpen(true)}
+            className="min-h-[44px] px-4 py-2 rounded-2xl text-xs font-bold text-danger bg-danger/10 hover:bg-danger/20 border border-danger/20 transition flex items-center gap-1.5 self-start sm:self-auto"
+          >
+            <SignOut size={16} weight="bold" />
+            <span>Encerrar Sessão</span>
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-muted pt-4 border-t border-ink/4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-muted pt-4 border-t border-ink/5">
           <div>
-            <span className="block text-[10px] uppercase font-bold text-muted">
-              Workspace ID
+            <span className="block text-[10px] uppercase font-bold text-muted tracking-wider">
+              Workspace Ativo
             </span>
-            <span className="font-mono text-ink-soft mt-0.5 block truncate">
-              {workspace?.workspace.id || '-'}
-            </span>
+            <span className="font-extrabold text-ink text-sm">{workspace?.workspace?.name || 'Meu Negócio'}</span>
+            <span className="text-[11px] font-mono text-muted block mt-0.5">{workspace?.workspace?.id}</span>
           </div>
+
           <div>
-            <span className="block text-[10px] uppercase font-bold text-muted">
-              Plano de Assinatura
+            <span className="block text-[10px] uppercase font-bold text-muted tracking-wider">
+              Identificador de Usuário
             </span>
-            <span className="text-ink-soft font-bold capitalize mt-0.5 block">
-              {workspace?.workspace.plan || 'Free MEIster'}
-            </span>
+            <span className="font-mono text-ink-soft text-xs break-all">{user?.id}</span>
           </div>
         </div>
       </section>
 
-      {/* Business Profile (MEI) Form */}
-      {user?.accountType === 'mei' && (
-        <section className="bg-card border border-ink/5 rounded-3xl p-6 md:p-8 shadow-xl relative">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-primary/10 text-brand flex items-center justify-center">
-                <span className="material-symbols-outlined text-xl">storefront</span>
-              </div>
-              <div>
-                <h3 className="font-extrabold text-lg text-ink">Dados da Empresa MEI</h3>
-                <p className="text-xs text-muted">
-                  Essenciais para cálculo do limite proporcional e valores exatos do DAS.
-                </p>
-              </div>
+      {/* 2. Dados do MEI (Exibido e editável se o workspace possuir entidade PJ) */}
+      {pjEntity && (
+        <section className="card-surface p-6 md:p-8 space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-primary-soft text-brand flex items-center justify-center shrink-0">
+              <Storefront size={22} weight="duotone" />
             </div>
-
-            {pjEntity?.profileComplete ? (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-success/10 text-success border border-success/20">
-                <span className="material-symbols-outlined text-xs">check_circle</span>
-                Completo
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-primary/10 text-brand border border-primary/20">
-                <span className="material-symbols-outlined text-xs">pending</span>
-                Pendente
-              </span>
-            )}
+            <div>
+              <h2 className="text-base sm:text-lg font-extrabold text-ink">Dados da Empresa MEI</h2>
+              <p className="text-xs text-muted">
+                Parâmetros fiscais oficiais registrados na Receita Federal do Brasil
+              </p>
+            </div>
           </div>
-
-          {successMessage && (
-            <div className="mb-6 p-4 rounded-2xl bg-success/10 border border-success/20 text-success text-xs font-bold flex items-center gap-2">
-              <span className="material-symbols-outlined text-base">check_circle</span>
-              {successMessage}
-            </div>
-          )}
-
-          {errorMessage && (
-            <div className="mb-6 p-4 rounded-2xl bg-danger/10 border border-danger/20 text-danger text-xs font-bold flex items-center gap-2">
-              <span className="material-symbols-outlined text-base">error</span>
-              {errorMessage}
-            </div>
-          )}
 
           <form onSubmit={handleSaveBusinessProfile} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* CNPJ */}
               <div>
-                <label className="text-xs font-bold text-muted uppercase tracking-wider block mb-1">
+                <label className="block text-xs font-bold text-ink uppercase tracking-wider mb-1.5">
                   CNPJ
                 </label>
                 <input
@@ -250,23 +310,28 @@ export const ProfilePage: React.FC = () => {
                   value={cnpj}
                   onChange={handleCnpjChange}
                   maxLength={18}
-                  className="w-full bg-canvas text-sm text-ink rounded-xl px-3.5 py-2.5 border border-ink/5 focus:outline-none focus:border-primary font-mono"
+                  className="w-full min-h-[44px] bg-canvas text-sm font-mono text-ink rounded-2xl px-3.5 py-2.5 border border-ink/10 focus:outline-none focus:border-primary transition"
                 />
               </div>
 
               {/* Data de Abertura */}
               <div>
-                <label className="text-xs font-bold text-muted uppercase tracking-wider block mb-1">
+                <label className="block text-xs font-bold text-ink uppercase tracking-wider mb-1.5">
                   Data de Abertura do MEI
                 </label>
                 <input
                   type="date"
+                  min="2009-07-01"
+                  max={new Date().toISOString().slice(0, 10)}
                   value={openedOn}
-                  onChange={(e) => setOpenedOn(e.target.value)}
-                  className="w-full bg-canvas text-sm text-ink rounded-xl px-3.5 py-2.5 border border-ink/5 focus:outline-none focus:border-primary"
+                  onChange={(e) => {
+                    setOpenedOn(e.target.value);
+                    setIsFormDirty(true);
+                  }}
+                  className="w-full min-h-[44px] bg-canvas text-sm text-ink rounded-2xl px-3.5 py-2.5 border border-ink/10 focus:outline-none focus:border-primary transition"
                 />
-                <span className="text-[10px] text-muted mt-1 block">
-                  Define o cálculo proporcional do limite MEI se aberto no ano corrente.
+                <span className="text-[11px] text-muted mt-1 block">
+                  Define o cálculo proporcional exato do limite anual do MEI.
                 </span>
               </div>
             </div>
@@ -274,155 +339,139 @@ export const ProfilePage: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Razão Social */}
               <div>
-                <label className="text-xs font-bold text-muted uppercase tracking-wider block mb-1">
-                  Razão Social
+                <label className="block text-xs font-bold text-ink uppercase tracking-wider mb-1.5">
+                  Razão Social (Nome Oficial)
                 </label>
                 <input
                   type="text"
-                  placeholder="Ex: João Vitor da Silva 12345678900"
+                  placeholder="Ex: João Silva 12345678900"
                   value={legalName}
-                  onChange={(e) => setLegalName(e.target.value)}
-                  className="w-full bg-canvas text-sm text-ink rounded-xl px-3.5 py-2.5 border border-ink/5 focus:outline-none focus:border-primary"
+                  onChange={(e) => {
+                    setLegalName(e.target.value);
+                    setIsFormDirty(true);
+                  }}
+                  className="w-full min-h-[44px] bg-canvas text-sm text-ink rounded-2xl px-3.5 py-2.5 border border-ink/10 focus:outline-none focus:border-primary transition"
                 />
               </div>
 
               {/* Nome Fantasia */}
               <div>
-                <label className="text-xs font-bold text-muted uppercase tracking-wider block mb-1">
-                  Nome Fantasia
+                <label className="block text-xs font-bold text-ink uppercase tracking-wider mb-1.5">
+                  Nome Fantasia / Marca
                 </label>
                 <input
                   type="text"
-                  placeholder="Ex: JV Serviços Digitais"
+                  placeholder="Ex: Consultoria Silva"
                   value={tradeName}
-                  onChange={(e) => setTradeName(e.target.value)}
-                  className="w-full bg-canvas text-sm text-ink rounded-xl px-3.5 py-2.5 border border-ink/5 focus:outline-none focus:border-primary"
+                  onChange={(e) => {
+                    setTradeName(e.target.value);
+                    setIsFormDirty(true);
+                  }}
+                  className="w-full min-h-[44px] bg-canvas text-sm text-ink rounded-2xl px-3.5 py-2.5 border border-ink/10 focus:outline-none focus:border-primary transition"
                 />
               </div>
             </div>
 
             {/* Atividade Principal */}
             <div>
-              <label className="text-xs font-bold text-muted uppercase tracking-wider block mb-1">
-                Atividade Principal (Define o valor exato do DAS)
+              <label className="block text-xs font-bold text-ink uppercase tracking-wider mb-2">
+                Atividade Principal (Regulamenta o valor do DAS mensal)
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <label
-                  className={`flex flex-col p-3 rounded-2xl border cursor-pointer transition ${
-                    activity === 'comercio'
-                      ? 'bg-field border-primary text-ink'
-                      : 'bg-canvas border-ink/5 text-muted'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="activity"
-                      value="comercio"
-                      checked={activity === 'comercio'}
-                      onChange={() => setActivity('comercio')}
-                      className="text-brand focus:ring-0"
-                    />
-                    <strong className="text-xs text-ink">Comércio / Indústria</strong>
-                  </div>
-                  <span className="text-[11px] text-muted mt-1">ICMS (+ R$ 1,00)</span>
-                </label>
-
-                <label
-                  className={`flex flex-col p-3 rounded-2xl border cursor-pointer transition ${
-                    activity === 'servicos'
-                      ? 'bg-field border-primary text-ink'
-                      : 'bg-canvas border-ink/5 text-muted'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="activity"
-                      value="servicos"
-                      checked={activity === 'servicos'}
-                      onChange={() => setActivity('servicos')}
-                      className="text-brand focus:ring-0"
-                    />
-                    <strong className="text-xs text-ink">Serviços</strong>
-                  </div>
-                  <span className="text-[11px] text-muted mt-1">ISS (+ R$ 5,00)</span>
-                </label>
-
-                <label
-                  className={`flex flex-col p-3 rounded-2xl border cursor-pointer transition ${
-                    activity === 'misto'
-                      ? 'bg-field border-primary text-ink'
-                      : 'bg-canvas border-ink/5 text-muted'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="activity"
-                      value="misto"
-                      checked={activity === 'misto'}
-                      onChange={() => setActivity('misto')}
-                      className="text-brand focus:ring-0"
-                    />
-                    <strong className="text-xs text-ink">Comércio e Serviços</strong>
-                  </div>
-                  <span className="text-[11px] text-muted mt-1">ICMS + ISS (+ R$ 6,00)</span>
-                </label>
+                {[
+                  { id: 'comercio', title: 'Comércio / Indústria', detail: 'ICMS (+ R$ 1,00)' },
+                  { id: 'servicos', title: 'Serviços', detail: 'ISS (+ R$ 5,00)' },
+                  { id: 'misto', title: 'Comércio & Serviços', detail: 'ICMS + ISS (+ R$ 6,00)' },
+                ].map((act) => {
+                  const isSelected = activity === act.id;
+                  return (
+                    <div
+                      key={act.id}
+                      onClick={() => {
+                        setActivity(act.id as any);
+                        setIsFormDirty(true);
+                      }}
+                      className={`p-3.5 rounded-2xl border cursor-pointer transition ${
+                        isSelected
+                          ? 'bg-card border-brand shadow-sm ring-1 ring-brand'
+                          : 'bg-canvas border-ink/10 hover:border-ink/20'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${
+                          isSelected ? 'border-brand bg-primary' : 'border-ink/30'
+                        }`} />
+                        <span className="font-extrabold text-xs text-ink">{act.title}</span>
+                      </div>
+                      <span className="text-[11px] text-muted pl-5">{act.detail}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
-            <div className="pt-4 flex justify-end">
+            <div className="pt-3 flex justify-end">
               <button
                 type="submit"
-                disabled={saving}
-                className="bg-primary hover:bg-primary-soft text-on-primary font-bold text-xs md:text-sm px-6 py-3 rounded-2xl shadow-[0_0_20px_rgba(242,201,76,0.25)] transition disabled:opacity-50"
+                disabled={saving || !isFormDirty}
+                className="min-h-[44px] px-6 py-2.5 rounded-2xl bg-primary text-on-primary font-bold text-xs hover:bg-primary-deep transition flex items-center justify-center gap-2 shadow-[var(--shadow-honey)] disabled:opacity-50"
               >
-                {saving ? 'Salvando...' : 'Salvar Dados da Empresa'}
+                {saving && <CircleNotch size={16} className="animate-spin" />}
+                <span>Salvar Dados da Empresa</span>
               </button>
             </div>
           </form>
         </section>
       )}
 
-      {/* Telegram AI Assistant Connection */}
-      <section className="bg-card border border-ink/5 rounded-3xl p-6 md:p-8 shadow-lg">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-extrabold text-lg text-ink">Assistente Telegram & IA</h3>
-              {telegramStatus?.linked ? (
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-success/20 text-success border border-success/30">
-                  CONECTADO
-                </span>
-              ) : (
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-muted/20 text-muted border border-ink/5">
-                  NÃO VINCULADO
-                </span>
-              )}
+      {/* 3. Telegram & Notificações (Funciona para MEI e PF) */}
+      <section className="card-surface p-6 md:p-8 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-primary-soft text-brand flex items-center justify-center shrink-0">
+              <TelegramLogo size={22} weight="fill" />
             </div>
-            <p className="text-xs text-muted">
-              Lance despesas e receitas em linguagem natural por texto no Telegram com suporte da IA Gemini.
-            </p>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base sm:text-lg font-extrabold text-ink">Assistente Telegram & IA</h2>
+                {telegramStatus?.linked ? (
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-success/10 text-success border border-success/30 uppercase">
+                    Conectado
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-field text-muted uppercase">
+                    Não Vinculado
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-muted mt-0.5">
+                Lance despesas por áudio, fotos de notas fiscais ou texto em linguagem natural.
+              </p>
+            </div>
           </div>
 
           <div>
             {telegramStatus?.linked ? (
               <button
                 type="button"
-                onClick={handleUnlinkTelegram}
+                onClick={() => setIsUnlinkDialogOpen(true)}
                 disabled={telegramLoading}
-                className="px-4 py-2.5 rounded-xl text-xs font-bold text-danger bg-danger/10 hover:bg-danger/20 border border-danger/20 transition disabled:opacity-50"
+                className="min-h-[44px] px-4 py-2 rounded-2xl text-xs font-bold text-danger bg-danger/10 hover:bg-danger/20 border border-danger/20 transition disabled:opacity-50"
               >
-                {telegramLoading ? 'Processando...' : 'Desvincular Telegram'}
+                Desvincular Telegram
               </button>
             ) : (
               <button
                 type="button"
                 onClick={handleGenerateTelegramLink}
                 disabled={telegramLoading}
-                className="px-5 py-2.5 rounded-xl text-xs font-bold text-on-primary bg-info hover:bg-info transition shadow-[0_0_15px_rgba(41,182,246,0.25)] disabled:opacity-50 inline-flex items-center gap-2"
+                className="min-h-[44px] px-5 py-2.5 rounded-2xl bg-primary text-on-primary font-bold text-xs hover:bg-primary-deep transition flex items-center gap-2 shadow-[var(--shadow-honey)] disabled:opacity-50"
               >
+                {telegramLoading ? (
+                  <CircleNotch size={16} className="animate-spin" />
+                ) : (
+                  <TelegramLogo size={18} weight="fill" />
+                )}
                 <span>Conectar Bot do Telegram</span>
               </button>
             )}
@@ -430,78 +479,103 @@ export const ProfilePage: React.FC = () => {
         </div>
 
         {telegramStatus?.linked && (
-          <div className="p-4 rounded-2xl bg-canvas border border-ink/4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+          <div className="p-4 rounded-2xl bg-canvas border border-ink/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
             <div>
-              <p className="font-bold text-ink">Chat ID Vinculado: <span className="font-mono text-brand">{telegramStatus.chatId}</span></p>
-              <p className="text-[11px] text-muted">Vinculado em: {new Date(telegramStatus.linkedAt || '').toLocaleDateString('pt-BR')}</p>
+              <p className="font-bold text-ink">
+                Chat ID Conectado: <span className="font-mono text-brand">{telegramStatus.chatId}</span>
+              </p>
+              <p className="text-[11px] text-muted">
+                Vinculado em: {telegramStatus.linkedAt ? new Date(telegramStatus.linkedAt).toLocaleDateString('pt-BR') : '-'}
+              </p>
             </div>
-            <div className="text-success text-xs font-semibold flex items-center gap-1">
-              Pronto para receber lançamentos
+            <div className="text-success font-semibold flex items-center gap-1.5">
+              <CheckCircle size={16} weight="bold" />
+              <span>Pronto para receber lançamentos</span>
             </div>
           </div>
         )}
 
         {botUrl && !telegramStatus?.linked && (
-          <div className="mt-4 p-5 rounded-2xl bg-canvas border border-info/30 animate-fade-in">
-            <h4 className="text-sm font-bold text-ink mb-2">Clique no link abaixo para abrir o Telegram:</h4>
+          <div className="p-5 rounded-2xl bg-canvas border border-brand/30 space-y-3">
+            <h3 className="text-sm font-bold text-ink">Link Seguro de Vinculação Gerado:</h3>
             <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
               <a
                 href={botUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-6 py-3 rounded-xl bg-info hover:bg-info text-on-primary font-extrabold text-xs inline-flex items-center gap-2 transition"
+                className="min-h-[44px] px-5 py-2.5 rounded-2xl bg-primary text-on-primary font-extrabold text-xs inline-flex items-center gap-2 shadow-[var(--shadow-honey)] hover:bg-primary-deep transition"
               >
                 <TelegramLogo size={18} weight="fill" />
                 <span>Abrir no Telegram (/start)</span>
+                <ArrowSquareOut size={16} weight="bold" />
               </a>
               <span className="text-[11px] text-muted">
-                Válido por 10 minutos. Ao abrir, clique em <strong>INICIAR</strong> no Telegram.
+                Link temporário válido por 10 minutos. Ao abrir, pressione <strong>INICIAR</strong>.
               </span>
             </div>
           </div>
         )}
       </section>
 
-      {/* Workspace Entities Info */}
-      <section className="bg-card border border-ink/5 rounded-3xl p-6 md:p-8 shadow-lg">
-        <h3 className="font-extrabold text-lg text-ink mb-1">Entidades Vinculadas</h3>
-        <p className="text-xs text-muted mb-4">
-          Isolamento estrito entre finanças da empresa (PJ) e despesas pessoais (PF).
+      {/* 4. Privacidade & Governança de Dados (LGPD) */}
+      <section className="card-surface p-6 md:p-8 space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-primary-soft text-brand flex items-center justify-center shrink-0">
+            <ShieldCheck size={22} weight="duotone" />
+          </div>
+          <div>
+            <h2 className="text-base sm:text-lg font-extrabold text-ink">
+              Privacidade & Proteção de Dados (LGPD)
+            </h2>
+            <p className="text-xs text-muted">
+              Transparência, soberania de dados financeiros e direitos do titular
+            </p>
+          </div>
+        </div>
+
+        <p className="text-xs text-ink-soft leading-relaxed">
+          Seus dados e transações são criptografados e restritos ao seu workspace. Em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018), você pode exportar todos os seus dados a qualquer momento ou solicitar a revogação de consentimentos.
         </p>
 
-        <div className="space-y-3">
-          {workspace?.entities.map((ent) => (
-            <div
-              key={ent.id}
-              className="p-4 rounded-2xl bg-canvas border border-ink/4 flex items-center justify-between"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-field text-brand flex items-center justify-center font-bold text-sm">
-                  {ent.kind === 'pj' ? 'PJ' : 'PF'}
-                </div>
-                <div>
-                  <h4 className="font-bold text-sm text-ink">{ent.name}</h4>
-                  <p className="text-[11px] text-muted">
-                    {ent.kind === 'pj' ? 'Pessoa Jurídica (Empresa)' : 'Pessoa Física (Pessoal)'}
-                  </p>
-                </div>
-              </div>
-              <span className="text-xs font-mono text-muted">{ent.id}</span>
-            </div>
-          ))}
+        <div className="pt-2 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={handleExportData}
+            className="min-h-[44px] px-4 py-2 rounded-2xl bg-card border border-ink/10 hover:border-ink/20 text-xs font-bold text-ink flex items-center gap-2 transition shadow-sm"
+          >
+            <FileText size={16} weight="bold" />
+            <span>Exportar Dados em JSON</span>
+          </button>
         </div>
       </section>
 
-      {/* Logout Action */}
-      <div className="pt-4 flex justify-end">
-        <button
-          onClick={logout}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold text-danger bg-danger/10 hover:bg-danger/20 border border-danger/20 transition"
-        >
-          <span className="material-symbols-outlined text-base">logout</span>
-          Encerrar Sessão
-        </button>
-      </div>
+      {/* Diálogo de Confirmação para Desvincular Telegram */}
+      <ConfirmDialog
+        open={isUnlinkDialogOpen}
+        onClose={() => setIsUnlinkDialogOpen(false)}
+        onConfirm={confirmUnlinkTelegram}
+        loading={telegramLoading}
+        title="Desvincular Bot do Telegram"
+        description="Tem certeza de que deseja desconectar o assistente do Telegram? Você deixará de receber notificações e não poderá mais enviar lançamentos por áudio ou mensagem."
+        confirmLabel="Sim, desvincular"
+        cancelLabel="Cancelar"
+        confirmVariant="danger"
+      />
+
+      {/* Diálogo de Confirmação para Encerrar Sessão */}
+      <ConfirmDialog
+        open={isLogoutDialogOpen}
+        onClose={() => setIsLogoutDialogOpen(false)}
+        onConfirm={() => {
+          setIsLogoutDialogOpen(false);
+          logout();
+        }}
+        title="Encerrar Sessão"
+        description="Deseja realmente sair da sua conta MEIster no dispositivo atual?"
+        confirmLabel="Sair da Conta"
+        cancelLabel="Permanecer conectado"
+        confirmVariant="danger"
+      />
     </div>
   );
 };
