@@ -69,3 +69,4 @@ export { UploadSimple } from '@phosphor-icons/react/dist/csr/UploadSimple';
 export { Coins } from '@phosphor-icons/react/dist/csr/Coins';
 export { PiggyBank } from '@phosphor-icons/react/dist/csr/PiggyBank';
 export { ArrowsSplit } from '@phosphor-icons/react/dist/csr/ArrowsSplit';
+export { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';

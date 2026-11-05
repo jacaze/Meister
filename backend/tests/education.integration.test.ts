@@ -51,6 +51,16 @@ describe('Financial Education Integration Suite (PostgreSQL 16)', () => {
     expect(listData.completedCount).toBe(0);
     expect(listData.progressPercentage).toBe(0);
 
+    // Verify quiz questions in list do not leak correct answer or explanation
+    for (const lesson of listData.lessons) {
+      if (lesson.quiz) {
+        for (const q of lesson.quiz) {
+          expect(q).not.toHaveProperty('correct');
+          expect(q).not.toHaveProperty('explanation');
+        }
+      }
+    }
+
     // 2. Get specific lesson (should transition to 'iniciada')
     const getRes = await app.inject({
       method: 'GET',
@@ -62,6 +72,13 @@ describe('Financial Education Integration Suite (PostgreSQL 16)', () => {
     const getData = getRes.json();
     expect(getData.lesson.slug).toBe('separar-pf-pj');
     expect(getData.progress.status).toBe('iniciada');
+
+    // Verify quiz questions in getLesson do not leak correct answer or explanation
+    expect(getData.lesson.quiz.length).toBeGreaterThan(0);
+    for (const q of getData.lesson.quiz) {
+      expect(q).not.toHaveProperty('correct');
+      expect(q).not.toHaveProperty('explanation');
+    }
 
     // 3. Submit quiz with incorrect answers (e.g. [0, 1] instead of [1, 0])
     const failQuizRes = await app.inject({
