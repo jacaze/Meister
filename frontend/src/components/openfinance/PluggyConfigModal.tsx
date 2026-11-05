@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import Sheet from '../ui/Sheet.js';
+import Mel from '../brand/Mel.js';
+import { Bank, CheckCircle, Info, CircleNotch } from '../ui/icons.js';
 import api from '../../api/client.js';
 
 interface PluggyConfigModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSaved?: () => void;
+  readonly isOpen: boolean;
+  readonly onClose: () => void;
+  readonly onSaved?: () => void;
 }
 
 export const PluggyConfigModal: React.FC<PluggyConfigModalProps> = ({
@@ -13,7 +16,7 @@ export const PluggyConfigModal: React.FC<PluggyConfigModalProps> = ({
 }) => {
   const [fetching, setFetching] = useState(false);
   const [configStatus, setConfigStatus] = useState<{
-    hasCredentials: boolean;
+    readonly hasCredentials: boolean;
   } | null>(null);
 
   const fetchCurrentConfig = useCallback(async () => {
@@ -21,7 +24,7 @@ export const PluggyConfigModal: React.FC<PluggyConfigModalProps> = ({
     try {
       const res = await api.get('/openfinance/config');
       setConfigStatus(res.data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Erro ao consultar config Pluggy:', err);
     } finally {
       setFetching(false);
@@ -29,82 +32,74 @@ export const PluggyConfigModal: React.FC<PluggyConfigModalProps> = ({
   }, []);
 
   useEffect(() => {
-    if (!isOpen) return;
-    fetchCurrentConfig();
+    if (isOpen) {
+      fetchCurrentConfig();
+    }
   }, [isOpen, fetchCurrentConfig]);
 
-  if (!isOpen) return null;
+  const footer = (
+    <div className="flex items-center justify-end gap-3 w-full">
+      <button
+        type="button"
+        onClick={onClose}
+        className="min-h-[44px] px-6 py-2.5 rounded-2xl bg-card border border-ink/10 text-ink font-bold text-sm hover:bg-field transition"
+      >
+        Fechar
+      </button>
+    </div>
+  );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg rounded-3xl bg-card border border-ink/10 p-6 shadow-2xl space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-ink/5 pb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center text-brand">
-              <span className="material-symbols-outlined text-xl">account_balance</span>
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-ink">Open Finance (Pluggy.ai)</h3>
-              <p className="text-xs text-muted">Status da integração bancária automática</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 text-muted hover:text-ink rounded-xl hover:bg-ink/4 transition"
-          >
-            <span className="material-symbols-outlined text-xl">close</span>
-          </button>
-        </div>
-
+    <Sheet
+      open={isOpen}
+      onClose={onClose}
+      title="Open Finance (Pluggy.ai)"
+      subtitle="Status da integração bancária e segurança de conexões"
+      icon={<Mel size={44} mood={fetching ? 'thinking' : 'idle'} />}
+      footer={footer}
+    >
+      <div className="space-y-4 py-2">
         {/* Status Badge */}
         {fetching ? (
-          <div className="p-3 rounded-2xl bg-ink/4 border border-ink/5 flex items-center gap-2 text-xs text-muted">
-            <span className="material-symbols-outlined animate-spin text-sm">sync</span>
-            Verificando credenciais no servidor...
+          <div className="p-4 rounded-2xl bg-field border border-ink/5 flex items-center gap-2.5 text-xs text-muted">
+            <CircleNotch size={18} className="animate-spin text-brand" />
+            <span>Verificando credenciais de conexão no servidor...</span>
           </div>
         ) : configStatus?.hasCredentials ? (
           <div className="p-4 rounded-2xl bg-success/10 border border-success/30 space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-success text-base">check_circle</span>
-              <span className="text-xs font-bold text-ink">
-                Integração Pluggy Ativa
+            <div className="flex items-center gap-2 text-success">
+              <CheckCircle size={18} weight="bold" />
+              <span className="text-xs font-extrabold">
+                Integração Open Finance Ativa
               </span>
             </div>
-            <p className="text-xs text-ink-soft">
-              As credenciais estão configuradas centralmente no ambiente de deploy da plataforma.
+            <p className="text-xs text-ink-soft leading-relaxed">
+              As credenciais do conector Pluggy estão ativas no servidor. Suas sincronizações de contas correntes e cartões operam normalmente.
             </p>
           </div>
         ) : (
           <div className="p-4 rounded-2xl bg-primary/10 border border-primary/30 space-y-2">
             <div className="flex items-center gap-2 text-brand">
-              <span className="material-symbols-outlined text-base">info</span>
-              <span className="text-xs font-bold">Credenciais não configuradas</span>
+              <Info size={18} weight="bold" />
+              <span className="text-xs font-extrabold">Credenciais não configuradas</span>
             </div>
-            <p className="text-xs text-ink-soft">
-              As credenciais do Open Finance (Pluggy) são gerenciadas exclusivamente no ambiente de infraestrutura pelo administrador da plataforma através das variáveis de ambiente <code className="text-ink font-mono">PLUGGY_CLIENT_ID</code> e <code className="text-ink font-mono">PLUGGY_CLIENT_SECRET</code>.
+            <p className="text-xs text-ink-soft leading-relaxed">
+              As credenciais do Open Finance (Pluggy) são gerenciadas exclusivamente no ambiente de infraestrutura através das variáveis de ambiente <code className="text-ink font-mono bg-field px-1.5 py-0.5 rounded">PLUGGY_CLIENT_ID</code> e <code className="text-ink font-mono bg-field px-1.5 py-0.5 rounded">PLUGGY_CLIENT_SECRET</code>.
             </p>
           </div>
         )}
 
-        <div className="text-[11px] text-muted bg-ink/4 p-3.5 rounded-xl border border-ink/4 space-y-1">
-          <p className="font-semibold text-ink">Segurança e Isolamento:</p>
-          <p>
+        <div className="text-xs text-muted bg-field/50 p-4 rounded-2xl border border-ink/5 space-y-1.5">
+          <p className="font-bold text-ink flex items-center gap-1.5">
+            <Bank size={16} className="text-brand" weight="duotone" />
+            Segurança Bancária e Isolamento:
+          </p>
+          <p className="leading-relaxed">
             Por conformidade e proteção de dados bancários multitenant, credenciais de conectores bancários não podem ser modificadas por contas de usuário na aplicação.
           </p>
         </div>
-
-        <div className="flex items-center justify-end gap-3 pt-3 border-t border-ink/5">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-5 py-2.5 rounded-xl bg-field hover:bg-raised text-ink text-xs font-bold transition"
-          >
-            Fechar
-          </button>
-        </div>
       </div>
-    </div>
+    </Sheet>
   );
 };
 
