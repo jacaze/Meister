@@ -31,23 +31,32 @@ export async function mapCategories(
     throw new NotFoundError('Pote não encontrado');
   }
 
-  // Remove existing mappings for these categories in this plan
+  // 1. Remove todos os vínculos atuais deste pote específico (para que categorias removidas sejam desvinculadas)
   await prisma.jarCategory.deleteMany({
     where: {
       planId: plan.id,
-      categoryId: { in: [...input.categoryIds] },
+      jarId: jar.id,
     },
   });
 
-  // Insert new mappings
-  for (const categoryId of input.categoryIds) {
-    await prisma.jarCategory.create({
-      data: {
+  // 2. Se houver categorias a vincular, garante que saiam de outros potes e insere no pote de destino
+  if (input.categoryIds.length > 0) {
+    await prisma.jarCategory.deleteMany({
+      where: {
         planId: plan.id,
-        jarId: jar.id,
-        categoryId,
+        categoryId: { in: [...input.categoryIds] },
       },
     });
+
+    for (const categoryId of input.categoryIds) {
+      await prisma.jarCategory.create({
+        data: {
+          planId: plan.id,
+          jarId: jar.id,
+          categoryId,
+        },
+      });
+    }
   }
 
   return { success: true, count: input.categoryIds.length };

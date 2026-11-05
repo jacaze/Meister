@@ -230,6 +230,70 @@ describe('Core Modules Integration Suite (PostgreSQL 16)', () => {
     const necessidades = jarsStatus.jars.find((j: { slug: string }) => j.slug === 'necessidades');
     expect(necessidades.alocado).toBe('2750.00');
     expect(necessidades.status).toBe('ok');
+
+    // 4. Test category mapping & unmapping
+    const catDesp = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/categories',
+        headers: { authorization: `Bearer ${token}` },
+        payload: { name: 'Aluguel', type: 'despesa' },
+      })
+    ).json();
+
+    // Map 2 categories
+    const mapRes1 = await app.inject({
+      method: 'PUT',
+      url: '/api/jars/categories',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planId: jarsStatus.planId,
+        jarId: necessidades.id,
+        categoryIds: [catRec.id, catDesp.id],
+      },
+    });
+    expect(mapRes1.statusCode).toBe(200);
+
+    let mappedCount = await prisma.jarCategory.count({
+      where: { jarId: necessidades.id },
+    });
+    expect(mappedCount).toBe(2);
+
+    // Unmap one category by sending only [catRec.id]
+    const mapRes2 = await app.inject({
+      method: 'PUT',
+      url: '/api/jars/categories',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planId: jarsStatus.planId,
+        jarId: necessidades.id,
+        categoryIds: [catRec.id],
+      },
+    });
+    expect(mapRes2.statusCode).toBe(200);
+
+    mappedCount = await prisma.jarCategory.count({
+      where: { jarId: necessidades.id },
+    });
+    expect(mappedCount).toBe(1);
+
+    // Unmap all by sending empty array []
+    const mapRes3 = await app.inject({
+      method: 'PUT',
+      url: '/api/jars/categories',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planId: jarsStatus.planId,
+        jarId: necessidades.id,
+        categoryIds: [],
+      },
+    });
+    expect(mapRes3.statusCode).toBe(200);
+
+    mappedCount = await prisma.jarCategory.count({
+      where: { jarId: necessidades.id },
+    });
+    expect(mappedCount).toBe(0);
   });
 
   it('creates transfers between accounts and records pró-labore owner withdrawals', async () => {
