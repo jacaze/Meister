@@ -95,9 +95,13 @@ export const ReportsPage: React.FC = () => {
     try {
       const dates = getPeriodDates(selectedPeriod);
 
-      // 1. Fetch dashboard/summary - lê de periodo.totalEntradas e periodo.totalDespesas
+      // 1. Fetch dashboard/summary sincronizado com as datas do período selecionado
       const summaryRes = await api.get('/dashboard', {
-        params: activeEntityId ? { entityId: activeEntityId } : undefined,
+        params: {
+          startDate: dates.startDate,
+          endDate: dates.endDate,
+          ...(activeEntityId ? { entityId: activeEntityId } : {}),
+        },
       });
 
       const dashData = summaryRes.data || {};
@@ -185,17 +189,21 @@ export const ReportsPage: React.FC = () => {
 
       for (const tx of txItems) {
         const amt = parseFloat(tx.amount) || 0;
+        const isProLabore =
+          tx.category?.slug === 'pro-labore' ||
+          Boolean(tx.transferGroupId) ||
+          tx.description?.toLowerCase().includes('pró-labore') ||
+          tx.description?.toLowerCase().includes('retirada');
+
+        if (isProLabore) {
+          ownerWithdrawals += amt;
+          // Pró-labore / retiradas de titular são transferências de lucro e não despesas operacionais da empresa
+          continue;
+        }
+
         totalExpenseSum += amt;
         const catName = tx.category?.name || 'Outras Despesas';
         catTotals[catName] = (catTotals[catName] || 0) + amt;
-
-        if (
-          tx.category?.slug === 'pro-labore' ||
-          tx.description?.toLowerCase().includes('pró-labore') ||
-          tx.description?.toLowerCase().includes('retirada')
-        ) {
-          ownerWithdrawals += amt;
-        }
       }
 
       setProLaboreRetirado(ownerWithdrawals);
