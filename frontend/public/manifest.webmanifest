@@ -4,7 +4,6 @@
   "description": "Gestão financeira, conciliação Open Finance e controle fiscal inteligente para Microempreendedores Individuais.",
   "start_url": "/",
   "display": "standalone",
-  "orientation": "portrait",
   "background_color": "#fffbf2",
   "theme_color": "#fffbf2",
   "lang": "pt-BR",

@@ -28,6 +28,7 @@ export { SignOut } from '@phosphor-icons/react/dist/csr/SignOut';
 export { Storefront } from '@phosphor-icons/react/dist/csr/Storefront';
 export { User } from '@phosphor-icons/react/dist/csr/User';
 export { UserCircle } from '@phosphor-icons/react/dist/csr/UserCircle';
+export { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 export { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
 export { X } from '@phosphor-icons/react/dist/csr/X';
 export { HandWaving } from '@phosphor-icons/react/dist/csr/HandWaving';

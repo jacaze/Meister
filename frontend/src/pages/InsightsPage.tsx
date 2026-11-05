@@ -10,6 +10,7 @@ import {
   BellRinging,
   CheckCircle,
   WarningCircle,
+  Warning,
   Info,
   Eye,
   ThumbsUp,
@@ -365,7 +366,7 @@ export const InsightsPage: React.FC = () => {
                     {/* Header Badge */}
                     <div className="flex items-center justify-between">
                       <span className={`px-2.5 py-1 rounded-xl text-[10px] font-extrabold uppercase border flex items-center gap-1.5 ${badgeBg}`}>
-                        {isAlert ? <WarningCircle size={14} weight="bold" /> : isWarning ? <WarningCircle size={14} weight="bold" /> : <Info size={14} weight="bold" />}
+                        {isAlert ? <WarningCircle size={14} weight="bold" /> : isWarning ? <Warning size={14} weight="bold" /> : <Info size={14} weight="bold" />}
                         {ins.severity}
                       </span>
                       <span className="text-[10px] text-muted font-medium">

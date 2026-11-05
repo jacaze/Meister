@@ -79,6 +79,7 @@ export const ProfilePage: React.FC = () => {
   // Dialogs
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
   const [isUnlinkDialogOpen, setIsUnlinkDialogOpen] = useState(false);
+  const [exportingData, setExportingData] = useState(false);
 
   const fetchTelegramStatus = useCallback(async () => {
     try {
@@ -197,31 +198,24 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
-  const handleExportData = () => {
-    const exportObject = {
-      usuario: {
-        id: user?.id,
-        nome: user?.name,
-        email: user?.email,
-        tipoConta: user?.accountType,
-      },
-      workspace: {
-        id: workspace?.workspace?.id,
-        nome: workspace?.workspace?.name,
-        entidades: workspace?.entities,
-      },
-      exportadoEm: new Date().toISOString(),
-    };
+  const handleExportData = async () => {
+    setExportingData(true);
+    try {
+      const res = await api.get('/me/export');
+      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(res.data, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute('href', dataStr);
+      downloadAnchor.setAttribute('download', `meister-export-lgpd-${new Date().toISOString().slice(0, 10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
 
-    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(exportObject, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute('href', dataStr);
-    downloadAnchor.setAttribute('download', `meister-backup-${new Date().toISOString().slice(0, 10)}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-
-    toast.success('Arquivo de dados exportado com sucesso.');
+      toast.success('Portabilidade de dados (LGPD) concluída com sucesso!');
+    } catch {
+      toast.error('Erro ao exportar dados da conta.');
+    } finally {
+      setExportingData(false);
+    }
   };
 
   return (
@@ -540,10 +534,15 @@ export const ProfilePage: React.FC = () => {
           <button
             type="button"
             onClick={handleExportData}
-            className="min-h-[44px] px-4 py-2 rounded-2xl bg-card border border-ink/10 hover:border-ink/20 text-xs font-bold text-ink flex items-center gap-2 transition shadow-sm"
+            disabled={exportingData}
+            className="min-h-[44px] px-4 py-2 rounded-2xl bg-card border border-ink/10 hover:border-ink/20 text-xs font-bold text-ink flex items-center gap-2 transition shadow-sm disabled:opacity-50"
           >
-            <FileText size={16} weight="bold" />
-            <span>Exportar Dados em JSON</span>
+            {exportingData ? (
+              <CircleNotch size={16} className="animate-spin text-brand" />
+            ) : (
+              <FileText size={16} weight="bold" />
+            )}
+            <span>{exportingData ? 'Exportando Dados...' : 'Exportar Dados em JSON (Portabilidade LGPD)'}</span>
           </button>
         </div>
       </section>

@@ -52,12 +52,15 @@ describe('Financial Education Integration Suite (PostgreSQL 16)', () => {
     expect(listData.progressPercentage).toBe(0);
 
     // Verify quiz questions in list do not leak correct answer or explanation
-    for (const lesson of listData.lessons) {
-      if (lesson.quiz) {
-        for (const q of lesson.quiz) {
-          expect(q).not.toHaveProperty('correct');
-          expect(q).not.toHaveProperty('explanation');
-        }
+    const lessonsWithQuiz = listData.lessons.filter(
+      (l: { quiz?: unknown[] }) => Array.isArray(l.quiz) && l.quiz.length > 0
+    );
+    expect(lessonsWithQuiz.length).toBeGreaterThan(0);
+
+    for (const lesson of lessonsWithQuiz) {
+      for (const q of lesson.quiz) {
+        expect(q).not.toHaveProperty('correct');
+        expect(q).not.toHaveProperty('explanation');
       }
     }
 

@@ -607,7 +607,7 @@ export const FloatingAssistantWidget: React.FC = () => {
 
                 {uploadingReceipt && (
                   <div className="flex items-center gap-2 p-3 max-w-[70%] rounded-2xl bg-card border border-ink/8 text-xs text-muted">
-                    <Scan size={16} className="animate-spin text-brand" />
+                    <Scan size={16} className="animate-pulse text-brand" />
                     <span>Processando visão de comprovante...</span>
                   </div>
                 )}
@@ -616,7 +616,7 @@ export const FloatingAssistantWidget: React.FC = () => {
               </div>
 
               {/* Quick Prompt Suggestions */}
-              <div className="px-3 py-1.5 bg-card border-t border-ink/4 flex items-center gap-1.5 overflow-x-auto scrollbar-none shrink-0">
+              <div className="px-3 py-2 bg-card border-t border-ink/4 flex items-center gap-2 overflow-x-auto scrollbar-none shrink-0">
                 {[
                   'Qual meu saldo?',
                   'Gastei 45 no almoço',
@@ -628,7 +628,7 @@ export const FloatingAssistantWidget: React.FC = () => {
                     key={idx}
                     type="button"
                     onClick={() => handleSendMessage(chip)}
-                    className="text-[10px] whitespace-nowrap px-2.5 py-1 rounded-lg bg-card-2 hover:bg-field border border-ink/5 text-ink-soft hover:text-ink transition"
+                    className="min-h-[44px] text-xs font-semibold whitespace-nowrap px-3.5 py-2 rounded-xl bg-card-2 hover:bg-field border border-ink/8 text-ink-soft hover:text-ink transition flex items-center shrink-0 active:scale-95"
                   >
                     {chip}
                   </button>
