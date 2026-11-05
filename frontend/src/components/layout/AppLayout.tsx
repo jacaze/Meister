@@ -14,7 +14,7 @@ import {
   SignOut,
   Storefront,
   type Icon,
-} from '@phosphor-icons/react';
+} from '../ui/icons.js';
 import { useAuth } from '../../context/AuthContext.js';
 import QuickTransactionModal from '../modals/QuickTransactionModal.js';
 import FloatingAssistantWidget from '../assistant/FloatingAssistantWidget.js';

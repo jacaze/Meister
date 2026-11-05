@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useDragControls, useReducedMotion, type PanInfo } from 'motion/react';
-import { X } from '@phosphor-icons/react';
+import { X } from './icons.js';
 
 interface SheetProps {
   readonly open: boolean;

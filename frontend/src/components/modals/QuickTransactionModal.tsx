@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { Camera, CircleNotch } from '@phosphor-icons/react';
+import { Camera, CircleNotch } from '../ui/icons.js';
 import api from '../../api/client.js';
 import { useAuth } from '../../context/AuthContext.js';
 import Sheet from '../ui/Sheet.js';

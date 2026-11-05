@@ -14,7 +14,7 @@ import {
   Receipt,
   ShieldCheck,
   WarningCircle,
-} from '@phosphor-icons/react';
+} from '../components/ui/icons.js';
 import api from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
 import Mel, { type MelMood } from '../components/brand/Mel.js';

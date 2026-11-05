@@ -1,0 +1,32 @@
+// Ícones Phosphor importados um a um pelo caminho do arquivo.
+// Importar do índice ('@phosphor-icons/react') faz o Vite empacotar a biblioteca inteira (6 MB) no modo dev.
+// Para usar um ícone novo: adicione a linha aqui e importe deste módulo.
+export type { Icon, IconProps } from '@phosphor-icons/react';
+export { ArrowDownRight } from '@phosphor-icons/react/dist/csr/ArrowDownRight';
+export { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
+export { ArrowUpRight } from '@phosphor-icons/react/dist/csr/ArrowUpRight';
+export { Bank } from '@phosphor-icons/react/dist/csr/Bank';
+export { Calculator } from '@phosphor-icons/react/dist/csr/Calculator';
+export { Camera } from '@phosphor-icons/react/dist/csr/Camera';
+export { ChartLineUp } from '@phosphor-icons/react/dist/csr/ChartLineUp';
+export { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
+export { DotsNine } from '@phosphor-icons/react/dist/csr/DotsNine';
+export { Envelope } from '@phosphor-icons/react/dist/csr/Envelope';
+export { Eye } from '@phosphor-icons/react/dist/csr/Eye';
+export { EyeSlash } from '@phosphor-icons/react/dist/csr/EyeSlash';
+export { Gear } from '@phosphor-icons/react/dist/csr/Gear';
+export { GraduationCap } from '@phosphor-icons/react/dist/csr/GraduationCap';
+export { House } from '@phosphor-icons/react/dist/csr/House';
+export { Jar } from '@phosphor-icons/react/dist/csr/Jar';
+export { LockKey } from '@phosphor-icons/react/dist/csr/LockKey';
+export { Paperclip } from '@phosphor-icons/react/dist/csr/Paperclip';
+export { PaperPlaneRight } from '@phosphor-icons/react/dist/csr/PaperPlaneRight';
+export { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+export { Receipt } from '@phosphor-icons/react/dist/csr/Receipt';
+export { ShieldCheck } from '@phosphor-icons/react/dist/csr/ShieldCheck';
+export { SignOut } from '@phosphor-icons/react/dist/csr/SignOut';
+export { Storefront } from '@phosphor-icons/react/dist/csr/Storefront';
+export { User } from '@phosphor-icons/react/dist/csr/User';
+export { UserCircle } from '@phosphor-icons/react/dist/csr/UserCircle';
+export { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
+export { X } from '@phosphor-icons/react/dist/csr/X';

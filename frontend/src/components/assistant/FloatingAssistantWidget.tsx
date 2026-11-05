@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { Gear, Paperclip, PaperPlaneRight, X } from '@phosphor-icons/react';
+import { Gear, Paperclip, PaperPlaneRight, X } from '../ui/icons.js';
 import api from '../../api/client.js';
 import Mel from '../brand/Mel.js';
 import { celebrate, haptic } from '../../lib/celebrate.js';

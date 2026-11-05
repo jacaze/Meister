@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'motion/react';
-import { Envelope, LockKey, Storefront, User, UserCircle, WarningCircle } from '@phosphor-icons/react';
+import { Envelope, LockKey, Storefront, User, UserCircle, WarningCircle } from '../components/ui/icons.js';
 import { useAuth } from '../context/AuthContext.js';
 import Mel, { type MelMood } from '../components/brand/Mel.js';
 import HoneyBackground from '../components/ui/HoneyBackground.js';
