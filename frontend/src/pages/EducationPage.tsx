@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import api from '../api/client.js';
 import Sheet from '../components/ui/Sheet.js';
+import RichText from '../components/ui/RichText.js';
 import Mel from '../components/brand/Mel.js';
 import { celebrate, haptic } from '../lib/celebrate.js';
 import { useToast } from '../components/ui/Toast.js';
@@ -419,9 +420,7 @@ export const EducationPage: React.FC = () => {
                 <span>Fonte: {askResponse.citedLessonTitle}</span>
               </span>
             )}
-            <p className="text-xs sm:text-sm text-ink whitespace-pre-line leading-relaxed">
-              {askResponse.answer}
-            </p>
+            <RichText text={askResponse.answer} compact />
           </div>
         )}
       </div>
@@ -524,9 +523,7 @@ export const EducationPage: React.FC = () => {
               <span>Carregando lição...</span>
             </div>
           ) : (
-            <div className="space-y-4 whitespace-pre-line text-ink">
-              {activeLesson?.content}
-            </div>
+            <RichText text={activeLesson?.content ?? ''} hideFirstH1 />
           )}
         </div>
       </Sheet>
