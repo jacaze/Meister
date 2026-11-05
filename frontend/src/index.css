@@ -30,7 +30,8 @@
 
   /* semânticas */
   --color-success: #15874a;
-  --color-danger: #d23f3f;
+  /* terracota: urgência sem destoar do mel (contraste ≥ 4.8 em branco, creme e fundos /10) */
+  --color-danger: #a8492f;
   --color-info: #2f7fe0;
 
   --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;

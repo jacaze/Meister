@@ -322,13 +322,13 @@ export const JarsPage: React.FC = () => {
 
       {/* Alerta de Despesas Sem Pote */}
       {semPoteAmount > 0 && (
-        <div className="p-4 bg-danger/10 border border-danger/20 rounded-3xl flex items-center justify-between gap-3">
+        <div className="p-4 bg-primary-soft/60 ring-1 ring-primary/40 rounded-3xl flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-danger/20 text-danger flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-2xl bg-primary-soft text-brand ring-1 ring-primary/40 flex items-center justify-center shrink-0">
               <WarningCircle size={22} weight="bold" />
             </div>
             <div>
-              <p className="text-xs font-bold text-danger">
+              <p className="text-sm font-bold text-ink">
                 Despesas sem pote alocado: {formatBRL(semPoteAmount)}
               </p>
               <p className="text-xs text-muted">
@@ -339,7 +339,7 @@ export const JarsPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsMapSheetOpen(true)}
-            className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-danger text-ink font-bold text-xs hover:bg-danger/80 transition shrink-0"
+            className="glass-btn-honey min-h-[44px] px-4 py-1.5 rounded-xl text-on-primary font-bold text-xs transition hover:brightness-105 active:scale-95 shrink-0"
           >
             Mapear Agora
           </button>

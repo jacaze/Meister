@@ -352,7 +352,7 @@ export const InsightsPage: React.FC = () => {
               const isAlert = ins.severity === 'alerta';
               const isWarning = ins.severity === 'atencao';
               const badgeBg = isAlert
-                ? 'bg-danger/15 text-danger border-danger/30'
+                ? 'bg-danger/10 text-danger border-danger/30'
                 : isWarning
                 ? 'bg-primary/15 text-brand border-primary/30'
                 : 'bg-info/15 text-info border-info/30';

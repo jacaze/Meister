@@ -12,7 +12,7 @@ export interface HoneyJarGraphicProps {
 const statusTone = {
   ok: { fill: '#f6b51e', stroke: '#e8d9b0', bg: '#fff8e6' },
   atencao: { fill: '#e0a91b', stroke: '#e8d9b0', bg: '#fff8e6' },
-  estourado: { fill: '#d23f3f', stroke: '#f5c2c2', bg: '#fdf2f2' },
+  estourado: { fill: '#a8492f', stroke: '#ecc9bd', bg: '#fbefe9' },
 } as const;
 
 export const HoneyJarGraphic: React.FC<HoneyJarGraphicProps> = ({

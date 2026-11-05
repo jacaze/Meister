@@ -191,7 +191,7 @@ export const DasPage: React.FC = () => {
         return {
           title: 'Desenquadramento Obrigatório do MEI',
           badgeText: 'Excesso Superior a 20%',
-          badgeClass: 'bg-danger text-ink border-danger font-extrabold',
+          badgeClass: 'bg-danger text-white border-danger font-extrabold',
           barColor: 'bg-danger',
           melMood: 'alert' as const,
           description: 'O faturamento excedeu o teto com tolerância. É necessário migrar para Microempresa (ME) retroativamente.',
@@ -545,7 +545,7 @@ export const DasPage: React.FC = () => {
                         onClick={() => setPayingDas(item)}
                         className={`w-full min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm ${
                           isAtrasado
-                            ? 'bg-danger text-ink hover:bg-danger/90'
+                            ? 'bg-danger text-white hover:brightness-110'
                             : 'bg-primary text-on-primary hover:bg-primary-deep'
                         }`}
                       >
