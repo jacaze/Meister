@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Sheet from '../ui/Sheet.js';
 import Mel from '../brand/Mel.js';
-import { CircleNotch, Check, CalendarBlank } from '../ui/icons.js';
+import { CircleNotch, Check } from '../ui/icons.js';
 import api from '../../api/client.js';
 import { useToast } from '../ui/Toast.js';
 import { formatBRL, parseBRL } from '../../lib/money.js';

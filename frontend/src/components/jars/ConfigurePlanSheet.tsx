@@ -39,7 +39,6 @@ export const ConfigurePlanSheet: React.FC<ConfigurePlanSheetProps> = ({
   entityId,
   entityKind = 'pj',
   templates,
-  currentPlanName,
   currentTemplateSlug,
   currentBaseMode,
   onSaved,
@@ -68,8 +67,6 @@ export const ConfigurePlanSheet: React.FC<ConfigurePlanSheetProps> = ({
       }
     }
   }, [open, currentTemplateSlug, currentBaseMode, entityKind]);
-
-  const activeTemplate = templates.find((t) => t.slug === selectedTemplate);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

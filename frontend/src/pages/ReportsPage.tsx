@@ -12,7 +12,6 @@ import {
   TrendDown,
   Coins,
   Receipt,
-  CalendarBlank,
   ArrowsClockwise,
   CheckCircle,
   Tag,
@@ -62,7 +61,7 @@ function getPeriodDates(period: PeriodFilter): { startDate: string; endDate: str
 }
 
 export const ReportsPage: React.FC = () => {
-  const { workspace, activeEntityId, user } = useAuth();
+  const { workspace, activeEntityId } = useAuth();
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
