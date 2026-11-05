@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PluggyConnect } from 'react-pluggy-connect';
 import api from '../../api/client.js';
+import Portal from '../ui/Portal.js';
 
 interface PluggyConnectFallbackModalProps {
   isOpen: boolean;
@@ -39,8 +40,9 @@ export const PluggyConnectFallbackModal: React.FC<PluggyConnectFallbackModalProp
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-xl rounded-3xl bg-card border border-ink/10 p-6 shadow-2xl space-y-5">
+    <Portal>
+    <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center md:p-4 bg-ink/40 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="relative w-full max-w-xl max-h-[92dvh] overflow-y-auto overscroll-contain rounded-t-[28px] md:rounded-3xl bg-card border border-ink/10 p-5 md:p-6 pb-[max(20px,env(safe-area-inset-bottom))] shadow-2xl space-y-5">
         <div className="flex items-center justify-between border-b border-ink/5 pb-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center text-brand">
@@ -139,6 +141,7 @@ export const PluggyConnectFallbackModal: React.FC<PluggyConnectFallbackModalProp
         )}
       </div>
     </div>
+    </Portal>
   );
 };
 
