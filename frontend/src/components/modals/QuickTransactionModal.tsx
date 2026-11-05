@@ -4,6 +4,7 @@ import { Camera, CircleNotch, WarningCircle, TrendDown, TrendUp, ArrowsSplit, Ca
 import api from '../../api/client.js';
 import { useAuth } from '../../context/AuthContext.js';
 import Sheet from '../ui/Sheet.js';
+import CheckRow from '../ui/CheckRow.js';
 import Mel from '../brand/Mel.js';
 import { celebrate, haptic } from '../../lib/celebrate.js';
 
@@ -468,17 +469,12 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
 
           {/* Via Personal Account Checkbox (MEI Reality) */}
           {selectedEntity?.kind === 'pj' && (
-            <label className="flex items-center gap-3 p-3 bg-canvas rounded-2xl border border-ink/5 cursor-pointer hover:border-primary/40 transition">
-              <input
-                type="checkbox"
-                checked={viaPersonalAccount}
-                onChange={(e) => setViaPersonalAccount(e.target.checked)}
-                className="w-4 h-4 rounded text-brand focus:ring-0 bg-field border-ink/10"
-              />
-              <span className="text-xs text-ink-soft">
-                Pago/recebido através da conta bancária física (PF)?
-              </span>
-            </label>
+            <CheckRow
+              checked={viaPersonalAccount}
+              onChange={setViaPersonalAccount}
+              label="Passou pela conta pessoal (PF)"
+              hint="Marque se foi pago ou recebido na sua conta de pessoa física"
+            />
           )}
 
         </form>
