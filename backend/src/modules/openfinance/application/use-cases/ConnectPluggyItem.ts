@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import prisma from '../../../../config/prisma.js';
 import { assertCanWrite, type WorkspaceScope } from '../../../../shared/index.js';
 import type { BankingAggregator } from '../ports/BankingAggregator.js';
@@ -178,7 +179,7 @@ export async function connectPluggyItem(
           occurredOn: occurredDate,
           description: tx.description,
           suggestedCategoryId: suggestedCatId,
-          raw: tx as any,
+          raw: tx as unknown as Prisma.InputJsonValue,
           status: 'nova',
         },
       });

@@ -32,6 +32,7 @@ jobs:
       NODE_ENV: test
       DATABASE_URL: postgresql://meister:meister_ci_password@localhost:5432/meister_test?schema=public
       DIRECT_URL: postgresql://meister:meister_ci_password@localhost:5432/meister_test?schema=public
+      SHADOW_DATABASE_URL: postgresql://meister:meister_ci_password@localhost:5432/meister_shadow?schema=public
       JWT_SECRET: ci_test_only_secret_key_with_at_least_32_characters_long
       INTERNAL_TICK_SECRET: ci_test_only_internal_tick_secret_32_chars
 
@@ -55,7 +56,8 @@ jobs:
         run: |
           npx prisma generate
           npx prisma migrate deploy
-          npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url "$DATABASE_URL" --exit-code
+          PGPASSWORD=meister_ci_password psql -h localhost -U meister -d meister_test -c "CREATE DATABASE meister_shadow;" || true
+          npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url "$SHADOW_DATABASE_URL" --exit-code
 
       - name: Typecheck
         working-directory: backend

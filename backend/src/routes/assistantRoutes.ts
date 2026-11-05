@@ -37,14 +37,9 @@ export async function assistantRoutes(fastify: FastifyInstance) {
   fastify.get('/assistant/config', async (_request, reply) => {
     const rawKey = process.env.GEMINI_API_KEY;
     const hasApiKey = Boolean(rawKey && rawKey.trim().length > 0);
-    const maskedKey =
-      hasApiKey && rawKey!.length > 8
-        ? `${rawKey!.slice(0, 6)}...${rawKey!.slice(-4)}`
-        : null;
 
     return reply.status(200).send({
       hasApiKey,
-      maskedKey,
       model: process.env.LLM_MODEL || 'gemini-3.5-flash',
     });
   });

@@ -14,7 +14,6 @@ export const PluggyConfigModal: React.FC<PluggyConfigModalProps> = ({
   const [fetching, setFetching] = useState(false);
   const [configStatus, setConfigStatus] = useState<{
     hasCredentials: boolean;
-    clientIdMasked: string | null;
   } | null>(null);
 
   const fetchCurrentConfig = useCallback(async () => {
@@ -73,7 +72,7 @@ export const PluggyConfigModal: React.FC<PluggyConfigModalProps> = ({
               </span>
             </div>
             <p className="text-xs text-[#d0c5af]">
-              As credenciais estão configuradas centralmente no ambiente de deploy da plataforma ({configStatus.clientIdMasked}).
+              As credenciais estão configuradas centralmente no ambiente de deploy da plataforma.
             </p>
           </div>
         ) : (

@@ -241,7 +241,7 @@ OFXHEADER:100
     });
     expect(listRes1.statusCode).toBe(200);
     const conns1 = listRes1.json().connections;
-    const foundConn1 = conns1.find((c: any) => c.id === connection.id);
+    const foundConn1 = conns1.find((c: { id: string }) => c.id === connection.id);
     expect(foundConn1).toBeDefined();
     expect(foundConn1.institution).toBe('Nubank (Pluggy)');
     expect(foundConn1.accounts).toHaveLength(1);
@@ -255,7 +255,7 @@ OFXHEADER:100
     });
     expect(listRes2.statusCode).toBe(200);
     const conns2 = listRes2.json().connections;
-    expect(conns2.find((c: any) => c.id === connection.id)).toBeUndefined();
+    expect(conns2.find((c: { id: string }) => c.id === connection.id)).toBeUndefined();
 
     // 6. User 2 trying to delete User 1's connection fails with 404
     const maliciousDeleteRes = await app.inject({

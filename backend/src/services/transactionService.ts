@@ -167,21 +167,21 @@ export async function create(
     throw new NotFoundError('Entidade não encontrada no workspace');
   }
 
-  const sourceRef =
+  let sourceRef =
     typeof input.sourceRef === 'string' && input.sourceRef.trim()
       ? input.sourceRef.trim()
       : null;
 
   if (sourceRef) {
     const lowerRef = sourceRef.toLowerCase();
-    if (
-      lowerRef.startsWith('pluggy:') ||
-      lowerRef.startsWith('ofx:') ||
-      lowerRef.startsWith('mei:')
-    ) {
+    const reservedPrefixes = ['pluggy:', 'ofx:', 'csv:', 'proposal:', 'tg:', 'mei:'];
+    if (reservedPrefixes.some((p) => lowerRef.startsWith(p))) {
       throw new ValidationError(
-        'Namespace de sourceRef reservado para integrações do sistema (pluggy, ofx, mei).'
+        'Namespace de sourceRef reservado para fluxos internos do sistema.'
       );
+    }
+    if (!lowerRef.startsWith('nfe:') && !lowerRef.startsWith('manual:')) {
+      sourceRef = `manual:${sourceRef}`;
     }
   }
 
@@ -324,7 +324,7 @@ export async function list(
     prisma.transaction.count({ where }),
     prisma.transaction.findMany({
       where,
-      select: { type: true, amount: true },
+      select: { type: true, amount: true, transferGroupId: true },
     }),
   ]);
 
@@ -332,6 +332,9 @@ export async function list(
   let totalDespesasMoney = Money.zero();
 
   for (const row of summaryRows) {
+    if (row.transferGroupId) {
+      continue;
+    }
     const raw =
       typeof row.amount === 'object' && 'toFixed' in row.amount
         ? row.amount.toFixed(2)
@@ -413,9 +416,13 @@ export async function update(
   }
 
   if (transaction.transferGroupId) {
-    if (input.amount !== undefined || input.type !== undefined) {
+    if (
+      input.amount !== undefined ||
+      input.type !== undefined ||
+      input.transactionDate !== undefined
+    ) {
       throw new ValidationError(
-        'Não é permitido alterar o valor ou tipo de uma perna de transferência diretamente. Use a rota de transferências.'
+        'Não é permitido alterar valor, tipo ou data de uma perna de transferência diretamente. Use a rota de transferências.'
       );
     }
   }

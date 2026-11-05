@@ -26,7 +26,6 @@ interface ChatMessage {
 
 interface AssistantConfig {
   hasApiKey: boolean;
-  maskedKey: string | null;
   model: string;
 }
 
@@ -35,7 +34,6 @@ export const FloatingAssistantWidget: React.FC = () => {
   const [showConfig, setShowConfig] = useState(false);
   const [config, setConfig] = useState<AssistantConfig>({
     hasApiKey: false,
-    maskedKey: null,
     model: 'gemini-3.5-flash',
   });
 
@@ -385,12 +383,6 @@ export const FloatingAssistantWidget: React.FC = () => {
                     {config.hasApiKey ? 'Conectado e Ativo' : 'Não configurado (modo local)'}
                   </span>
                 </div>
-                {config.maskedKey && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#99907b]">Chave ativa:</span>
-                    <span className="font-mono text-white text-[11px]">{config.maskedKey}</span>
-                  </div>
-                )}
                 <div className="flex items-center justify-between">
                   <span className="text-[#99907b]">Modelo:</span>
                   <span className="font-mono text-white text-[11px]">{config.model}</span>

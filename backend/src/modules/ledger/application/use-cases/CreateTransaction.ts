@@ -158,8 +158,9 @@ export async function createTransaction(
   const txDateDb = new Date(`${localDate.toIsoDate()}T00:00:00.000Z`);
 
   let created;
+  let isRestorationWinner = false;
   if (existingDeletedId) {
-    created = await prisma.$transaction(async (tx) => {
+    const restoreResult = await prisma.$transaction(async (tx) => {
       const claimed = await tx.transaction.updateMany({
         where: { id: existingDeletedId, deletedAt: { not: null } },
         data: { deletedAt: null },
@@ -172,10 +173,11 @@ export async function createTransaction(
 
       if (claimed.count === 0) {
         // Outra requisição simultânea já restaurou este lançamento: devolve o estado atual
-        return tx.transaction.findUniqueOrThrow({
+        const existingTx = await tx.transaction.findUniqueOrThrow({
           where: { id: existingDeletedId },
           include: includeConfig,
         });
+        return { tx: existingTx, won: false };
       }
 
       // Sempre limpa splits antigos para evitar corrupção de dados ao restaurar
@@ -183,7 +185,7 @@ export async function createTransaction(
         where: { transactionId: existingDeletedId },
       });
 
-      return tx.transaction.update({
+      const updated = await tx.transaction.update({
         where: { id: existingDeletedId },
         data: {
           entityId,
@@ -223,7 +225,12 @@ export async function createTransaction(
         },
         include: includeConfig,
       });
+
+      return { tx: updated, won: true };
     });
+
+    created = restoreResult.tx;
+    isRestorationWinner = restoreResult.won;
   } else {
     try {
       created = await prisma.transaction.create({
@@ -293,19 +300,21 @@ export async function createTransaction(
     }
   }
 
-  defaultEventBus.publish({
-    name: 'transaction.created',
-    occurredAt: new Date(),
-    payload: {
-      workspaceId: scope.workspaceId,
-      entityId,
-      transactionId: created.id,
-      type: created.type,
-      amount: amountMoney.toDecimalString(),
-      occurredOn: localDate.toIsoDate(),
-      status: created.status,
-    },
-  });
+  if (!existingDeletedId || isRestorationWinner) {
+    defaultEventBus.publish({
+      name: 'transaction.created',
+      occurredAt: new Date(),
+      payload: {
+        workspaceId: scope.workspaceId,
+        entityId,
+        transactionId: created.id,
+        type: created.type,
+        amount: amountMoney.toDecimalString(),
+        occurredOn: localDate.toIsoDate(),
+        status: created.status,
+      },
+    });
+  }
 
   return created;
 }

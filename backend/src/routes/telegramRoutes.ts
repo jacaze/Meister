@@ -8,7 +8,7 @@ import {
   TelegramApiChannel,
   type TelegramUpdate,
 } from '../modules/telegram/public.js';
-import { UnauthorizedError } from '../shared/index.js';
+import { UnauthorizedError, constantTimeEquals } from '../shared/index.js';
 
 export async function telegramRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', authMiddleware);
@@ -49,7 +49,7 @@ export async function telegramWebhookRoute(fastify: FastifyInstance) {
     }
 
     const headerSecret = request.headers['x-telegram-bot-api-secret-token'];
-    if (headerSecret !== secret) {
+    if (typeof headerSecret !== 'string' || !constantTimeEquals(headerSecret, secret)) {
       throw new UnauthorizedError('INVALID_WEBHOOK_SECRET', 'Secret token inválido.');
     }
 

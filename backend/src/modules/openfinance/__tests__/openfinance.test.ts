@@ -99,7 +99,6 @@ Data;Descrição;Valor
 
       const readConfig = getPluggyConfig();
       expect(readConfig.hasCredentials).toBe(true);
-      expect(readConfig.clientIdMasked).toBe('clie...5678');
 
       const fakeAggregator = {
         validateCredentials: async () => ({ valid: true }),
@@ -139,15 +138,15 @@ Data;Descrição;Valor
     const originalFetch = globalThis.fetch;
     const fetchCalls: Array<{ url: string; headers?: Record<string, string> }> = [];
 
-    globalThis.fetch = (async (url: any, init: any) => {
-      fetchCalls.push({ url: String(url), headers: init?.headers });
+    globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      fetchCalls.push({ url: String(url), headers: init?.headers as Record<string, string> | undefined });
 
       if (String(url).endsWith('/auth')) {
         return {
           ok: true,
           status: 200,
           json: async () => ({ apiKey: 'mock-api-key' }),
-        } as any;
+        } as unknown as Response;
       }
 
       if (String(url).includes('/v2/transactions')) {
@@ -168,7 +167,7 @@ Data;Descrição;Valor
               ],
               next: '?after=cursor-xyz',
             }),
-          } as any;
+          } as unknown as Response;
         }
 
         // Page 2 returns second transaction and next: null
@@ -187,11 +186,11 @@ Data;Descrição;Valor
             ],
             next: null,
           }),
-        } as any;
+        } as unknown as Response;
       }
 
-      return { ok: false, status: 404, statusText: 'Not Found' } as any;
-    }) as any;
+      return { ok: false, status: 404, statusText: 'Not Found' } as unknown as Response;
+    }) as unknown as typeof fetch;
 
     try {
       const txs = await client.fetchTransactions('acc-1', {
