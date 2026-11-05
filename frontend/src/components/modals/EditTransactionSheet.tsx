@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Sheet from '../ui/Sheet.js';
-import { CircleNotch, TrendUp, TrendDown } from '../ui/icons.js';
+import { CircleNotch, TrendUp, TrendDown, ArrowsLeftRight } from '../ui/icons.js';
 import api from '../../api/client.js';
 import { useToast } from '../ui/Toast.js';
 import { parseBRL } from '../../lib/money.js';
@@ -22,6 +22,7 @@ export interface TransactionForEdit {
   readonly paymentMethod?: string | null;
   readonly transactionDate: string;
   readonly viaPersonalAccount?: boolean;
+  readonly transferGroupId?: string | null;
 }
 
 interface EditTransactionSheetProps {
@@ -40,6 +41,7 @@ export const EditTransactionSheet: React.FC<EditTransactionSheetProps> = ({
   onSaved,
 }) => {
   const toast = useToast();
+  const isTransfer = Boolean(transaction?.transferGroupId);
   const [type, setType] = useState<'receita' | 'despesa'>('despesa');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
@@ -70,12 +72,6 @@ export const EditTransactionSheet: React.FC<EditTransactionSheetProps> = ({
     if (!transaction) return;
     setError(null);
 
-    const numAmount = parseBRL(amount);
-    if (numAmount <= 0) {
-      setError('Informe um valor válido e positivo.');
-      return;
-    }
-
     if (!description.trim()) {
       setError('Informe a descrição do lançamento.');
       return;
@@ -86,22 +82,40 @@ export const EditTransactionSheet: React.FC<EditTransactionSheetProps> = ({
       return;
     }
 
-    if (!transactionDate) {
-      setError('Informe a data do lançamento.');
-      return;
+    let numAmount = 0;
+    if (!isTransfer) {
+      numAmount = parseBRL(amount);
+      if (numAmount <= 0) {
+        setError('Informe um valor válido e positivo.');
+        return;
+      }
+
+      if (!transactionDate) {
+        setError('Informe a data do lançamento.');
+        return;
+      }
     }
 
     setLoading(true);
     try {
-      await api.put(`/transactions/${transaction.id}`, {
-        description: description.trim(),
-        amount: numAmount.toFixed(2),
-        type,
-        categoryId,
-        paymentMethod,
-        transactionDate,
-        viaPersonalAccount,
-      });
+      const payload = isTransfer
+        ? {
+            description: description.trim(),
+            categoryId,
+            paymentMethod,
+            viaPersonalAccount,
+          }
+        : {
+            description: description.trim(),
+            amount: numAmount.toFixed(2),
+            type,
+            categoryId,
+            paymentMethod,
+            transactionDate,
+            viaPersonalAccount,
+          };
+
+      await api.put(`/transactions/${transaction.id}`, payload);
 
       haptic([12, 40, 12]);
       celebrate('small');
@@ -157,15 +171,27 @@ export const EditTransactionSheet: React.FC<EditTransactionSheetProps> = ({
           </div>
         )}
 
+        {isTransfer && (
+          <div className="p-3.5 bg-info/10 border border-info/20 rounded-2xl flex items-start gap-2.5 text-xs text-ink-soft">
+            <ArrowsLeftRight size={18} className="text-info shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold text-ink block mb-0.5">Transferência entre contas / Pró-labore</span>
+              Valor, tipo e data são vinculados às duas pernas da movimentação e gerenciados pela rota de transferências. Você pode editar a descrição, categoria e forma de pagamento.
+            </div>
+          </div>
+        )}
+
         {/* Tipo: Receita / Despesa */}
         <div>
           <label className="block text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5">
-            Tipo de Lançamento
+            Tipo de Lançamento {isTransfer && '(Bloqueado por ser transferência)'}
           </label>
           <div className="grid grid-cols-2 gap-2 p-1 bg-field rounded-2xl">
             <button
               type="button"
+              disabled={isTransfer}
               onClick={() => {
+                if (isTransfer) return;
                 setType('receita');
                 const firstCat = categories.find((c) => c.type === 'receita');
                 if (firstCat) setCategoryId(firstCat.id);
@@ -174,14 +200,16 @@ export const EditTransactionSheet: React.FC<EditTransactionSheetProps> = ({
                 type === 'receita'
                   ? 'bg-card text-success shadow-sm border border-success/20'
                   : 'text-muted hover:text-ink'
-              }`}
+              } ${isTransfer ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
               <TrendUp size={18} weight="bold" />
               Receita
             </button>
             <button
               type="button"
+              disabled={isTransfer}
               onClick={() => {
+                if (isTransfer) return;
                 setType('despesa');
                 const firstCat = categories.find((c) => c.type === 'despesa');
                 if (firstCat) setCategoryId(firstCat.id);
@@ -190,7 +218,7 @@ export const EditTransactionSheet: React.FC<EditTransactionSheetProps> = ({
                 type === 'despesa'
                   ? 'bg-card text-danger shadow-sm border border-danger/20'
                   : 'text-muted hover:text-ink'
-              }`}
+              } ${isTransfer ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
               <TrendDown size={18} weight="bold" />
               Despesa
@@ -208,9 +236,14 @@ export const EditTransactionSheet: React.FC<EditTransactionSheetProps> = ({
               type="text"
               inputMode="decimal"
               value={amount}
+              disabled={isTransfer}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="0,00"
-              className="w-full min-h-[44px] px-3.5 py-2.5 bg-canvas border border-ink/8 rounded-2xl text-base font-extrabold tabular text-ink focus:outline-none focus:border-primary transition"
+              className={`w-full min-h-[44px] px-3.5 py-2.5 border rounded-2xl text-base font-extrabold tabular text-ink focus:outline-none transition ${
+                isTransfer
+                  ? 'bg-field/70 border-ink/5 cursor-not-allowed text-muted'
+                  : 'bg-canvas border-ink/8 focus:border-primary'
+              }`}
             />
           </div>
           <div className="sm:col-span-2">
@@ -274,8 +307,13 @@ export const EditTransactionSheet: React.FC<EditTransactionSheetProps> = ({
           <input
             type="date"
             value={transactionDate}
+            disabled={isTransfer}
             onChange={(e) => setTransactionDate(e.target.value)}
-            className="w-full min-h-[44px] px-3.5 py-2.5 bg-canvas border border-ink/8 rounded-2xl text-sm text-ink focus:outline-none focus:border-primary transition"
+            className={`w-full min-h-[44px] px-3.5 py-2.5 border rounded-2xl text-sm text-ink focus:outline-none transition ${
+              isTransfer
+                ? 'bg-field/70 border-ink/5 cursor-not-allowed text-muted'
+                : 'bg-canvas border-ink/8 focus:border-primary'
+            }`}
           />
         </div>
 

@@ -44,6 +44,7 @@ export { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 export { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 export { Info } from '@phosphor-icons/react/dist/csr/Info';
 export { ArrowsClockwise } from '@phosphor-icons/react/dist/csr/ArrowsClockwise';
+export { ArrowsLeftRight } from '@phosphor-icons/react/dist/csr/ArrowsLeftRight';
 export { CalendarBlank } from '@phosphor-icons/react/dist/csr/CalendarBlank';
 export { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 export { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
