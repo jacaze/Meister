@@ -1,6 +1,22 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import api from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
+import { useToast } from '../components/ui/Toast.js';
+import {
+  Lightbulb,
+  ArrowsClockwise,
+  Question,
+  Robot,
+  BellRinging,
+  CheckCircle,
+  WarningCircle,
+  Info,
+  Eye,
+  ThumbsUp,
+  ThumbsDown,
+  X,
+  ChartLineUp,
+} from '../components/ui/icons.js';
 
 interface Metric {
   key: string;
@@ -46,6 +62,7 @@ interface AskResult {
 
 export const InsightsPage: React.FC = () => {
   const { activeEntityId } = useAuth();
+  const toast = useToast();
   const [insights, setInsights] = useState<Insight[]>([]);
   const [digest, setDigest] = useState<MonthlyDigest | null>(null);
   const [loading, setLoading] = useState(true);
@@ -129,7 +146,7 @@ export const InsightsPage: React.FC = () => {
   const handleFeedback = async (id: string, value: 'util' | 'inutil') => {
     try {
       await api.post(`/insights/${id}/feedback`, { value });
-      alert(value === 'util' ? 'Obrigado pelo feedback!' : 'Feedback registrado. Vamos calibrar as próximas análises.');
+      toast.info(value === 'util' ? 'Obrigado pelo feedback!' : 'Feedback registrado. Vamos calibrar as próximas análises.');
     } catch (err) {
       console.error('Erro ao enviar feedback:', err);
     }
@@ -158,7 +175,7 @@ export const InsightsPage: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-ink flex items-center gap-3">
-            <span className="material-symbols-outlined text-brand text-3xl">lightbulb</span>
+            <Lightbulb size={28} className="text-brand" weight="duotone" />
             Insights & Dicas Financeiras
           </h1>
           <p className="text-sm text-muted mt-1">
@@ -171,9 +188,7 @@ export const InsightsPage: React.FC = () => {
           disabled={running}
           className="px-4 py-2.5 rounded-2xl bg-ink/4 hover:bg-ink/8 border border-ink/8 text-xs font-bold text-ink flex items-center justify-center gap-2 transition disabled:opacity-50"
         >
-          <span className={`material-symbols-outlined text-sm ${running ? 'animate-spin' : ''}`}>
-            sync
-          </span>
+          <ArrowsClockwise size={16} className={running ? 'animate-spin' : ''} weight="bold" />
           {running ? 'Analisando histórico...' : 'Atualizar Análises'}
         </button>
       </div>
@@ -227,7 +242,7 @@ export const InsightsPage: React.FC = () => {
       {/* "Pergunte às suas finanças" Section */}
       <div className="p-6 rounded-3xl bg-card border border-ink/8 space-y-4">
         <div className="flex items-center gap-2.5">
-          <span className="material-symbols-outlined text-brand">help</span>
+          <Question size={20} className="text-brand" weight="duotone" />
           <h3 className="text-base font-bold text-ink">Pergunte às suas finanças</h3>
         </div>
 
@@ -278,7 +293,7 @@ export const InsightsPage: React.FC = () => {
         {askResult && (
           <div className="p-4 rounded-2xl bg-canvas border border-primary/30 text-sm text-ink mt-4 space-y-2 animate-in fade-in duration-200">
             <div className="flex items-center gap-2 text-brand text-xs font-bold">
-              <span className="material-symbols-outlined text-sm">smart_toy</span>
+              <Robot size={16} className="text-brand" weight="duotone" />
               Resposta do Assistente MEIster
               {askResult.periodLabel && (
                 <span className="text-[10px] text-muted bg-ink/4 px-2 py-0.5 rounded">
@@ -296,7 +311,7 @@ export const InsightsPage: React.FC = () => {
         {/* Severity Filters */}
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold text-ink flex items-center gap-2">
-            <span className="material-symbols-outlined text-brand">notifications_active</span>
+            <BellRinging size={20} className="text-brand" weight="duotone" />
             Observações Detectadas ({filteredInsights.length})
           </h3>
 
@@ -319,12 +334,12 @@ export const InsightsPage: React.FC = () => {
 
         {loading ? (
           <div className="p-12 text-center text-muted">
-            <span className="material-symbols-outlined text-4xl animate-spin text-brand mb-2">sync</span>
+            <ArrowsClockwise size={36} className="animate-spin text-brand mb-2 mx-auto" weight="bold" />
             <p className="text-sm font-medium">Buscando observações financeiras...</p>
           </div>
         ) : filteredInsights.length === 0 ? (
           <div className="p-12 rounded-3xl bg-card border border-ink/5 text-center space-y-2">
-            <span className="material-symbols-outlined text-4xl text-success">check_circle</span>
+            <CheckCircle size={36} className="text-success mx-auto" weight="duotone" />
             <h4 className="text-base font-bold text-ink">Tudo sob controle!</h4>
             <p className="text-xs text-muted max-w-md mx-auto">
               Nenhuma anomalia, gasto incomum ou estouro de pote foi detectado para os filtros selecionados.
@@ -341,8 +356,6 @@ export const InsightsPage: React.FC = () => {
                 ? 'bg-primary/15 text-brand border-primary/30'
                 : 'bg-info/15 text-info border-info/30';
 
-              const icon = isAlert ? 'error' : isWarning ? 'warning' : 'info';
-
               return (
                 <div
                   key={ins.id}
@@ -352,7 +365,7 @@ export const InsightsPage: React.FC = () => {
                     {/* Header Badge */}
                     <div className="flex items-center justify-between">
                       <span className={`px-2.5 py-1 rounded-xl text-[10px] font-extrabold uppercase border flex items-center gap-1.5 ${badgeBg}`}>
-                        <span className="material-symbols-outlined text-xs">{icon}</span>
+                        {isAlert ? <WarningCircle size={14} weight="bold" /> : isWarning ? <WarningCircle size={14} weight="bold" /> : <Info size={14} weight="bold" />}
                         {ins.severity}
                       </span>
                       <span className="text-[10px] text-muted font-medium">
@@ -387,7 +400,7 @@ export const InsightsPage: React.FC = () => {
                       onClick={() => handleExplain(ins.id)}
                       className="text-xs font-bold text-brand hover:underline flex items-center gap-1"
                     >
-                      <span className="material-symbols-outlined text-sm">visibility</span>
+                      <Eye size={16} weight="bold" />
                       Por que estou vendo isso?
                     </button>
 
@@ -397,21 +410,21 @@ export const InsightsPage: React.FC = () => {
                         onClick={() => handleFeedback(ins.id, 'util')}
                         className="p-1.5 rounded-lg text-muted hover:text-success hover:bg-ink/4 transition"
                       >
-                        <span className="material-symbols-outlined text-sm">thumb_up</span>
+                        <ThumbsUp size={16} weight="bold" />
                       </button>
                       <button
                         title="Não é útil"
                         onClick={() => handleFeedback(ins.id, 'inutil')}
                         className="p-1.5 rounded-lg text-muted hover:text-danger hover:bg-ink/4 transition"
                       >
-                        <span className="material-symbols-outlined text-sm">thumb_down</span>
+                        <ThumbsDown size={16} weight="bold" />
                       </button>
                       <button
                         title="Dispensar"
                         onClick={() => handleDismiss(ins.id)}
                         className="p-1.5 rounded-lg text-muted hover:text-ink hover:bg-ink/4 transition"
                       >
-                        <span className="material-symbols-outlined text-sm">close</span>
+                        <X size={16} weight="bold" />
                       </button>
                     </div>
                   </div>
@@ -430,11 +443,11 @@ export const InsightsPage: React.FC = () => {
               onClick={() => setSelectedExplain(null)}
               className="absolute top-6 right-6 text-muted hover:text-ink p-1 rounded-full hover:bg-field transition"
             >
-              <span className="material-symbols-outlined text-xl">close</span>
+              <X size={20} weight="bold" />
             </button>
 
             <h3 className="text-lg font-bold text-ink flex items-center gap-2">
-              <span className="material-symbols-outlined text-brand">analytics</span>
+              <ChartLineUp size={20} className="text-brand" weight="duotone" />
               Por que você está vendo esta observação?
             </h3>
 

@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
 import { useToast } from '../components/ui/Toast.js';
-import Mel from '../components/brand/Mel.js';
 import ConfirmDialog from '../components/ui/ConfirmDialog.js';
 import {
   UserCircle,

@@ -173,7 +173,7 @@ export const DashboardPage: React.FC = () => {
 
       {/* Cartão de saldo (mel) */}
       <motion.div variants={rise}>
-        <TiltCard className="overflow-hidden rounded-[28px] bg-gradient-to-br from-[#ffe27a] via-primary to-[#f0a81a] p-6 text-on-primary shadow-[var(--shadow-honey)] md:p-8">
+        <TiltCard className="overflow-hidden rounded-[28px] bg-gradient-to-br from-primary-soft via-primary to-primary-deep p-6 text-on-primary shadow-[var(--shadow-honey)] md:p-8">
           <HoneycombDecoration />
           <div className="relative flex items-start justify-between gap-4">
             <div>
