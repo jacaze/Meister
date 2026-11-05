@@ -105,11 +105,28 @@ describe('Assistant & Telegram Integration Suite (PostgreSQL 16)', () => {
     });
     expect(statusBefore.json().linked).toBe(false);
 
-    // 3. Send /start <token> update via webhook
+    // 2b. Zero Trust: reject webhook without secret header or with wrong secret
+    const webhookNoSecret = await app.inject({
+      method: 'POST',
+      url: '/telegram/webhook',
+      payload: { update_id: 1, message: { text: 'oi' } },
+    });
+    expect(webhookNoSecret.statusCode).toBe(401);
+
+    const webhookWrongSecret = await app.inject({
+      method: 'POST',
+      url: '/telegram/webhook',
+      headers: { 'x-telegram-bot-api-secret-token': 'wrong-secret' },
+      payload: { update_id: 1, message: { text: 'oi' } },
+    });
+    expect(webhookWrongSecret.statusCode).toBe(401);
+
+    // 3. Send /start <token> update via webhook with valid secret
     const fakeChatId = `chat_${Date.now()}`;
     const webhookRes = await app.inject({
       method: 'POST',
       url: '/telegram/webhook',
+      headers: { 'x-telegram-bot-api-secret-token': 'test_webhook_secret_telegram_32_chars_long' },
       payload: {
         update_id: Math.floor(Math.random() * 1000000),
         message: {
@@ -131,10 +148,11 @@ describe('Assistant & Telegram Integration Suite (PostgreSQL 16)', () => {
     expect(statusAfter.json().linked).toBe(true);
     expect(statusAfter.json().chatId).toBe(fakeChatId);
 
-    // 5. Send command /saldo via webhook
+    // 5. Send command /saldo via webhook with valid secret
     const saldoRes = await app.inject({
       method: 'POST',
       url: '/telegram/webhook',
+      headers: { 'x-telegram-bot-api-secret-token': 'test_webhook_secret_telegram_32_chars_long' },
       payload: {
         update_id: Math.floor(Math.random() * 1000000),
         message: {

@@ -250,6 +250,43 @@ describe('Shared Kernel — Ids, Env, Scope, Events, Pagination & Errors', () =>
     });
     expect(valid.LOCK_TIME_MINUTES).toBe(15);
     expect(valid.MEI_ANNUAL_LIMIT).toBe(81000);
+
+    // Rejeita segredos com prefixo dev_only / changeme em produção
+    expect(() =>
+      parseEnv({
+        NODE_ENV: 'production',
+        DATABASE_URL: 'postgresql://user:real_strong_pwd@localhost:5432/db',
+        JWT_SECRET: 'dev_only_secret_key_with_at_least_32_characters_long',
+      })
+    ).toThrow(/JWT_SECRET.*produção/);
+
+    expect(() =>
+      parseEnv({
+        NODE_ENV: 'production',
+        DATABASE_URL: 'postgresql://meister:meister_dev_password_change_me@localhost:5432/db',
+        JWT_SECRET: 'a_very_strong_random_secret_with_more_than_32_chars',
+      })
+    ).toThrow(/DATABASE_URL.*change_me/);
+
+    expect(() =>
+      parseEnv({
+        NODE_ENV: 'production',
+        DATABASE_URL: 'postgresql://user:real_pwd@localhost:5432/db',
+        JWT_SECRET: 'a_very_strong_random_secret_with_more_than_32_chars',
+        INTERNAL_TICK_SECRET: 'dev_only_internal_tick_secret_32_chars',
+      })
+    ).toThrow(/INTERNAL_TICK_SECRET.*32 caracteres/);
+
+    expect(() =>
+      parseEnv({
+        NODE_ENV: 'production',
+        DATABASE_URL: 'postgresql://user:real_pwd@localhost:5432/db',
+        JWT_SECRET: 'a_very_strong_random_secret_with_more_than_32_chars',
+        TELEGRAM_BOT_TOKEN: '123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11',
+        TELEGRAM_MODE: 'webhook',
+        TELEGRAM_WEBHOOK_SECRET: '',
+      })
+    ).toThrow(/TELEGRAM_WEBHOOK_SECRET.*obrigatório/);
   });
 
   it('enforces WorkspaceScope permissions', () => {

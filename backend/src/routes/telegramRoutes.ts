@@ -42,12 +42,15 @@ export async function telegramWebhookRoute(fastify: FastifyInstance) {
   const channel = new TelegramApiChannel();
 
   fastify.post('/telegram/webhook', async (request, reply) => {
-    const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
-    if (secret) {
-      const headerSecret = request.headers['x-telegram-bot-api-secret-token'];
-      if (headerSecret !== secret) {
-        throw new UnauthorizedError('INVALID_WEBHOOK_SECRET', 'Secret token inválido.');
-      }
+    const secret = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
+    if (!secret) {
+      request.log.error('[telegramWebhookRoute] Webhook invocado sem TELEGRAM_WEBHOOK_SECRET configurado.');
+      throw new UnauthorizedError('WEBHOOK_NOT_CONFIGURED', 'Webhook do Telegram não configurado com segredo.');
+    }
+
+    const headerSecret = request.headers['x-telegram-bot-api-secret-token'];
+    if (headerSecret !== secret) {
+      throw new UnauthorizedError('INVALID_WEBHOOK_SECRET', 'Secret token inválido.');
     }
 
     const update = request.body as TelegramUpdate;

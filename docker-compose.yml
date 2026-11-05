@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-meister}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-meister_dev_password_change_me}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-meister}
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5436}:5432"
@@ -23,7 +23,7 @@ services:
       target: runtime
     command: npx prisma migrate deploy
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-meister}:${POSTGRES_PASSWORD:-meister_dev_password_change_me}@db:5432/${POSTGRES_DB:-meister}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-meister}:${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-meister}?schema=public
     depends_on:
       db:
         condition: service_healthy
@@ -38,11 +38,11 @@ services:
       NODE_ENV: ${NODE_ENV:-production}
       PORT: 3000
       HOST: 0.0.0.0
-      DATABASE_URL: postgresql://${POSTGRES_USER:-meister}:${POSTGRES_PASSWORD:-meister_dev_password_change_me}@db:5432/${POSTGRES_DB:-meister}?schema=public
-      JWT_SECRET: ${JWT_SECRET:-dev_only_secret_key_with_at_least_32_characters_long}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-meister}:${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-meister}?schema=public
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
       APP_URL: ${APP_URL:-http://localhost:5173}
-      INTERNAL_TICK_SECRET: ${INTERNAL_TICK_SECRET:-dev_only_internal_tick_secret_32_chars}
+      INTERNAL_TICK_SECRET: ${INTERNAL_TICK_SECRET:?defina INTERNAL_TICK_SECRET}
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:
