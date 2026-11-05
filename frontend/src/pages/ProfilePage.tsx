@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api/client.js';
+import { TelegramLogo } from '../components/ui/icons.js';
 import { useAuth } from '../context/AuthContext.js';
 
 // Strict Brazilian CNPJ check digit algorithm
@@ -450,7 +451,8 @@ export const ProfilePage: React.FC = () => {
                 rel="noopener noreferrer"
                 className="px-6 py-3 rounded-xl bg-info hover:bg-info text-on-primary font-extrabold text-xs inline-flex items-center gap-2 transition"
               >
-                <span>👉 Abrir no Telegram (/start)</span>
+                <TelegramLogo size={18} weight="fill" />
+                <span>Abrir no Telegram (/start)</span>
               </a>
               <span className="text-[11px] text-muted">
                 Válido por 10 minutos. Ao abrir, clique em <strong>INICIAR</strong> no Telegram.

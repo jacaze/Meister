@@ -1,31 +1,28 @@
-import React from 'react';
+import React, { lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext.js';
 import ErrorBoundary from './components/common/ErrorBoundary.js';
 import AppLayout from './components/layout/AppLayout.js';
+import Mel from './components/brand/Mel.js';
 import AuthPage from './pages/AuthPage.js';
 import DashboardPage from './pages/DashboardPage.js';
-import TransactionsPage from './pages/TransactionsPage.js';
-import JarsPage from './pages/JarsPage.js';
-import DasPage from './pages/DasPage.js';
-import ReportsPage from './pages/ReportsPage.js';
-import ProfilePage from './pages/ProfilePage.js';
-import InsightsPage from './pages/InsightsPage.js';
-import ReviewInboxPage from './pages/ReviewInboxPage.js';
-import EducationPage from './pages/EducationPage.js';
+// Telas secundárias carregadas sob demanda: o pacote inicial leva só login e painel.
+const TransactionsPage = lazy(() => import('./pages/TransactionsPage.js'));
+const JarsPage = lazy(() => import('./pages/JarsPage.js'));
+const DasPage = lazy(() => import('./pages/DasPage.js'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage.js'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage.js'));
+const ReviewInboxPage = lazy(() => import('./pages/ReviewInboxPage.js'));
+const EducationPage = lazy(() => import('./pages/EducationPage.js'));
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { token, loading } = useAuth();
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-canvas text-ink flex flex-col items-center justify-center gap-3">
-        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-primary to-primary-soft flex items-center justify-center text-on-primary font-black text-2xl shadow-[0_0_25px_rgba(242,201,76,0.4)] animate-pulse">
-          M
-        </div>
-        <p className="text-xs font-bold text-muted tracking-widest uppercase">
-          Carregando MEIster...
-        </p>
+      <div className="min-h-dvh flex flex-col items-center justify-center gap-3 bg-canvas" aria-busy="true">
+        <Mel size={96} mood="idle" />
+        <p className="text-sm font-bold text-muted">Abrindo o favo…</p>
       </div>
     );
   }

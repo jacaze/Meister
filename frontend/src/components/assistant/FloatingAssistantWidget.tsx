@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { Gear, Paperclip, PaperPlaneRight, X } from '../ui/icons.js';
+import { ArrowDownRight, ArrowUpRight, Gear, Paperclip, PaperPlaneRight, X, Storefront, User } from '../ui/icons.js';
 import api from '../../api/client.js';
 import Mel from '../brand/Mel.js';
 import { celebrate, haptic } from '../../lib/celebrate.js';
@@ -50,12 +50,12 @@ export const FloatingAssistantWidget: React.FC = () => {
       id: 'welcome',
       role: 'assistant',
       content:
-        `🐝 **Oi! Eu sou a Mel, sua abelha das finanças.**\n\n` +
+        `**Oi! Eu sou a Mel, sua abelha das finanças.**\n\n` +
         `Eu organizo o seu dinheiro como um favo de mel. Pode me pedir para:\n` +
         `• **Lançar:** *"Gastei 45 no almoço"* ou *"Recebi 350 via Pix"*\n` +
         `• **Consultar:** *"Qual meu saldo?"* ou *"Como estão meus potes?"*\n` +
         `• **Tirar dúvidas:** *"Qual o teto do MEI?"* ou *"Quando vence o DAS?"*\n` +
-        `• **Escanear recibo:** Envie a foto de uma nota ou comprovante no botão 📎 abaixo!`,
+        `• **Escanear recibo:** Envie a foto de uma nota ou comprovante no botão de clipe aqui embaixo!`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -189,7 +189,7 @@ export const FloatingAssistantWidget: React.FC = () => {
             ? {
                 ...m,
                 proposalStatus: 'confirmed',
-                content: `${m.content}\n\n✅ **Lançamento registrado com sucesso no livro-caixa!**`,
+                content: `${m.content}\n\n**Lançamento registrado com sucesso no livro-caixa.**`,
               }
             : m
         )
@@ -212,7 +212,7 @@ export const FloatingAssistantWidget: React.FC = () => {
             ? {
                 ...m,
                 proposalStatus: 'cancelled',
-                content: `${m.content}\n\n❌ **Lançamento cancelado.**`,
+                content: `${m.content}\n\n**Lançamento cancelado.**`,
               }
             : m
         )
@@ -232,7 +232,7 @@ export const FloatingAssistantWidget: React.FC = () => {
     const userUploadMsg: ChatMessage = {
       id: `usr_up_${Date.now()}`,
       role: 'user',
-      content: `📷 Envio de comprovante fiscal: *${file.name}*`,
+      content: `Comprovante enviado: *${file.name}*`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
     setMessages((prev) => [...prev, userUploadMsg]);
@@ -251,7 +251,7 @@ export const FloatingAssistantWidget: React.FC = () => {
         const issuer = receipt.issuerName || receipt.issuerCnpj || 'Estabelecimento';
         const itemsCount = receipt.items?.length || 0;
 
-        let content = `🧾 **Comprovante lido com sucesso!**\n\n`;
+        let content = `**Comprovante lido com sucesso!**\n\n`;
         content += `• **Estabelecimento:** ${issuer}\n`;
         content += `• **Data:** ${receipt.issuedOn}\n`;
         content += `• **Valor Total:** R$ ${total.replace('.', ',')}\n`;
@@ -343,7 +343,7 @@ export const FloatingAssistantWidget: React.FC = () => {
                   exit={{ opacity: 0, x: 8, scale: 0.9 }}
                   className="mb-3 max-w-[180px] rounded-2xl rounded-br-md bg-card px-3.5 py-2.5 text-left text-sm font-semibold text-ink shadow-[var(--shadow-float)] ring-1 ring-ink/5"
                 >
-                  Oi! Posso anotar um gasto pra você? 🍯
+                  Oi! Posso anotar um gasto pra você?
                 </motion.button>
               )}
             </AnimatePresence>
@@ -507,16 +507,18 @@ export const FloatingAssistantWidget: React.FC = () => {
                           <div className="mt-3 p-3 rounded-xl bg-card-2 border border-primary/40 space-y-2">
                             <div className="flex items-center justify-between">
                               <span
-                                className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md ${
+                                className={`inline-flex items-center gap-1 text-[11px] font-extrabold uppercase px-2 py-0.5 rounded-md ${
                                   msg.proposal.type === 'receita'
                                     ? 'bg-success/20 text-success'
                                     : 'bg-danger/20 text-danger'
                                 }`}
                               >
-                                {msg.proposal.type === 'receita' ? '▲ Receita' : '▼ Despesa'}
+                                {msg.proposal.type === 'receita' ? <ArrowUpRight size={14} weight="bold" /> : <ArrowDownRight size={14} weight="bold" />}
+                                {msg.proposal.type === 'receita' ? 'Receita' : 'Despesa'}
                               </span>
-                              <span className="text-[10px] text-muted uppercase font-bold">
-                                {msg.proposal.scope === 'pj' ? '🏢 PJ' : '👤 PF'}
+                              <span className="flex items-center gap-1 text-[11px] text-muted uppercase font-bold">
+                                {msg.proposal.scope === 'pj' ? <Storefront size={14} weight="duotone" /> : <User size={14} weight="duotone" />}
+                                {msg.proposal.scope === 'pj' ? 'PJ' : 'PF'}
                               </span>
                             </div>
 

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'motion/react';
-import { Envelope, LockKey, Storefront, User, UserCircle, WarningCircle } from '../components/ui/icons.js';
+import { CircleNotch, Envelope, EyeSlash, HandWaving, Lightning, LockKey, Sparkle, Storefront, User, UserCircle, WarningCircle } from '../components/ui/icons.js';
+import MotionIcon from '../components/ui/MotionIcon.js';
 import { useAuth } from '../context/AuthContext.js';
 import Mel, { type MelMood } from '../components/brand/Mel.js';
 import HoneyBackground from '../components/ui/HoneyBackground.js';
@@ -94,13 +95,13 @@ export const AuthPage: React.FC = () => {
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
-              className="mt-1 rounded-full bg-card px-4 py-1.5 text-sm font-semibold text-ink-soft shadow-[var(--shadow-card)] ring-1 ring-ink/5"
+              className="mt-1 flex items-center gap-2 rounded-full bg-card px-4 py-1.5 text-sm font-semibold text-ink-soft shadow-[var(--shadow-card)] ring-1 ring-ink/5"
             >
-              {mood === 'thinking' && 'Só um instante…'}
-              {mood === 'alert' && 'Opa, algo não bateu 🤔'}
-              {mood === 'happy' && 'Não tô olhando, pode digitar! 🙈'}
-              {mood === 'wave' && 'Que bom te ver chegando! 🐝'}
-              {mood === 'idle' && 'Oi! Eu sou a Mel 🍯'}
+              {mood === 'thinking' && (<><CircleNotch size={18} weight="bold" className="animate-spin text-brand" />Só um instante…</>)}
+              {mood === 'alert' && (<><MotionIcon icon={WarningCircle} animate="pulse" size={18} weight="fill" className="text-danger" />Opa, algo não bateu</>)}
+              {mood === 'happy' && (<><MotionIcon icon={EyeSlash} animate="pop" size={18} weight="bold" className="text-brand" />Não tô olhando, pode digitar!</>)}
+              {mood === 'wave' && (<><MotionIcon icon={HandWaving} animate="wave" size={18} weight="fill" className="text-primary-deep" />Que bom te ver chegando!</>)}
+              {mood === 'idle' && (<><MotionIcon icon={Sparkle} animate="twinkle" size={18} weight="fill" className="text-primary-deep" />Oi! Eu sou a Mel</>)}
             </motion.p>
           </AnimatePresence>
 
@@ -272,16 +273,18 @@ export const AuthPage: React.FC = () => {
                   setPassword('senha123');
                   setError(null);
                 }}
-                className="w-full rounded-2xl border border-dashed border-ink/15 py-3 text-sm font-bold text-muted transition hover:border-primary hover:text-brand"
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-ink/15 py-3 text-sm font-bold text-muted transition hover:border-primary hover:text-brand"
               >
-                ⚡ Preencher conta de demonstração (só em desenvolvimento)
+                <Lightning size={18} weight="fill" className="text-primary-deep" />
+                Preencher conta de demonstração (só em desenvolvimento)
               </button>
             )}
           </form>
         </div>
 
-        <p className="mt-6 text-center text-xs text-faint">
-          Feito para MEI e pessoa física · seus dados ficam protegidos 🔒
+        <p className="mt-6 flex items-center justify-center gap-1.5 text-center text-xs text-faint">
+          <LockKey size={14} weight="fill" />
+          Feito para MEI e pessoa física · seus dados ficam protegidos
         </p>
       </motion.div>
     </div>

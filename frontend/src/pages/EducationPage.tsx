@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api/client.js';
+import { Confetti, Lightbulb, SealCheck } from '../components/ui/icons.js';
+import MotionIcon from '../components/ui/MotionIcon.js';
 
 export interface QuizOption {
   readonly id: string;
@@ -223,10 +225,15 @@ export const EducationPage: React.FC = () => {
               />
             </div>
           </div>
-          <p className="text-[11px] text-muted mt-2">
-            {stats.completedCount === stats.totalLessons && stats.totalLessons > 0
-              ? '🎉 Trilha completa! Parabéns!'
-              : 'Continue aprendendo para dominar seu negócio'}
+          <p className="text-xs text-muted mt-2 flex items-center gap-1.5">
+            {stats.completedCount === stats.totalLessons && stats.totalLessons > 0 ? (
+              <>
+                <MotionIcon icon={Confetti} animate="bounce" size={16} weight="fill" className="text-primary-deep" />
+                Trilha completa! Parabéns!
+              </>
+            ) : (
+              'Continue aprendendo para dominar seu negócio'
+            )}
           </p>
         </div>
       </div>
@@ -343,8 +350,9 @@ export const EducationPage: React.FC = () => {
                   </div>
 
                   <div className="mt-5 pt-4 border-t border-ink/5 flex items-center justify-between">
-                    <span className="text-[11px] text-faint">
-                      ✓ {lesson.reviewedBy}
+                    <span className="flex items-center gap-1 text-[11px] text-faint">
+                      <SealCheck size={14} weight="fill" className="text-success" />
+                      {lesson.reviewedBy}
                     </span>
 
                     <button
@@ -488,7 +496,8 @@ export const EducationPage: React.FC = () => {
                               {idx + 1}. {item.question}
                             </p>
                             <p className="text-xs text-ink-soft mt-1.5 leading-relaxed bg-canvas p-3 rounded-xl border border-ink/5">
-                              💡 <strong>Explicação:</strong> {item.explanation}
+                              <Lightbulb size={16} weight="fill" className="mr-1 inline align-[-3px] text-primary-deep" />
+                              <strong>Explicação:</strong> {item.explanation}
                             </p>
                           </div>
                         </div>

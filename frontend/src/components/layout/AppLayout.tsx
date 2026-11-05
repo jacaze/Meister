@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate, useOutlet } from 'react-router-dom';
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'motion/react';
 import {
@@ -19,6 +19,7 @@ import { useAuth } from '../../context/AuthContext.js';
 import QuickTransactionModal from '../modals/QuickTransactionModal.js';
 import FloatingAssistantWidget from '../assistant/FloatingAssistantWidget.js';
 import Logo from '../brand/Logo.js';
+import Mel from '../brand/Mel.js';
 import HoneyBackground from '../ui/HoneyBackground.js';
 import Sheet from '../ui/Sheet.js';
 import { page, spring } from '../../lib/motion.js';
@@ -200,7 +201,7 @@ export const AppLayout: React.FC = () => {
               animate="enter"
               exit="exit"
             >
-              {outlet}
+              <Suspense fallback={<PageLoading />}>{outlet}</Suspense>
             </motion.div>
           </AnimatePresence>
         </main>
@@ -284,6 +285,15 @@ export const AppLayout: React.FC = () => {
     </div>
   );
 };
+
+const PageLoading: React.FC = () => (
+  <div className="flex min-h-[50dvh] flex-col items-center justify-center gap-2" aria-busy="true" aria-label="Carregando">
+    <Mel size={84} mood="thinking" />
+    <div className="h-1.5 w-24 overflow-hidden rounded-full bg-field">
+      <div className="skeleton h-full w-full" />
+    </div>
+  </div>
+);
 
 const TabButton: React.FC<{ item: NavItem; active: boolean; onClick?: () => void }> = ({ item, active, onClick }) => {
   const I = item.icon;

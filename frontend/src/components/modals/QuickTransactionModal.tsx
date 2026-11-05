@@ -216,7 +216,7 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
       open={open}
       onClose={close}
       title="Novo lançamento"
-      subtitle="A Mel anota pra você 🍯"
+      subtitle="A Mel anota pra você"
       icon={<Mel size={44} mood={loading || scanningReceipt ? 'thinking' : 'idle'} />}
       footer={footer}
     >
@@ -421,7 +421,7 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
                 >
                   {workspace.entities.map((e) => (
                     <option key={e.id} value={e.id}>
-                      {e.kind === 'pj' ? '🏢 PJ — ' : '👤 PF — '} {e.name}
+                      {e.kind === 'pj' ? 'PJ — ' : 'PF — '}{e.name}
                     </option>
                   ))}
                 </select>

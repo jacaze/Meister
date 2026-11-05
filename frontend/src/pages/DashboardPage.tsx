@@ -10,6 +10,7 @@ import {
   Eye,
   EyeSlash,
   GraduationCap,
+  HandWaving,
   Jar,
   Receipt,
   ShieldCheck,
@@ -20,6 +21,7 @@ import { useAuth } from '../context/AuthContext.js';
 import Mel, { type MelMood } from '../components/brand/Mel.js';
 import AnimatedNumber, { formatBRL } from '../components/ui/AnimatedNumber.js';
 import TiltCard from '../components/ui/TiltCard.js';
+import MotionIcon from '../components/ui/MotionIcon.js';
 import { rise, stagger } from '../lib/motion.js';
 
 interface DashboardData {
@@ -153,7 +155,10 @@ export const DashboardPage: React.FC = () => {
           </div>
           <div className="min-w-0">
             <p className="text-sm font-semibold text-muted">{greeting},</p>
-            <h1 className="truncate text-[28px] leading-tight font-extrabold tracking-tight md:text-4xl">{firstName} 👋</h1>
+            <h1 className="flex items-center gap-2 truncate text-[28px] leading-tight font-extrabold tracking-tight md:text-4xl">
+              {firstName}
+              <MotionIcon icon={HandWaving} animate="wave" size={30} weight="fill" className="text-primary-deep" />
+            </h1>
           </div>
         </div>
         <motion.button
