@@ -159,55 +159,70 @@ export async function createTransaction(
 
   let created;
   if (existingDeletedId) {
-    if (input.splits && input.splits.length > 0) {
-      await prisma.transactionSplit.deleteMany({
+    created = await prisma.$transaction(async (tx) => {
+      const claimed = await tx.transaction.updateMany({
+        where: { id: existingDeletedId, deletedAt: { not: null } },
+        data: { deletedAt: null },
+      });
+
+      const includeConfig = {
+        category: { select: { id: true, name: true, slug: true } },
+        splits: true,
+      };
+
+      if (claimed.count === 0) {
+        // Outra requisição simultânea já restaurou este lançamento: devolve o estado atual
+        return tx.transaction.findUniqueOrThrow({
+          where: { id: existingDeletedId },
+          include: includeConfig,
+        });
+      }
+
+      // Sempre limpa splits antigos para evitar corrupção de dados ao restaurar
+      await tx.transactionSplit.deleteMany({
         where: { transactionId: existingDeletedId },
       });
-    }
 
-    created = await prisma.transaction.update({
-      where: { id: existingDeletedId },
-      data: {
-        entityId,
-        userId: scope.actorUserId,
-        type: (input.type === 'receita' || input.type === 'despesa') ? input.type : 'despesa',
-        description,
-        amount: Number(amountMoney.toDecimalString()),
-        paymentMethod: input.paymentMethod ?? null,
-        transactionDate: txDateDb,
-        origin: input.origin ?? 'manual',
-        status,
-        categoryId: (input.splits && input.splits.length > 0) ? null : categoryId,
-        deletedAt: null,
-        viaPersonalAccount: Boolean(input.viaPersonalAccount),
-        splits: (input.splits && input.splits.length > 0)
-          ? {
-              create: input.splits.map((s, idx) => ({
-                categoryId: s.categoryId,
-                amount: Number(Money.fromDecimalString(String(s.amount)).toDecimalString()),
-                description: s.description?.trim() || null,
-                position: idx,
-              })),
-            }
-          : undefined,
-        audits: {
-          create: {
-            workspaceId: scope.workspaceId,
-            actor: scope.actorUserId,
-            action: 'restore',
-            after: {
-              amount: amountMoney.toDecimalString(),
-              type: input.type,
-              description,
-              date: localDate.toIsoDate(),
+      return tx.transaction.update({
+        where: { id: existingDeletedId },
+        data: {
+          entityId,
+          userId: scope.actorUserId,
+          type: (input.type === 'receita' || input.type === 'despesa') ? input.type : 'despesa',
+          description,
+          amount: Number(amountMoney.toDecimalString()),
+          paymentMethod: input.paymentMethod ?? null,
+          transactionDate: txDateDb,
+          origin: input.origin ?? 'manual',
+          status,
+          categoryId: (input.splits && input.splits.length > 0) ? null : categoryId,
+          viaPersonalAccount: Boolean(input.viaPersonalAccount),
+          splits: (input.splits && input.splits.length > 0)
+            ? {
+                create: input.splits.map((s, idx) => ({
+                  categoryId: s.categoryId,
+                  amount: Number(Money.fromDecimalString(String(s.amount)).toDecimalString()),
+                  description: s.description?.trim() || null,
+                  position: idx,
+                })),
+              }
+            : undefined,
+          audits: {
+            create: {
+              workspaceId: scope.workspaceId,
+              actor: scope.actorUserId,
+              action: 'restore',
+              after: {
+                amount: amountMoney.toDecimalString(),
+                type: input.type,
+                description,
+                date: localDate.toIsoDate(),
+              },
             },
           },
         },
-      },
-      include: {
-        category: { select: { id: true, name: true, slug: true } },
-        splits: true,
-      },
+        include: includeConfig,
+      });
     });
   } else {
     try {

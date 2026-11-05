@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app.js';
 import prisma from '../src/config/prisma.js';
 import { getMeiLimit } from '../src/modules/fiscal/application/use-cases/GetMeiLimit.js';
-import { createTransfer } from '../src/modules/ledger/public.js';
+import { createTransaction, createTransfer, deleteTransaction } from '../src/modules/ledger/public.js';
 import type { WorkspaceScope } from '../src/shared/scope.js';
 
 describe('Ledger & Transactions Hardening Integration Suite (PostgreSQL 16)', () => {
@@ -308,6 +308,163 @@ describe('Ledger & Transactions Hardening Integration Suite (PostgreSQL 16)', ()
       });
 
       expect(updateRes.statusCode).toBe(400);
+    });
+  });
+
+  describe('🔴 P0 1: Restauração Atômica e Limpeza de Splits (N1, N2, N3)', () => {
+    it('N1: restaurar lançamento dividido com categoria simples deve remover splits antigos', async () => {
+      const u = await registerAndLogin('n1_splits');
+      const cat2 = await prisma.category.create({
+        data: {
+          workspaceId: u.wsId,
+          name: 'Cat 2',
+          slug: `cat2-${Date.now()}`,
+          type: 'despesa',
+        },
+      });
+
+      const sourceRef = `nfe:N1_${Date.now()}`;
+      const t1 = await createTransaction(u.scope, {
+        type: 'despesa',
+        amount: '100.00',
+        description: 'Lançamento com splits para deletar',
+        occurredOn: '2026-11-04',
+        sourceRef,
+        splits: [
+          { categoryId: u.catDespesa.id, amount: '60.00' },
+          { categoryId: cat2.id, amount: '40.00' },
+        ],
+      });
+
+      await deleteTransaction(u.scope, t1.id);
+
+      const t2 = await createTransaction(u.scope, {
+        type: 'despesa',
+        amount: '30.00',
+        description: 'Lançamento restaurado simples',
+        occurredOn: '2026-11-04',
+        sourceRef,
+        categoryId: u.catDespesa.id,
+      });
+
+      const splitsRestantes = await prisma.transactionSplit.findMany({
+        where: { transactionId: t2.id },
+      });
+      expect(splitsRestantes).toHaveLength(0);
+      expect(t2.categoryId).toBe(u.catDespesa.id);
+      expect(Number(t2.amount)).toBe(30);
+    });
+
+    it('N2: 6 restaurações simultâneas devem ser atômicas e não multiplicar splits nem audits', async () => {
+      const u = await registerAndLogin('n2_race');
+      const cat2 = await prisma.category.create({
+        data: {
+          workspaceId: u.wsId,
+          name: 'Cat N2',
+          slug: `cat-n2-${Date.now()}`,
+          type: 'despesa',
+        },
+      });
+
+      const sourceRef = `nfe:N2_${Date.now()}`;
+      const t1 = await createTransaction(u.scope, {
+        type: 'despesa',
+        amount: '100.00',
+        description: 'Nota para restauração concorrente',
+        occurredOn: '2026-11-04',
+        sourceRef,
+        splits: [
+          { categoryId: u.catDespesa.id, amount: '60.00' },
+          { categoryId: cat2.id, amount: '40.00' },
+        ],
+      });
+
+      await deleteTransaction(u.scope, t1.id);
+
+      // Dispara 6 restaurações simultâneas
+      const results = await Promise.allSettled(
+        Array.from({ length: 6 }, () =>
+          createTransaction(u.scope, {
+            type: 'despesa',
+            amount: '100.00',
+            description: 'Nota restaurada',
+            occurredOn: '2026-11-04',
+            sourceRef,
+            splits: [
+              { categoryId: u.catDespesa.id, amount: '60.00' },
+              { categoryId: cat2.id, amount: '40.00' },
+            ],
+          })
+        )
+      );
+
+      const fulfilled = results.filter((r) => r.status === 'fulfilled');
+      expect(fulfilled).toHaveLength(6);
+
+      const splitsNoBanco = await prisma.transactionSplit.findMany({
+        where: { transactionId: t1.id },
+      });
+      const somaSplits = splitsNoBanco.reduce((acc, s) => acc + Number(s.amount), 0);
+      expect(somaSplits).toBe(100);
+      expect(splitsNoBanco).toHaveLength(2);
+
+      const auditsRestore = await prisma.transactionAudit.count({
+        where: { transactionId: t1.id, action: 'restore' },
+      });
+      expect(auditsRestore).toBe(1);
+    });
+
+    it('N3: restauração pelo endpoint legado /api/transactions deve limpar splits antigos e criar audit', async () => {
+      const u = await registerAndLogin('n3_legacy');
+      const cat2 = await prisma.category.create({
+        data: {
+          workspaceId: u.wsId,
+          name: 'Cat N3',
+          slug: `cat-n3-${Date.now()}`,
+          type: 'despesa',
+        },
+      });
+
+      const sourceRef = `nfe:N3_${Date.now()}`;
+      const t1 = await createTransaction(u.scope, {
+        type: 'despesa',
+        amount: '100.00',
+        description: 'Nota para restauração legada',
+        occurredOn: '2026-11-04',
+        sourceRef,
+        splits: [
+          { categoryId: u.catDespesa.id, amount: '60.00' },
+          { categoryId: cat2.id, amount: '40.00' },
+        ],
+      });
+
+      await deleteTransaction(u.scope, t1.id);
+
+      const r = await app.inject({
+        method: 'POST',
+        url: '/api/transactions',
+        headers: { authorization: `Bearer ${u.token}` },
+        payload: {
+          description: 'Lançamento manual restaurado',
+          amount: '7.00',
+          type: 'despesa',
+          categoryId: u.catDespesa.id,
+          transactionDate: '2026-11-04',
+          sourceRef,
+        },
+      });
+
+      expect([200, 201]).toContain(r.statusCode);
+
+      const splitsNoBanco = await prisma.transactionSplit.findMany({
+        where: { transactionId: t1.id },
+      });
+      expect(splitsNoBanco).toHaveLength(0);
+
+      const auditsRestore = await prisma.transactionAudit.count({
+        where: { transactionId: t1.id, action: 'restore' },
+      });
+      expect(auditsRestore).toBeGreaterThanOrEqual(1);
     });
   });
 });

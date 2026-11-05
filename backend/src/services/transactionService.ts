@@ -189,22 +189,55 @@ export async function create(
       if (!existing.deletedAt) {
         return existing;
       }
-      return prisma.transaction.update({
-        where: { id: existing.id },
-        data: {
-          deletedAt: null,
-          entityId: targetEntityId,
-          description,
-          amount: money.toNumber(),
-          type,
-          categoryId: category.id,
-          paymentMethod,
-          transactionDate: transactionDate.toUtcDate(),
-          viaPersonalAccount: Boolean(input.viaPersonalAccount),
-        },
-        include: {
+      return prisma.$transaction(async (tx) => {
+        const claimed = await tx.transaction.updateMany({
+          where: { id: existing.id, deletedAt: { not: null } },
+          data: { deletedAt: null },
+        });
+
+        const includeConfig = {
           category: { select: { id: true, name: true, slug: true } },
-        },
+        };
+
+        if (claimed.count === 0) {
+          return tx.transaction.findUniqueOrThrow({
+            where: { id: existing.id },
+            include: includeConfig,
+          });
+        }
+
+        // Sempre limpa splits antigos para evitar corrupção de dados ao restaurar
+        await tx.transactionSplit.deleteMany({
+          where: { transactionId: existing.id },
+        });
+
+        return tx.transaction.update({
+          where: { id: existing.id },
+          data: {
+            entityId: targetEntityId,
+            description,
+            amount: money.toNumber(),
+            type,
+            categoryId: category.id,
+            paymentMethod,
+            transactionDate: transactionDate.toUtcDate(),
+            viaPersonalAccount: Boolean(input.viaPersonalAccount),
+            audits: {
+              create: {
+                workspaceId: resolvedScope.workspaceId,
+                actor: userId,
+                action: 'restore',
+                after: {
+                  amount: money.toDecimalString(),
+                  type,
+                  description,
+                  date: transactionDate.toIsoDate(),
+                },
+              },
+            },
+          },
+          include: includeConfig,
+        });
       });
     }
   }
