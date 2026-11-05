@@ -193,7 +193,7 @@ export async function chatAssistant(
     if (!eduRes.isDisclaimer && eduRes.citedLessonSlug) {
       return {
         kind: 'education',
-        reply: `${eduRes.answer}\n\n📚 *Lição recomendada:* ${eduRes.citedLessonTitle || eduRes.citedLessonSlug}`,
+        reply: `${eduRes.answer}\n\n*Lição recomendada:* ${eduRes.citedLessonTitle || eduRes.citedLessonSlug}`,
         topic: eduRes.citedLessonTitle || eduRes.citedLessonSlug,
       };
     }
@@ -263,7 +263,7 @@ Diretrizes de resposta:
       `• **Registrar lançamentos:** basta digitar por exemplo *"Gastei 45 no almoço"* ou *"Recebi 150 do cliente via pix"*.\n` +
       `• **Consultar saldo e finanças:** pergunte *"Qual meu saldo?"*, *"Como estão meus potes?"* ou *"Quando vence o DAS?"*.\n` +
       `• **Dúvidas sobre o MEI:** tire dúvidas sobre limite anual, emissão de nota fiscal e separação de contas PF/PJ.\n\n` +
-      `💡 *Dica:* Para ativar inteligência artificial generativa em tempo real com o Gemini, configure sua chave de API no ícone ⚙️ no topo do assistente!`,
+      `*Dica:* estou no modo local. Com a IA generativa ativada no servidor (chave do Gemini configurada pelo administrador), entendo frases mais livres.`,
     isAiGenerated: false,
   };
 }

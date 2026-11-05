@@ -207,22 +207,22 @@ export const ReportsPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2">
-              <span className="material-symbols-outlined text-[#f2c94c] text-3xl">analytics</span>
+            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-ink flex items-center gap-2">
+              <span className="material-symbols-outlined text-brand text-3xl">analytics</span>
               Relatórios Financeiros
             </h1>
-            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-[#f2c94c]/10 text-[#f2c94c] border border-[#f2c94c]/20 uppercase tracking-wider">
+            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-primary/10 text-brand border border-primary/20 uppercase tracking-wider">
               {user?.accountType === 'mei' ? 'Perfil MEI' : 'Perfil PF'}
             </span>
           </div>
-          <p className="text-xs md:text-sm text-[#d0c5af] mt-1">
+          <p className="text-xs md:text-sm text-ink-soft mt-1">
             Visão aprofundada de receitas, lucratividade real e evolução do seu negócio.
           </p>
         </div>
 
         <button
           onClick={() => setIsWithdrawalModalOpen(true)}
-          className="inline-flex items-center gap-2 bg-[#f2c94c] hover:bg-[#ffe8ad] text-[#131313] font-bold text-xs md:text-sm px-4 py-3 rounded-2xl shadow-[0_0_20px_rgba(242,201,76,0.25)] transition self-start sm:self-auto"
+          className="inline-flex items-center gap-2 bg-primary hover:bg-primary-soft text-on-primary font-bold text-xs md:text-sm px-4 py-3 rounded-2xl shadow-[0_0_20px_rgba(242,201,76,0.25)] transition self-start sm:self-auto"
         >
           <span className="material-symbols-outlined text-lg font-bold">payments</span>
           Retirar Pró-Labore
@@ -230,112 +230,112 @@ export const ReportsPage: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="bg-[#1c1b1b] border border-[#ffffff0d] rounded-3xl p-12 text-center text-[#99907b] flex flex-col items-center justify-center gap-2">
-          <span className="material-symbols-outlined text-3xl animate-spin text-[#f2c94c]">sync</span>
+        <div className="bg-card border border-ink/5 rounded-3xl p-12 text-center text-muted flex flex-col items-center justify-center gap-2">
+          <span className="material-symbols-outlined text-3xl animate-spin text-brand">sync</span>
           <p className="text-sm font-semibold">Gerando relatórios e análises...</p>
         </div>
       ) : (
         <>
           {/* 1. Desempenho Empresarial Hero Card */}
-          <section className="bg-[#1c1b1b] border border-[#ffffff0d] rounded-3xl p-6 md:p-8 shadow-xl relative overflow-hidden">
-            <div className="absolute -top-10 -right-10 w-44 h-44 bg-[#f2c94c]/5 rounded-full blur-3xl pointer-events-none" />
+          <section className="bg-card border border-ink/5 rounded-3xl p-6 md:p-8 shadow-xl relative overflow-hidden">
+            <div className="absolute -top-10 -right-10 w-44 h-44 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
 
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-2xl bg-[#2a2a2a] text-[#f2c94c] flex items-center justify-center">
+              <div className="w-10 h-10 rounded-2xl bg-field text-brand flex items-center justify-center">
                 <span className="material-symbols-outlined text-xl">monitoring</span>
               </div>
-              <h3 className="font-extrabold text-lg md:text-xl text-white">
+              <h3 className="font-extrabold text-lg md:text-xl text-ink">
                 Desempenho Geral do Período
               </h3>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {/* Faturamento */}
-              <div className="border-b sm:border-b-0 sm:border-r border-[#ffffff0d] pb-4 sm:pb-0 sm:pr-6">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#99907b] flex items-center gap-1">
-                  <span className="material-symbols-outlined text-sm text-[#27ae60]">arrow_upward</span>
+              <div className="border-b sm:border-b-0 sm:border-r border-ink/5 pb-4 sm:pb-0 sm:pr-6">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted flex items-center gap-1">
+                  <span className="material-symbols-outlined text-sm text-success">arrow_upward</span>
                   Faturamento Total (Receitas)
                 </span>
-                <span className="text-2xl md:text-3xl font-extrabold text-white mt-1 block">
+                <span className="text-2xl md:text-3xl font-extrabold text-ink mt-1 block">
                   {formatCurrency(totalReceitas)}
                 </span>
               </div>
 
               {/* Custos Operacionais */}
               <div className="sm:pl-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#99907b] flex items-center gap-1">
-                  <span className="material-symbols-outlined text-sm text-[#eb5757]">arrow_downward</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-muted flex items-center gap-1">
+                  <span className="material-symbols-outlined text-sm text-danger">arrow_downward</span>
                   Custos & Despesas Operacionais
                 </span>
-                <span className="text-2xl md:text-3xl font-extrabold text-white mt-1 block">
+                <span className="text-2xl md:text-3xl font-extrabold text-ink mt-1 block">
                   {formatCurrency(totalDespesas)}
                 </span>
               </div>
             </div>
 
             {/* Lucro Líquido Box */}
-            <div className="mt-6 pt-6 border-t border-[#ffffff0d] flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#131313] p-5 rounded-2xl border border-[#ffffff08]">
+            <div className="mt-6 pt-6 border-t border-ink/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-canvas p-5 rounded-2xl border border-ink/4">
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-[#99907b] block">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted block">
                   Lucro Líquido Real
                 </span>
                 <span
                   className={`text-2xl md:text-3xl font-extrabold mt-0.5 block ${
-                    lucroLiquido >= 0 ? 'text-[#27ae60]' : 'text-[#ffb4ab]'
+                    lucroLiquido >= 0 ? 'text-success' : 'text-danger'
                   }`}
                 >
                   {formatCurrency(lucroLiquido)}
                 </span>
               </div>
 
-              <div className="text-right text-xs text-[#99907b]">
+              <div className="text-right text-xs text-muted">
                 <span>Margem Líquida: </span>
-                <strong className="text-white font-bold">{profitRatio.toFixed(1)}%</strong>
+                <strong className="text-ink font-bold">{profitRatio.toFixed(1)}%</strong>
               </div>
             </div>
 
             {/* Visual ratio bar */}
             <div className="mt-4 space-y-1">
-              <div className="w-full h-2.5 bg-[#201f1f] rounded-full overflow-hidden flex">
+              <div className="w-full h-2.5 bg-card-2 rounded-full overflow-hidden flex">
                 <div
-                  className="h-full bg-[#27ae60] transition-all duration-500"
+                  className="h-full bg-success transition-all duration-500"
                   style={{ width: `${profitRatio}%` }}
                   title={`Lucro: ${profitRatio.toFixed(1)}%`}
                 />
                 <div
-                  className="h-full bg-[#eb5757] transition-all duration-500"
+                  className="h-full bg-danger transition-all duration-500"
                   style={{ width: `${expenseRatio}%` }}
                   title={`Custos: ${expenseRatio.toFixed(1)}%`}
                 />
               </div>
-              <div className="flex justify-between text-[10px] text-[#99907b]">
-                <span className="text-[#27ae60]">● Lucro Líquido ({profitRatio.toFixed(0)}%)</span>
-                <span className="text-[#eb5757]">● Despesas ({expenseRatio.toFixed(0)}%)</span>
+              <div className="flex justify-between text-[10px] text-muted">
+                <span className="text-success">● Lucro Líquido ({profitRatio.toFixed(0)}%)</span>
+                <span className="text-danger">● Despesas ({expenseRatio.toFixed(0)}%)</span>
               </div>
             </div>
           </section>
 
           {/* 2. Receita vs Despesa Monthly Bar Chart */}
-          <section className="bg-[#1c1b1b] border border-[#ffffff0d] rounded-3xl p-6 md:p-8 shadow-xl">
+          <section className="bg-card border border-ink/5 rounded-3xl p-6 md:p-8 shadow-xl">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="font-extrabold text-lg text-white">Receita vs Despesa</h3>
-                <p className="text-xs text-[#99907b]">Histórico comparativo dos últimos 6 meses</p>
+                <h3 className="font-extrabold text-lg text-ink">Receita vs Despesa</h3>
+                <p className="text-xs text-muted">Histórico comparativo dos últimos 6 meses</p>
               </div>
               <div className="flex items-center gap-4 text-xs font-semibold">
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-[#27ae60]" />
-                  <span className="text-[#d0c5af]">Receitas</span>
+                  <div className="w-3 h-3 rounded-full bg-success" />
+                  <span className="text-ink-soft">Receitas</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-[#eb5757]" />
-                  <span className="text-[#d0c5af]">Despesas</span>
+                  <div className="w-3 h-3 rounded-full bg-danger" />
+                  <span className="text-ink-soft">Despesas</span>
                 </div>
               </div>
             </div>
 
             {/* Chart Area */}
-            <div className="h-56 w-full flex items-end justify-between gap-3 sm:gap-6 px-2 pt-6 pb-2 border-b border-[#ffffff0d]">
+            <div className="h-56 w-full flex items-end justify-between gap-3 sm:gap-6 px-2 pt-6 pb-2 border-b border-ink/5">
               {monthlyTrends.map((trend, idx) => {
                 const recHeight = maxMonthly > 0 ? (trend.receita / maxMonthly) * 160 : 0;
                 const despHeight = maxMonthly > 0 ? (trend.despesa / maxMonthly) * 160 : 0;
@@ -345,18 +345,18 @@ export const ReportsPage: React.FC = () => {
                     <div className="w-full flex items-end justify-center gap-1.5 h-44">
                       {/* Receita bar */}
                       <div
-                        className="w-1/2 max-w-[16px] bg-[#27ae60] rounded-t-lg transition-all duration-500 hover:opacity-80"
+                        className="w-1/2 max-w-[16px] bg-success rounded-t-lg transition-all duration-500 hover:opacity-80"
                         style={{ height: `${Math.max(4, recHeight)}px` }}
                         title={`Receitas: ${formatCurrency(trend.receita)}`}
                       />
                       {/* Despesa bar */}
                       <div
-                        className="w-1/2 max-w-[16px] bg-[#eb5757] rounded-t-lg transition-all duration-500 hover:opacity-80"
+                        className="w-1/2 max-w-[16px] bg-danger rounded-t-lg transition-all duration-500 hover:opacity-80"
                         style={{ height: `${Math.max(4, despHeight)}px` }}
                         title={`Despesas: ${formatCurrency(trend.despesa)}`}
                       />
                     </div>
-                    <span className="text-[11px] font-bold text-[#99907b] uppercase">
+                    <span className="text-[11px] font-bold text-muted uppercase">
                       {trend.monthName}
                     </span>
                   </div>
@@ -368,71 +368,71 @@ export const ReportsPage: React.FC = () => {
           {/* 3. Bento Grid: Tributos (DAS) & Pró-Labore */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Tributos / DAS */}
-            <section className="bg-[#1c1b1b] border border-[#ffffff0d] rounded-3xl p-6 flex flex-col justify-between shadow-lg">
+            <section className="bg-card border border-ink/5 rounded-3xl p-6 flex flex-col justify-between shadow-lg">
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[#f2c94c] text-xl">
+                    <span className="material-symbols-outlined text-brand text-xl">
                       receipt_long
                     </span>
-                    <h4 className="font-bold text-base text-white">Tributos (DAS MEI)</h4>
+                    <h4 className="font-bold text-base text-ink">Tributos (DAS MEI)</h4>
                   </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#27ae60]/10 text-[#27ae60] border border-[#27ae60]/20">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-success/10 text-success border border-success/20">
                     Exercício Ativo
                   </span>
                 </div>
 
                 <div>
-                  <div className="text-2xl font-extrabold text-white">
+                  <div className="text-2xl font-extrabold text-ink">
                     {formatCurrency(dasPago)}
                   </div>
-                  <p className="text-xs text-[#99907b] mt-1">
+                  <p className="text-xs text-muted mt-1">
                     Total recolhido em impostos federais e previdenciários neste ano.
                   </p>
                 </div>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-[#ffffff08] flex items-center justify-between text-xs text-[#99907b]">
+              <div className="mt-4 pt-3 border-t border-ink/4 flex items-center justify-between text-xs text-muted">
                 <span>INSS + ICMS / ISS integrados</span>
-                <a href="/impostos" className="text-[#f2c94c] hover:underline font-bold">
+                <a href="/impostos" className="text-brand hover:underline font-bold">
                   Ver Guias DAS
                 </a>
               </div>
             </section>
 
             {/* Pró-Labore */}
-            <section className="bg-[#1c1b1b] border border-[#ffffff0d] rounded-3xl p-6 flex flex-col justify-between shadow-lg relative overflow-hidden">
+            <section className="bg-card border border-ink/5 rounded-3xl p-6 flex flex-col justify-between shadow-lg relative overflow-hidden">
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[#27ae60] text-xl">
+                    <span className="material-symbols-outlined text-success text-xl">
                       payments
                     </span>
-                    <h4 className="font-bold text-base text-white">Pró-Labore & Retiradas</h4>
+                    <h4 className="font-bold text-base text-ink">Pró-Labore & Retiradas</h4>
                   </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#f2c94c]/10 text-[#f2c94c] border border-[#f2c94c]/20">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-brand border border-primary/20">
                     Remuneração
                   </span>
                 </div>
 
                 <div>
-                  <div className="text-2xl font-extrabold text-white">
+                  <div className="text-2xl font-extrabold text-ink">
                     {formatCurrency(proLaboreRetirado)}
                   </div>
-                  <p className="text-xs text-[#99907b] mt-1">
+                  <p className="text-xs text-muted mt-1">
                     Transferências de rendimento da conta PJ para a sua conta PF.
                   </p>
                 </div>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-[#ffffff08] flex items-center justify-between text-xs text-[#99907b]">
-                <span className="flex items-center gap-1 text-[#27ae60]">
+              <div className="mt-4 pt-3 border-t border-ink/4 flex items-center justify-between text-xs text-muted">
+                <span className="flex items-center gap-1 text-success">
                   <span className="material-symbols-outlined text-sm">check_circle</span>
                   Separado das contas pessoais
                 </span>
                 <button
                   onClick={() => setIsWithdrawalModalOpen(true)}
-                  className="text-[#f2c94c] hover:underline font-bold"
+                  className="text-brand hover:underline font-bold"
                 >
                   Nova Retirada
                 </button>
@@ -442,23 +442,23 @@ export const ReportsPage: React.FC = () => {
 
           {/* 4. Top Categorias de Despesas */}
           {topExpenses.length > 0 && (
-            <section className="bg-[#1c1b1b] border border-[#ffffff0d] rounded-3xl p-6 shadow-xl">
-              <h3 className="font-extrabold text-lg text-white mb-4">
+            <section className="bg-card border border-ink/5 rounded-3xl p-6 shadow-xl">
+              <h3 className="font-extrabold text-lg text-ink mb-4">
                 Maiores Despesas por Categoria
               </h3>
               <div className="space-y-3">
                 {topExpenses.map((cat) => (
                   <div key={cat.name} className="space-y-1">
                     <div className="flex justify-between text-xs font-semibold">
-                      <span className="text-[#e5e2e1]">{cat.name}</span>
-                      <span className="text-white font-bold">
+                      <span className="text-ink">{cat.name}</span>
+                      <span className="text-ink font-bold">
                         {formatCurrency(cat.total)}{' '}
-                        <span className="text-[#99907b]">({cat.percent.toFixed(1)}%)</span>
+                        <span className="text-muted">({cat.percent.toFixed(1)}%)</span>
                       </span>
                     </div>
-                    <div className="w-full h-2 bg-[#131313] rounded-full overflow-hidden">
+                    <div className="w-full h-2 bg-canvas rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-[#f2c94c] rounded-full"
+                        className="h-full bg-primary rounded-full"
                         style={{ width: `${Math.min(100, cat.percent)}%` }}
                       />
                     </div>
@@ -472,23 +472,23 @@ export const ReportsPage: React.FC = () => {
 
       {/* Modal: Retirada de Pró-Labore */}
       {isWithdrawalModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-          <div className="bg-[#1c1b1b] border border-[#ffffff14] rounded-3xl w-full max-w-md p-6 shadow-2xl relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-sm">
+          <div className="bg-card border border-ink/8 rounded-3xl w-full max-w-md p-6 shadow-2xl relative">
             <button
               onClick={() => setIsWithdrawalModalOpen(false)}
-              className="absolute top-6 right-6 text-[#99907b] hover:text-white p-1 rounded-full hover:bg-[#2a2a2a] transition"
+              className="absolute top-6 right-6 text-muted hover:text-ink p-1 rounded-full hover:bg-field transition"
             >
               <span className="material-symbols-outlined text-xl">close</span>
             </button>
 
-            <h3 className="text-xl font-extrabold text-white mb-1">Retirada de Pró-Labore</h3>
-            <p className="text-xs text-[#99907b] mb-5">
+            <h3 className="text-xl font-extrabold text-ink mb-1">Retirada de Pró-Labore</h3>
+            <p className="text-xs text-muted mb-5">
               Registra uma despesa de transferência na PJ e uma receita de pró-labore na PF.
             </p>
 
             <form onSubmit={handleCreateWithdrawal} className="space-y-4">
               <div>
-                <label className="text-xs font-bold text-[#99907b] uppercase tracking-wider block mb-1">
+                <label className="text-xs font-bold text-muted uppercase tracking-wider block mb-1">
                   Valor da Retirada (R$)
                 </label>
                 <input
@@ -498,12 +498,12 @@ export const ReportsPage: React.FC = () => {
                   value={withdrawalAmount}
                   onChange={(e) => setWithdrawalAmount(e.target.value)}
                   required
-                  className="w-full bg-[#131313] text-sm text-[#e5e2e1] rounded-xl px-3.5 py-2.5 border border-[#ffffff0d] focus:outline-none focus:border-[#f2c94c]"
+                  className="w-full bg-canvas text-sm text-ink rounded-xl px-3.5 py-2.5 border border-ink/5 focus:outline-none focus:border-primary"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-bold text-[#99907b] uppercase tracking-wider block mb-1">
+                <label className="text-xs font-bold text-muted uppercase tracking-wider block mb-1">
                   Data da Retirada
                 </label>
                 <input
@@ -511,12 +511,12 @@ export const ReportsPage: React.FC = () => {
                   value={withdrawalDate}
                   onChange={(e) => setWithdrawalDate(e.target.value)}
                   required
-                  className="w-full bg-[#131313] text-sm text-[#e5e2e1] rounded-xl px-3.5 py-2.5 border border-[#ffffff0d] focus:outline-none focus:border-[#f2c94c]"
+                  className="w-full bg-canvas text-sm text-ink rounded-xl px-3.5 py-2.5 border border-ink/5 focus:outline-none focus:border-primary"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-bold text-[#99907b] uppercase tracking-wider block mb-1">
+                <label className="text-xs font-bold text-muted uppercase tracking-wider block mb-1">
                   Descrição
                 </label>
                 <input
@@ -524,22 +524,22 @@ export const ReportsPage: React.FC = () => {
                   value={withdrawalDesc}
                   onChange={(e) => setWithdrawalDesc(e.target.value)}
                   required
-                  className="w-full bg-[#131313] text-sm text-[#e5e2e1] rounded-xl px-3.5 py-2.5 border border-[#ffffff0d] focus:outline-none focus:border-[#f2c94c]"
+                  className="w-full bg-canvas text-sm text-ink rounded-xl px-3.5 py-2.5 border border-ink/5 focus:outline-none focus:border-primary"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#ffffff0d]">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-ink/5">
                 <button
                   type="button"
                   onClick={() => setIsWithdrawalModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-[#99907b] hover:bg-[#2a2a2a] transition"
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-muted hover:bg-field transition"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={submittingWithdrawal}
-                  className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#f2c94c] hover:bg-[#ffe8ad] text-[#131313] transition disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold bg-primary hover:bg-primary-soft text-on-primary transition disabled:opacity-50"
                 >
                   {submittingWithdrawal ? 'Processando...' : 'Confirmar Retirada'}
                 </button>

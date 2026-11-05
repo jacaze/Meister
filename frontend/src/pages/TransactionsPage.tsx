@@ -168,18 +168,18 @@ export const TransactionsPage: React.FC = () => {
       {/* Header with Title and Action Button */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2">
-            <span className="material-symbols-outlined text-[#f2c94c] text-3xl">receipt_long</span>
+          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-ink flex items-center gap-2">
+            <span className="material-symbols-outlined text-brand text-3xl">receipt_long</span>
             Lançamentos
           </h1>
-          <p className="text-xs md:text-sm text-[#d0c5af] mt-1">
+          <p className="text-xs md:text-sm text-ink-soft mt-1">
             Gestão detalhada do seu fluxo financeiro com rastreio de categorias e contas.
           </p>
         </div>
 
         <button
           onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center justify-center gap-2 bg-[#f2c94c] hover:bg-[#ffe8ad] text-[#131313] font-bold text-sm px-5 py-3 rounded-2xl shadow-[0_0_20px_rgba(242,201,76,0.3)] transition active:scale-95"
+          className="inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary-soft text-on-primary font-bold text-sm px-5 py-3 rounded-2xl shadow-[0_0_20px_rgba(242,201,76,0.3)] transition active:scale-95"
         >
           <span className="material-symbols-outlined text-xl font-bold">add</span>
           Novo Lançamento
@@ -189,67 +189,67 @@ export const TransactionsPage: React.FC = () => {
       {/* Summary Cards Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Entradas */}
-        <div className="bg-[#1c1b1b] border border-[#ffffff0d] rounded-2xl p-4 sm:p-5 flex items-center justify-between shadow-lg">
+        <div className="bg-card border border-ink/5 rounded-2xl p-4 sm:p-5 flex items-center justify-between shadow-lg">
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#99907b] block">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted block">
               Total Receitas
             </span>
-            <span className="text-xl sm:text-2xl font-extrabold text-[#27ae60] mt-1 block">
+            <span className="text-xl sm:text-2xl font-extrabold text-success mt-1 block">
               {formatCurrency(summary.totalEntradas)}
             </span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-[#27ae60]/10 border border-[#27ae60]/20 flex items-center justify-center text-[#27ae60]">
+          <div className="w-10 h-10 rounded-xl bg-success/10 border border-success/20 flex items-center justify-center text-success">
             <span className="material-symbols-outlined text-2xl">arrow_upward</span>
           </div>
         </div>
 
         {/* Despesas */}
-        <div className="bg-[#1c1b1b] border border-[#ffffff0d] rounded-2xl p-4 sm:p-5 flex items-center justify-between shadow-lg">
+        <div className="bg-card border border-ink/5 rounded-2xl p-4 sm:p-5 flex items-center justify-between shadow-lg">
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#99907b] block">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted block">
               Total Despesas
             </span>
-            <span className="text-xl sm:text-2xl font-extrabold text-[#eb5757] mt-1 block">
+            <span className="text-xl sm:text-2xl font-extrabold text-danger mt-1 block">
               {formatCurrency(summary.totalDespesas)}
             </span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-[#eb5757]/10 border border-[#eb5757]/20 flex items-center justify-center text-[#eb5757]">
+          <div className="w-10 h-10 rounded-xl bg-danger/10 border border-danger/20 flex items-center justify-center text-danger">
             <span className="material-symbols-outlined text-2xl">arrow_downward</span>
           </div>
         </div>
 
         {/* Saldo Líquido */}
-        <div className="bg-[#1c1b1b] border border-[#ffffff0d] rounded-2xl p-4 sm:p-5 flex items-center justify-between shadow-lg">
+        <div className="bg-card border border-ink/5 rounded-2xl p-4 sm:p-5 flex items-center justify-between shadow-lg">
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#99907b] block">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted block">
               Saldo Líquido
             </span>
             <span
               className={`text-xl sm:text-2xl font-extrabold mt-1 block ${
-                summary.resultado >= 0 ? 'text-[#f2c94c]' : 'text-[#ffb4ab]'
+                summary.resultado >= 0 ? 'text-brand' : 'text-danger'
               }`}
             >
               {formatCurrency(summary.resultado)}
             </span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-[#f2c94c]/10 border border-[#f2c94c]/20 flex items-center justify-center text-[#f2c94c]">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-brand">
             <span className="material-symbols-outlined text-2xl">account_balance_wallet</span>
           </div>
         </div>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-[#1c1b1b] border border-[#ffffff0d] rounded-2xl p-4 space-y-4">
+      <div className="bg-card border border-ink/5 rounded-2xl p-4 space-y-4">
         {/* Type Filter Pills & Search */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           {/* Pills */}
-          <div className="flex items-center gap-1.5 bg-[#131313] p-1 rounded-xl border border-[#ffffff0d] self-start">
+          <div className="flex items-center gap-1.5 bg-canvas p-1 rounded-xl border border-ink/5 self-start">
             <button
               onClick={() => setTypeFilter('todas')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
                 typeFilter === 'todas'
-                  ? 'bg-[#2a2a2a] text-[#f2c94c] shadow-sm'
-                  : 'text-[#99907b] hover:text-white'
+                  ? 'bg-field text-brand shadow-sm'
+                  : 'text-muted hover:text-ink'
               }`}
             >
               Todas
@@ -258,8 +258,8 @@ export const TransactionsPage: React.FC = () => {
               onClick={() => setTypeFilter('receita')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
                 typeFilter === 'receita'
-                  ? 'bg-[#27ae60]/20 text-[#27ae60] border border-[#27ae60]/30'
-                  : 'text-[#99907b] hover:text-white'
+                  ? 'bg-success/20 text-success border border-success/30'
+                  : 'text-muted hover:text-ink'
               }`}
             >
               <span className="material-symbols-outlined text-sm">arrow_upward</span>
@@ -269,8 +269,8 @@ export const TransactionsPage: React.FC = () => {
               onClick={() => setTypeFilter('despesa')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
                 typeFilter === 'despesa'
-                  ? 'bg-[#eb5757]/20 text-[#eb5757] border border-[#eb5757]/30'
-                  : 'text-[#99907b] hover:text-white'
+                  ? 'bg-danger/20 text-danger border border-danger/30'
+                  : 'text-muted hover:text-ink'
               }`}
             >
               <span className="material-symbols-outlined text-sm">arrow_downward</span>
@@ -280,7 +280,7 @@ export const TransactionsPage: React.FC = () => {
 
           {/* Search Input */}
           <div className="relative flex-1 max-w-md">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#99907b] text-lg">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-muted text-lg">
               search
             </span>
             <input
@@ -288,12 +288,12 @@ export const TransactionsPage: React.FC = () => {
               placeholder="Buscar por descrição..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-[#131313] text-sm text-[#e5e2e1] rounded-xl pl-9 pr-4 py-2 border border-[#ffffff0d] focus:outline-none focus:border-[#f2c94c] placeholder-[#99907b]"
+              className="w-full bg-canvas text-sm text-ink rounded-xl pl-9 pr-4 py-2 border border-ink/5 focus:outline-none focus:border-primary placeholder-muted"
             />
             {searchTerm && (
               <button
                 onClick={() => setSearchTerm('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#99907b] hover:text-white"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink"
               >
                 <span className="material-symbols-outlined text-base">close</span>
               </button>
@@ -302,16 +302,16 @@ export const TransactionsPage: React.FC = () => {
         </div>
 
         {/* Detailed Secondary Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2 border-t border-[#ffffff08]">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2 border-t border-ink/4">
           {/* Category */}
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-wider text-[#99907b] block mb-1">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-muted block mb-1">
               Categoria
             </label>
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full bg-[#131313] text-xs text-[#e5e2e1] rounded-lg px-2.5 py-2 border border-[#ffffff0d] focus:outline-none focus:border-[#f2c94c]"
+              className="w-full bg-canvas text-xs text-ink rounded-lg px-2.5 py-2 border border-ink/5 focus:outline-none focus:border-primary"
             >
               <option value="">Todas as Categorias</option>
               {categories.map((c) => (
@@ -324,13 +324,13 @@ export const TransactionsPage: React.FC = () => {
 
           {/* Payment Method */}
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-wider text-[#99907b] block mb-1">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-muted block mb-1">
               Forma de Pagamento
             </label>
             <select
               value={selectedPaymentMethod}
               onChange={(e) => setSelectedPaymentMethod(e.target.value)}
-              className="w-full bg-[#131313] text-xs text-[#e5e2e1] rounded-lg px-2.5 py-2 border border-[#ffffff0d] focus:outline-none focus:border-[#f2c94c]"
+              className="w-full bg-canvas text-xs text-ink rounded-lg px-2.5 py-2 border border-ink/5 focus:outline-none focus:border-primary"
             >
               <option value="">Todas as Formas</option>
               <option value="pix">Pix</option>
@@ -344,62 +344,62 @@ export const TransactionsPage: React.FC = () => {
 
           {/* Start Date */}
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-wider text-[#99907b] block mb-1">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-muted block mb-1">
               Data Inicial
             </label>
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full bg-[#131313] text-xs text-[#e5e2e1] rounded-lg px-2.5 py-1.5 border border-[#ffffff0d] focus:outline-none focus:border-[#f2c94c]"
+              className="w-full bg-canvas text-xs text-ink rounded-lg px-2.5 py-1.5 border border-ink/5 focus:outline-none focus:border-primary"
             />
           </div>
 
           {/* End Date */}
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-wider text-[#99907b] block mb-1">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-muted block mb-1">
               Data Final
             </label>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full bg-[#131313] text-xs text-[#e5e2e1] rounded-lg px-2.5 py-1.5 border border-[#ffffff0d] focus:outline-none focus:border-[#f2c94c]"
+              className="w-full bg-canvas text-xs text-ink rounded-lg px-2.5 py-1.5 border border-ink/5 focus:outline-none focus:border-primary"
             />
           </div>
         </div>
       </div>
 
       {/* Transactions List */}
-      <div className="bg-[#1c1b1b] border border-[#ffffff0d] rounded-2xl overflow-hidden shadow-lg">
+      <div className="bg-card border border-ink/5 rounded-2xl overflow-hidden shadow-lg">
         {loading ? (
-          <div className="p-12 text-center text-[#99907b] flex flex-col items-center justify-center gap-2">
-            <span className="material-symbols-outlined text-3xl animate-spin text-[#f2c94c]">
+          <div className="p-12 text-center text-muted flex flex-col items-center justify-center gap-2">
+            <span className="material-symbols-outlined text-3xl animate-spin text-brand">
               sync
             </span>
             <p className="text-sm font-semibold">Carregando lançamentos...</p>
           </div>
         ) : transactions.length === 0 ? (
-          <div className="p-12 text-center text-[#99907b] flex flex-col items-center justify-center gap-3">
-            <div className="w-16 h-16 rounded-full bg-[#2a2a2a] flex items-center justify-center text-[#99907b]">
+          <div className="p-12 text-center text-muted flex flex-col items-center justify-center gap-3">
+            <div className="w-16 h-16 rounded-full bg-field flex items-center justify-center text-muted">
               <span className="material-symbols-outlined text-3xl">receipt_long</span>
             </div>
             <div>
-              <p className="text-base font-bold text-white">Nenhum lançamento encontrado</p>
-              <p className="text-xs text-[#99907b] mt-1">
+              <p className="text-base font-bold text-ink">Nenhum lançamento encontrado</p>
+              <p className="text-xs text-muted mt-1">
                 Tente ajustar os filtros ou crie um novo lançamento financeiro.
               </p>
             </div>
             <button
               onClick={() => setIsModalOpen(true)}
-              className="mt-2 inline-flex items-center gap-2 bg-[#f2c94c] hover:bg-[#ffe8ad] text-[#131313] font-bold text-xs px-4 py-2.5 rounded-xl transition"
+              className="mt-2 inline-flex items-center gap-2 bg-primary hover:bg-primary-soft text-on-primary font-bold text-xs px-4 py-2.5 rounded-xl transition"
             >
               <span className="material-symbols-outlined text-base">add</span>
               Criar Lançamento
             </button>
           </div>
         ) : (
-          <div className="divide-y divide-[#ffffff08]">
+          <div className="divide-y divide-ink/4">
             {transactions.map((tx) => {
               const isReceita = tx.type === 'receita';
               const isDeleting = deletingId === tx.id;
@@ -407,15 +407,15 @@ export const TransactionsPage: React.FC = () => {
               return (
                 <div
                   key={tx.id}
-                  className="p-4 sm:p-5 flex items-center justify-between hover:bg-[#201f1f]/50 transition group"
+                  className="p-4 sm:p-5 flex items-center justify-between hover:bg-card-2/50 transition group"
                 >
                   {/* Left: Icon and Details */}
                   <div className="flex items-center gap-3.5 min-w-0">
                     <div
                       className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border ${
                         isReceita
-                          ? 'bg-[#27ae60]/10 border-[#27ae60]/20 text-[#27ae60]'
-                          : 'bg-[#eb5757]/10 border-[#eb5757]/20 text-[#eb5757]'
+                          ? 'bg-success/10 border-success/20 text-success'
+                          : 'bg-danger/10 border-danger/20 text-danger'
                       }`}
                     >
                       <span className="material-symbols-outlined text-2xl">
@@ -425,18 +425,18 @@ export const TransactionsPage: React.FC = () => {
 
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-sm sm:text-base text-white truncate max-w-[200px] sm:max-w-md">
+                        <span className="font-bold text-sm sm:text-base text-ink truncate max-w-[200px] sm:max-w-md">
                           {tx.description}
                         </span>
                         {tx.viaPersonalAccount && (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#f2c94c]/10 text-[#f2c94c] border border-[#f2c94c]/20">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-brand border border-primary/20">
                             Conta PF
                           </span>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2 mt-1 flex-wrap text-xs text-[#99907b]">
-                        <span className="text-[#d0c5af] font-medium">
+                      <div className="flex items-center gap-2 mt-1 flex-wrap text-xs text-muted">
+                        <span className="text-ink-soft font-medium">
                           {tx.category?.name || 'Sem categoria'}
                         </span>
                         <span>•</span>
@@ -451,7 +451,7 @@ export const TransactionsPage: React.FC = () => {
                   <div className="flex items-center gap-4 shrink-0 pl-2">
                     <span
                       className={`font-extrabold text-sm sm:text-base ${
-                        isReceita ? 'text-[#27ae60]' : 'text-[#eb5757]'
+                        isReceita ? 'text-success' : 'text-danger'
                       }`}
                     >
                       {isReceita ? '+' : '-'} {formatCurrency(tx.amount)}
@@ -461,7 +461,7 @@ export const TransactionsPage: React.FC = () => {
                       onClick={() => handleDelete(tx.id)}
                       disabled={isDeleting}
                       title="Excluir lançamento"
-                      className="p-2 text-[#99907b] hover:text-[#eb5757] hover:bg-[#2a2a2a] rounded-xl transition opacity-70 group-hover:opacity-100 disabled:opacity-30"
+                      className="p-2 text-muted hover:text-danger hover:bg-field rounded-xl transition opacity-70 group-hover:opacity-100 disabled:opacity-30"
                     >
                       <span className="material-symbols-outlined text-lg">
                         {isDeleting ? 'sync' : 'delete'}
@@ -476,7 +476,7 @@ export const TransactionsPage: React.FC = () => {
 
         {/* Pagination Footer */}
         {pagination.totalPaginas > 1 && (
-          <div className="p-4 bg-[#131313] border-t border-[#ffffff0d] flex items-center justify-between text-xs text-[#99907b]">
+          <div className="p-4 bg-canvas border-t border-ink/5 flex items-center justify-between text-xs text-muted">
             <span>
               Mostrando {transactions.length} de {pagination.total} lançamentos (Página{' '}
               {pagination.pagina} de {pagination.totalPaginas})
@@ -485,14 +485,14 @@ export const TransactionsPage: React.FC = () => {
               <button
                 onClick={() => fetchTransactions(pagination.pagina - 1)}
                 disabled={pagination.pagina <= 1}
-                className="px-3 py-1.5 rounded-lg bg-[#201f1f] text-white hover:bg-[#2a2a2a] disabled:opacity-40 transition font-bold"
+                className="px-3 py-1.5 rounded-lg bg-card-2 text-ink hover:bg-field disabled:opacity-40 transition font-bold"
               >
                 Anterior
               </button>
               <button
                 onClick={() => fetchTransactions(pagination.pagina + 1)}
                 disabled={pagination.pagina >= pagination.totalPaginas}
-                className="px-3 py-1.5 rounded-lg bg-[#201f1f] text-white hover:bg-[#2a2a2a] disabled:opacity-40 transition font-bold"
+                className="px-3 py-1.5 rounded-lg bg-card-2 text-ink hover:bg-field disabled:opacity-40 transition font-bold"
               >
                 Próxima
               </button>

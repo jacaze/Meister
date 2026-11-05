@@ -210,11 +210,11 @@ export const ReviewInboxPage: React.FC = () => {
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-white flex items-center gap-3">
-            <span className="material-symbols-outlined text-[#f2c94c] text-3xl">inbox</span>
+          <h1 className="text-2xl font-black text-ink flex items-center gap-3">
+            <span className="material-symbols-outlined text-brand text-3xl">inbox</span>
             Extratos & Open Finance
           </h1>
-          <p className="text-sm text-[#99907b] mt-1">
+          <p className="text-sm text-muted mt-1">
             Conecte suas contas bancárias via Open Finance Pluggy ou importe extratos OFX / CSV com conciliação inteligente.
           </p>
         </div>
@@ -230,7 +230,7 @@ export const ReviewInboxPage: React.FC = () => {
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
-            className="px-4 py-2.5 rounded-2xl bg-[#ffffff0a] hover:bg-[#ffffff14] border border-[#f2c94c]/30 text-xs font-bold text-[#f2c94c] flex items-center justify-center gap-2 transition disabled:opacity-50"
+            className="px-4 py-2.5 rounded-2xl bg-ink/4 hover:bg-ink/8 border border-primary/30 text-xs font-bold text-brand flex items-center justify-center gap-2 transition disabled:opacity-50"
           >
             <span className="material-symbols-outlined text-sm">
               {uploading ? 'hourglass_top' : 'upload_file'}
@@ -241,7 +241,7 @@ export const ReviewInboxPage: React.FC = () => {
           <button
             onClick={handleOpenPluggyConnect}
             disabled={connecting}
-            className="px-4 py-2.5 rounded-2xl bg-[#f2c94c] text-[#131313] text-xs font-bold shadow-[0_0_15px_rgba(242,201,76,0.3)] hover:scale-[1.02] active:scale-[0.98] transition flex items-center gap-2 disabled:opacity-50"
+            className="px-4 py-2.5 rounded-2xl bg-primary text-on-primary text-xs font-bold shadow-[0_0_15px_rgba(242,201,76,0.3)] hover:scale-[1.02] active:scale-[0.98] transition flex items-center gap-2 disabled:opacity-50"
           >
             <span className="material-symbols-outlined text-sm">
               {connecting ? 'sync' : 'add_link'}
@@ -261,7 +261,7 @@ export const ReviewInboxPage: React.FC = () => {
 
       {/* Inbox Section */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between gap-4 border-b border-[#ffffff0d] pb-3">
+        <div className="flex items-center justify-between gap-4 border-b border-ink/5 pb-3">
           <div className="flex items-center gap-2">
             {(['nova', 'importada', 'ignorada'] as const).map((st) => (
               <button
@@ -269,8 +269,8 @@ export const ReviewInboxPage: React.FC = () => {
                 onClick={() => setStatusFilter(st)}
                 className={`px-4 py-2 rounded-xl text-xs font-bold transition capitalize ${
                   statusFilter === st
-                    ? 'bg-[#ffffff12] text-white border border-[#ffffff14]'
-                    : 'text-[#99907b] hover:text-white'
+                    ? 'bg-ink/7 text-ink border border-ink/8'
+                    : 'text-muted hover:text-ink'
                 }`}
               >
                 {st === 'nova' ? 'Pendentes de Revisão' : st === 'importada' ? 'Aprovadas' : 'Ignoradas'}
@@ -281,7 +281,7 @@ export const ReviewInboxPage: React.FC = () => {
           {statusFilter === 'nova' && items.length > 0 && (
             <button
               onClick={handleBatchApprove}
-              className="px-4 py-2 rounded-xl bg-[#27ae60] text-white text-xs font-bold hover:scale-[1.02] active:scale-[0.98] transition"
+              className="px-4 py-2 rounded-xl bg-success text-ink text-xs font-bold hover:scale-[1.02] active:scale-[0.98] transition"
             >
               Aprovar Todos ({items.length})
             </button>
@@ -290,17 +290,17 @@ export const ReviewInboxPage: React.FC = () => {
 
         {/* Items List */}
         {loading ? (
-          <div className="p-12 text-center text-[#99907b]">
-            <span className="material-symbols-outlined text-4xl animate-spin text-[#f2c94c] mb-2">
+          <div className="p-12 text-center text-muted">
+            <span className="material-symbols-outlined text-4xl animate-spin text-brand mb-2">
               sync
             </span>
             <p className="text-sm font-medium">Carregando transações do extrato...</p>
           </div>
         ) : items.length === 0 ? (
-          <div className="p-12 rounded-3xl bg-[#1c1b1b] border border-[#ffffff0d] text-center space-y-3">
-            <span className="material-symbols-outlined text-4xl text-[#f2c94c]">mark_email_read</span>
-            <h4 className="text-base font-bold text-white">Nenhuma transação pendente!</h4>
-            <p className="text-xs text-[#99907b] max-w-md mx-auto">
+          <div className="p-12 rounded-3xl bg-card border border-ink/5 text-center space-y-3">
+            <span className="material-symbols-outlined text-4xl text-brand">mark_email_read</span>
+            <h4 className="text-base font-bold text-ink">Nenhuma transação pendente!</h4>
+            <p className="text-xs text-muted max-w-md mx-auto">
               Sua caixa de extratos está em dia. Conecte sua conta bancária via Open Finance ou importe um arquivo OFX/CSV.
             </p>
           </div>
@@ -315,13 +315,13 @@ export const ReviewInboxPage: React.FC = () => {
               return (
                 <div
                   key={it.id}
-                  className="p-5 rounded-2xl bg-[#1c1b1b] border border-[#ffffff14] flex flex-col md:flex-row md:items-center justify-between gap-4"
+                  className="p-5 rounded-2xl bg-card border border-ink/8 flex flex-col md:flex-row md:items-center justify-between gap-4"
                 >
                   {/* Details */}
                   <div className="flex items-center gap-4 flex-1">
                     <div
                       className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                        isIncome ? 'bg-[#27ae60]/15 text-[#27ae60]' : 'bg-[#eb5757]/15 text-[#eb5757]'
+                        isIncome ? 'bg-success/15 text-success' : 'bg-danger/15 text-danger'
                       }`}
                     >
                       <span className="material-symbols-outlined text-xl">
@@ -331,17 +331,17 @@ export const ReviewInboxPage: React.FC = () => {
 
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-white">{it.description}</span>
+                        <span className="text-sm font-bold text-ink">{it.description}</span>
                         {it.isTransferSuspect && (
-                          <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-[#f2c94c]/15 text-[#f2c94c] border border-[#f2c94c]/30">
+                          <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-primary/15 text-brand border border-primary/30">
                             Transferência Própria?
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-[#99907b] flex items-center gap-3">
+                      <div className="text-xs text-muted flex items-center gap-3">
                         <span>{it.occurredOn}</span>
                         <span>•</span>
-                        <span className="uppercase text-[10px] font-semibold text-[#f2c94c]">
+                        <span className="uppercase text-[10px] font-semibold text-brand">
                           {it.provider}
                         </span>
                       </div>
@@ -353,7 +353,7 @@ export const ReviewInboxPage: React.FC = () => {
                     <div className="text-right">
                       <span
                         className={`text-base font-extrabold block ${
-                          isIncome ? 'text-[#27ae60]' : 'text-white'
+                          isIncome ? 'text-success' : 'text-ink'
                         }`}
                       >
                         {isIncome ? '+' : '-'} R${' '}
@@ -373,7 +373,7 @@ export const ReviewInboxPage: React.FC = () => {
                               [it.id]: e.target.value,
                             }))
                           }
-                          className="px-3 py-2 bg-[#131313] border border-[#ffffff14] rounded-xl text-xs text-white focus:outline-none focus:border-[#f2c94c]"
+                          className="px-3 py-2 bg-canvas border border-ink/8 rounded-xl text-xs text-ink focus:outline-none focus:border-primary"
                         >
                           <option value="">Selecione categoria...</option>
                           {availableCategories.map((c) => (
@@ -385,14 +385,14 @@ export const ReviewInboxPage: React.FC = () => {
 
                         <button
                           onClick={() => handleApprove(it)}
-                          className="px-3.5 py-2 rounded-xl bg-[#27ae60] text-white text-xs font-bold hover:scale-[1.02] transition"
+                          className="px-3.5 py-2 rounded-xl bg-success text-ink text-xs font-bold hover:scale-[1.02] transition"
                         >
                           Aprovar
                         </button>
 
                         <button
                           onClick={() => handleIgnore(it)}
-                          className="p-2 rounded-xl text-[#99907b] hover:text-[#eb5757] hover:bg-[#ffffff0a] transition"
+                          className="p-2 rounded-xl text-muted hover:text-danger hover:bg-ink/4 transition"
                           title="Ignorar"
                         >
                           <span className="material-symbols-outlined text-sm">close</span>

@@ -99,7 +99,7 @@ export class EducationPolicyGuard {
     }
 
     const cleanExcerpt = bestExcerpt || bestLesson.summary;
-    const finalAnswer = `De acordo com a lição "${bestLesson.title}":\n\n${cleanExcerpt}\n\n💡 _Fonte: Lição revisada por profissionais contábeis no MEIster._`;
+    const finalAnswer = `De acordo com a lição "${bestLesson.title}":\n\n${cleanExcerpt}\n\n_Fonte: lição revisada por profissionais contábeis no MEIster._`;
 
     return {
       answer: finalAnswer,
