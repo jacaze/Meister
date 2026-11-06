@@ -1,6 +1,7 @@
 // Service Worker MEIster — Cache de assets estáticos e SPA offline resiliente (exclui estritamente /api)
-const CACHE_NAME = 'meister-static-v3';
-const MAX_STATIC_ENTRIES = 60;
+const CACHE_NAME = 'meister-static-v4';
+const MAX_STATIC_ENTRIES = 80;
+const PROTECTED_PATHS = ['/', '/index.html', '/favicon.svg', '/manifest.webmanifest'];
 const STATIC_EXTENSIONS = [
   '.js',
   '.css',
@@ -15,10 +16,18 @@ const STATIC_EXTENSIONS = [
 
 async function trimCache(cacheName, maxItems) {
   const cache = await caches.open(cacheName);
-  const keys = await cache.keys();
-  if (keys.length > maxItems) {
-    await cache.delete(keys[0]);
-    return trimCache(cacheName, maxItems);
+  const requests = await cache.keys();
+  if (requests.length > maxItems) {
+    // Procura a primeira entrada descartável que NÃO seja protegida
+    const candidate = requests.find((req) => {
+      const path = new URL(req.url).pathname;
+      return !PROTECTED_PATHS.includes(path);
+    });
+
+    if (candidate) {
+      await cache.delete(candidate);
+      return trimCache(cacheName, maxItems);
+    }
   }
 }
 
@@ -26,6 +35,7 @@ self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
+// Limpeza atômica por versão: ao ativar uma nova versão, descarta totalmente os caches legados
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
