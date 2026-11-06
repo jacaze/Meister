@@ -420,5 +420,107 @@ describe('Core Modules Integration Suite (PostgreSQL 16)', () => {
 
     expect(transferLegOut.transferType).toBe('transfer');
     expect(proLaboreLegPj.transferType).toBe('pro_labore');
+
+    // Simulate legacy records with NULL transfer_type and test backfill logic
+    const legacyTransferGroupId = `legacy_group_${Date.now()}`;
+    await prisma.transaction.createMany({
+      data: [
+        {
+          workspaceId: wsOverview.workspace.id,
+          entityId: pjEntity.id,
+          type: 'despesa',
+          direction: 'out',
+          amount: 500,
+          description: 'Retirada legada de pró-labore PJ',
+          transactionDate: new Date('2026-10-01'),
+          transferGroupId: legacyTransferGroupId,
+          transferType: null,
+          status: 'confirmado',
+        },
+        {
+          workspaceId: wsOverview.workspace.id,
+          entityId: pfEntity.id,
+          type: 'receita',
+          direction: 'in',
+          amount: 500,
+          description: 'Entrada legada de pró-labore PF',
+          transactionDate: new Date('2026-10-01'),
+          transferGroupId: legacyTransferGroupId,
+          transferType: null,
+          status: 'confirmado',
+        },
+      ],
+    });
+
+    const legacyAccountTransferGroupId = `legacy_acc_transfer_${Date.now()}`;
+    await prisma.transaction.createMany({
+      data: [
+        {
+          workspaceId: wsOverview.workspace.id,
+          entityId: pjEntity.id,
+          type: 'despesa',
+          direction: 'out',
+          amount: 300,
+          description: 'Transferência de conta legada OUT',
+          transactionDate: new Date('2026-10-02'),
+          transferGroupId: legacyAccountTransferGroupId,
+          transferType: null,
+          status: 'confirmado',
+        },
+        {
+          workspaceId: wsOverview.workspace.id,
+          entityId: pjEntity.id,
+          type: 'receita',
+          direction: 'in',
+          amount: 300,
+          description: 'Transferência de conta legada IN',
+          transactionDate: new Date('2026-10-02'),
+          transferGroupId: legacyAccountTransferGroupId,
+          transferType: null,
+          status: 'confirmado',
+        },
+      ],
+    });
+
+    // Execute the exact backfill query from migration
+    await prisma.$executeRawUnsafe(`
+      UPDATE "transactions" t
+      SET "transfer_type" = 'pro_labore'::"TransferType"
+      WHERE t."transfer_group_id" IS NOT NULL
+        AND t."transfer_type" IS NULL
+        AND EXISTS (
+          SELECT 1
+          FROM "transactions" t_pj
+          JOIN "entities" e_pj ON e_pj."id" = t_pj."entity_id"
+          WHERE t_pj."transfer_group_id" = t."transfer_group_id"
+            AND e_pj."kind" = 'pj'
+            AND (t_pj."direction" = 'out' OR t_pj."type" = 'despesa')
+        )
+        AND EXISTS (
+          SELECT 1
+          FROM "transactions" t_pf
+          JOIN "entities" e_pf ON e_pf."id" = t_pf."entity_id"
+          WHERE t_pf."transfer_group_id" = t."transfer_group_id"
+            AND e_pf."kind" = 'pf'
+            AND (t_pf."direction" = 'in' OR t_pf."type" = 'receita')
+        );
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      UPDATE "transactions" t
+      SET "transfer_type" = 'transfer'::"TransferType"
+      WHERE t."transfer_group_id" IS NOT NULL
+        AND t."transfer_type" IS NULL;
+    `);
+
+    const backfilledProLabore = await prisma.transaction.findFirst({
+      where: { transferGroupId: legacyTransferGroupId, direction: 'out' },
+    });
+    const backfilledAccountTransfer = await prisma.transaction.findFirst({
+      where: { transferGroupId: legacyAccountTransferGroupId, direction: 'out' },
+    });
+
+    expect(backfilledProLabore?.transferType).toBe('pro_labore');
+    expect(backfilledAccountTransfer?.transferType).toBe('transfer');
   });
 });
