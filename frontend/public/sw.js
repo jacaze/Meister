@@ -1,7 +1,17 @@
 // Service Worker MEIster — Cache de assets estáticos e SPA offline resiliente (exclui estritamente /api)
-const CACHE_NAME = 'meister-static-v5';
-const MAX_STATIC_ENTRIES = 80;
-const PROTECTED_PATHS = ['/', '/index.html', '/favicon.svg', '/manifest.webmanifest'];
+const STATIC_CACHE_PREFIX = 'meister-static-';
+const DEFAULT_CACHE_NAME = 'meister-static-v5';
+const FALLBACK_STATIC_ENTRIES = [
+  '/',
+  '/index.html',
+  '/favicon.svg',
+  '/manifest.webmanifest',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/icon-maskable-192.png',
+  '/icon-maskable-512.png',
+];
+
 const STATIC_EXTENSIONS = [
   '.js',
   '.css',
@@ -14,61 +24,65 @@ const STATIC_EXTENSIONS = [
   '.ttf',
 ];
 
-async function getProtectedPathsFromCache() {
-  const protectedSet = new Set(PROTECTED_PATHS);
-
-  // Recupera e analisa o index.html salvo em cache para descobrir chunks do deploy ativo
+// Obtém o nome da versão ativa do cache a partir do manifesto do deploy ou usa fallback
+async function getDeployCacheName() {
   try {
-    const cachedHtmlResponse = await caches.match('/index.html');
-    if (cachedHtmlResponse) {
-      const htmlText = await cachedHtmlResponse.text();
-      const chunkRegex = /(?:\/assets\/[a-zA-Z0-9_\-.]+\.(?:js|css))/g;
-      let match;
-      while ((match = chunkRegex.exec(htmlText)) !== null) {
-        protectedSet.add(match[0]);
+    const res = await fetch('/asset-manifest.json', { cache: 'no-cache' });
+    if (res && res.status === 200) {
+      const data = await res.json();
+      if (data && data.version) {
+        return `${STATIC_CACHE_PREFIX}${data.version}`;
       }
     }
-  } catch {
-    // Falha silenciosa: usa lista base de caminhos protegidos
-  }
-
-  return protectedSet;
+  } catch {}
+  return DEFAULT_CACHE_NAME;
 }
 
-async function trimCache(cacheName, maxItems) {
-  const cache = await caches.open(cacheName);
-  const requests = await cache.keys();
-  if (requests.length > maxItems) {
-    const protectedPaths = await getProtectedPathsFromCache();
+// Precache no install: carrega asset-manifest.json com TODOS os assets (inclusive chunks dinâmicos)
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    (async () => {
+      let cacheName = DEFAULT_CACHE_NAME;
+      let assetsToCache = FALLBACK_STATIC_ENTRIES;
 
-    // Procura a primeira entrada descartável que NÃO seja protegida nem referenciada no HTML ativo
-    const candidate = requests.find((req) => {
-      const path = new URL(req.url).pathname;
-      return !protectedPaths.has(path);
-    });
+      try {
+        const res = await fetch('/asset-manifest.json', { cache: 'no-cache' });
+        if (res && res.status === 200) {
+          const manifest = await res.json();
+          if (manifest && Array.isArray(manifest.assets) && manifest.version) {
+            cacheName = `${STATIC_CACHE_PREFIX}${manifest.version}`;
+            assetsToCache = manifest.assets;
+          }
+        }
+      } catch {
+        // Fallback para lista básica caso o manifesto não esteja disponível
+      }
 
-    if (candidate) {
-      await cache.delete(candidate);
-      return trimCache(cacheName, maxItems);
-    }
-  }
-}
+      const cache = await caches.open(cacheName);
+      await Promise.allSettled(
+        assetsToCache.map((url) =>
+          cache.add(url).catch(() => {})
+        )
+      );
 
-self.addEventListener('install', () => {
-  self.skipWaiting();
+      await self.skipWaiting();
+    })()
+  );
 });
 
-// Limpeza atômica por versão: ao ativar uma nova versão, descarta totalmente os caches legados
+// Limpeza atômica por deploy: apaga caches antigos preservando apenas a versão do deploy atual
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
-          keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
-        )
-      )
-      .then(() => self.clients.claim())
+    (async () => {
+      const currentCacheName = await getDeployCacheName();
+      const keys = await caches.keys();
+      await Promise.all(
+        keys
+          .filter((k) => k.startsWith(STATIC_CACHE_PREFIX) && k !== currentCacheName)
+          .map((k) => caches.delete(k))
+      );
+      await self.clients.claim();
+    })()
   );
 });
 
@@ -106,11 +120,13 @@ self.addEventListener('fetch', (event) => {
             const forIndexHtmlCache = networkResponse.clone();
 
             event.waitUntil(
-              caches.open(CACHE_NAME).then((cache) =>
-                Promise.all([
-                  cache.put(event.request, forCache),
-                  cache.put('/index.html', forIndexHtmlCache),
-                ])
+              getDeployCacheName().then((cacheName) =>
+                caches.open(cacheName).then((cache) =>
+                  Promise.all([
+                    cache.put(event.request, forCache),
+                    cache.put('/index.html', forIndexHtmlCache),
+                  ])
+                )
               )
             );
           }
@@ -131,8 +147,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. Assets estáticos com extensão conhecida: Cache-First com atualização em background
-  const isStaticAsset = STATIC_EXTENSIONS.some((ext) => url.pathname.endsWith(ext));
+  // 2. Assets estáticos com extensão conhecida ou manifesto: Cache-First com atualização em background
+  const isStaticAsset =
+    STATIC_EXTENSIONS.some((ext) => url.pathname.endsWith(ext)) ||
+    url.pathname === '/asset-manifest.json';
+
   if (isStaticAsset) {
     // Dispara a busca na rede e o salvamento em cache de forma síncrona
     const updatePromise = fetch(event.request)
@@ -143,10 +162,9 @@ self.addEventListener('fetch', (event) => {
           networkResponse.type === 'basic'
         ) {
           const forCache = networkResponse.clone();
-          caches
-            .open(CACHE_NAME)
+          getDeployCacheName()
+            .then((cacheName) => caches.open(cacheName))
             .then((c) => c.put(event.request, forCache))
-            .then(() => trimCache(CACHE_NAME, MAX_STATIC_ENTRIES))
             .catch(() => {});
         }
         return networkResponse;
@@ -157,8 +175,7 @@ self.addEventListener('fetch', (event) => {
     event.waitUntil(updatePromise);
 
     event.respondWith(
-      caches.open(CACHE_NAME).then(async (cache) => {
-        const cachedResponse = await cache.match(event.request);
+      caches.match(event.request).then(async (cachedResponse) => {
         if (cachedResponse) {
           return cachedResponse;
         }
