@@ -709,12 +709,25 @@ describe('Validation Schemas Unit & Boundary Tests (Etapa 3)', () => {
     expect(single.entityId).toBeUndefined();
     const batch = batchApproveImportedTransactionsSchema.parse({ items: [{ bankTransactionId: id, categoryId: null }] });
     expect(batch.items[0]!.categoryId).toBeUndefined();
-    // id preenchido continua exigindo UUID
+    // id preenchido é preservado (não vira undefined) e continua exigindo UUID
+    const catId = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
+    expect(approveImportedTransactionSchema.parse({ bankTransactionId: id, categoryId: catId }).categoryId).toBe(catId);
+    expect(batchApproveImportedTransactionsSchema.parse({ items: [{ bankTransactionId: id, entityId: catId }] }).items[0]!.entityId).toBe(catId);
     expect(approveImportedTransactionSchema.safeParse({ bankTransactionId: id, categoryId: 'x' }).success).toBe(false);
   });
 
   it('createTransactionSchema aceita entityId nulo vindo de rascunho interno e o trata como ausente', () => {
     const parsed = createTransactionSchema.parse({ type: 'despesa', amount: '10.00', description: 'Café', entityId: null });
     expect(parsed.entityId).toBeUndefined();
+    // entidade preenchida chega intacta ao caso de uso
+    expect(createTransactionSchema.parse({ type: 'despesa', amount: '10.00', description: 'Café', entityId: 'ent-1' }).entityId).toBe('ent-1');
+  });
+
+  it('connectPluggyItemSchema explica em português quando falta o itemId do Pluggy Connect', () => {
+    const r = connectPluggyItemSchema.safeParse({});
+    expect(r.success).toBe(false);
+    expect(r.error!.issues[0]!.message).toBe('O itemId retornado pelo Pluggy Connect é obrigatório.');
+    const vazio = connectPluggyItemSchema.safeParse({ itemId: '' });
+    expect(vazio.error!.issues[0]!.message).toBe('O itemId retornado pelo Pluggy Connect é obrigatório.');
   });
 });
