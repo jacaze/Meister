@@ -12,7 +12,13 @@ import {
   listBankConnections,
   deleteBankConnection,
 } from '../modules/openfinance/public.js';
-import { ValidationError } from '../shared/index.js';
+import {
+  connectPluggyItemSchema,
+  importStatementSchema,
+  approveImportedTransactionSchema,
+  batchApproveImportedTransactionsSchema,
+  ignoreImportedTransactionSchema,
+} from '../modules/openfinance/application/schemas/openfinance-schemas.js';
 
 export async function openFinanceRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', authMiddleware);
@@ -39,11 +45,7 @@ export async function openFinanceRoutes(fastify: FastifyInstance) {
     };
   }>('/openfinance/connect-item', async (request, reply) => {
     const scope = request.scope!;
-    const body = request.body || {};
-
-    if (!body.itemId || typeof body.itemId !== 'string') {
-      throw new ValidationError('O itemId retornado pelo Pluggy Connect é obrigatório.');
-    }
+    const body = connectPluggyItemSchema.parse(request.body);
 
     const result = await connectPluggyItem(scope, {
       itemId: body.itemId,
@@ -94,10 +96,7 @@ export async function openFinanceRoutes(fastify: FastifyInstance) {
     };
   }>('/imports/statement', async (request, reply) => {
     const scope = request.scope!;
-    const body = request.body || {};
-    if (!body.content || typeof body.content !== 'string') {
-      throw new ValidationError('O conteúdo do extrato (OFX ou CSV) é obrigatório.');
-    }
+    const body = importStatementSchema.parse(request.body);
 
     const result = await importStatement(scope, {
       content: body.content,
@@ -134,10 +133,7 @@ export async function openFinanceRoutes(fastify: FastifyInstance) {
     };
   }>('/imports/approve', async (request, reply) => {
     const scope = request.scope!;
-    const body = request.body || {};
-    if (!body.bankTransactionId) {
-      throw new ValidationError('bankTransactionId é obrigatório.');
-    }
+    const body = approveImportedTransactionSchema.parse(request.body);
 
     const transaction = await approveImportedTransaction(scope, {
       bankTransactionId: body.bankTransactionId,
@@ -160,7 +156,8 @@ export async function openFinanceRoutes(fastify: FastifyInstance) {
     };
   }>('/imports/batch-approve', async (request, reply) => {
     const scope = request.scope!;
-    const items = request.body?.items || [];
+    const body = batchApproveImportedTransactionsSchema.parse(request.body);
+    const items = body.items;
     const approved = [];
 
     for (const it of items) {
@@ -182,10 +179,7 @@ export async function openFinanceRoutes(fastify: FastifyInstance) {
     };
   }>('/imports/ignore', async (request, reply) => {
     const scope = request.scope!;
-    const body = request.body || {};
-    if (!body.bankTransactionId) {
-      throw new ValidationError('bankTransactionId é obrigatório.');
-    }
+    const body = ignoreImportedTransactionSchema.parse(request.body);
 
     const result = await ignoreImportedTransaction(scope, body.bankTransactionId);
     return reply.status(200).send(result);

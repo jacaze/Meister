@@ -9,6 +9,11 @@ import {
   buildMonthlyDigest,
   askFinances,
 } from '../modules/insights/public.js';
+import {
+  askFinancesSchema,
+  submitInsightFeedbackSchema,
+  runDetectorsBodySchema,
+} from '../modules/insights/application/schemas/insights-schemas.js';
 
 export async function insightRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', authMiddleware);
@@ -58,12 +63,9 @@ export async function insightRoutes(fastify: FastifyInstance) {
     };
   }>('/insights/ask', async (request, reply) => {
     const scope = request.scope!;
-    const { question } = request.body || {};
-    if (!question || typeof question !== 'string' || !question.trim()) {
-      return reply.status(400).send({ message: 'A pergunta não pode estar vazia.' });
-    }
+    const body = askFinancesSchema.parse(request.body);
 
-    const result = await askFinances(scope, question);
+    const result = await askFinances(scope, body.question);
     return reply.send(result);
   });
 
@@ -94,10 +96,11 @@ export async function insightRoutes(fastify: FastifyInstance) {
     };
   }>('/insights/:id/feedback', async (request, reply) => {
     const scope = request.scope!;
+    const body = submitInsightFeedbackSchema.parse(request.body);
     const result = await submitFeedback(scope, {
       insightId: request.params.id,
-      value: request.body.value,
-      reason: request.body.reason,
+      value: body.value,
+      reason: body.reason,
     });
     return reply.send(result);
   });
@@ -109,7 +112,11 @@ export async function insightRoutes(fastify: FastifyInstance) {
     };
   }>('/insights/run', async (request, reply) => {
     const scope = request.scope!;
-    const result = await runDetectors(scope, { entityId: request.body?.entityId });
+    const body =
+      request.body !== undefined && request.body !== null && typeof request.body === 'object' && !Array.isArray(request.body)
+        ? runDetectorsBodySchema.parse(request.body)
+        : {};
+    const result = await runDetectors(scope, { entityId: body.entityId });
     return reply.send({ count: result.length, items: result });
   });
 }

@@ -1,23 +1,20 @@
 import type { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import prisma from '../config/prisma.js';
-import { isValidAccountType } from '../services/userService.js';
 import {
   ConflictError,
   ForbiddenError,
   UnauthorizedError,
-  ValidationError,
 } from '../shared/index.js';
 import { provisionWorkspace, resolveScopeForUser } from '../modules/workspace/public.js';
 import { seedDefaultCategories } from '../modules/catalog/public.js';
+import {
+  registerUserSchema,
+  loginUserSchema,
+} from '../modules/workspace/application/schemas/auth-user-schemas.js';
 
 // Precomputed bcrypt hash (cost 10) for constant-time comparison when user does not exist
 const DUMMY_BCRYPT_HASH = '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
-
-function normalizeEmail(raw: unknown): string {
-  if (typeof raw !== 'string') return '';
-  return raw.trim().toLowerCase();
-}
 
 export async function authRoutes(
   fastify: FastifyInstance,
@@ -29,29 +26,7 @@ export async function authRoutes(
       : Number(process.env.LOCK_TIME_MINUTES) || 15;
 
   fastify.post('/register', async (request, reply) => {
-    const body = (request.body ?? {}) as {
-      name?: unknown;
-      email?: unknown;
-      password?: unknown;
-      accountType?: unknown;
-    };
-
-    const name = typeof body.name === 'string' ? body.name.trim() : '';
-    const email = normalizeEmail(body.email);
-    const password = typeof body.password === 'string' ? body.password : '';
-    const { accountType } = body;
-
-    if (!name || !email || !password) {
-      throw new ValidationError('Nome, e-mail e senha são obrigatórios.');
-    }
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
-      throw new ValidationError('Formato de e-mail inválido.');
-    }
-
-    if (accountType !== undefined && !isValidAccountType(accountType)) {
-      throw new ValidationError('Tipo de conta inválido.');
-    }
+    const { name, email, password, accountType } = registerUserSchema.parse(request.body);
 
     const existingUser = await prisma.user.findFirst({
       where: { email: { equals: email, mode: 'insensitive' } },
@@ -110,13 +85,7 @@ export async function authRoutes(
   });
 
   fastify.post('/login', async (request, reply) => {
-    const body = (request.body ?? {}) as { email?: unknown; password?: unknown };
-    const email = normalizeEmail(body.email);
-    const password = typeof body.password === 'string' ? body.password : '';
-
-    if (!email || !password) {
-      throw new ValidationError('Informe e-mail e senha.');
-    }
+    const { email, password } = loginUserSchema.parse(request.body);
 
     const user = await prisma.user.findFirst({
       where: { email: { equals: email, mode: 'insensitive' } },

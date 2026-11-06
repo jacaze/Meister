@@ -7,7 +7,9 @@ export async function me(request: FastifyRequest, reply: FastifyReply) {
 }
 
 export async function updateMe(request: FastifyRequest, reply: FastifyReply) {
-  const body = (request.body ?? {}) as { accountType?: unknown; name?: unknown };
-  const user = await userService.update(request.userId, body);
+  const user = await userService.update(
+    request.userId,
+    request.body as { accountType?: unknown; name?: unknown }
+  );
   return reply.send(user);
 }

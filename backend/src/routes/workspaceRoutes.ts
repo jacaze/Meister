@@ -5,6 +5,7 @@ import {
   updateBusinessProfile,
   type UpdateBusinessProfileInput,
 } from '../modules/workspace/public.js';
+import { updateBusinessProfileSchema } from '../modules/workspace/application/schemas/workspace-schemas.js';
 
 export async function workspaceRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', authMiddleware);
@@ -14,13 +15,15 @@ export async function workspaceRoutes(fastify: FastifyInstance) {
     return reply.send(overview);
   });
 
-  fastify.put<{ Params: { id: string }; Body: UpdateBusinessProfileInput }>(
+  fastify.put<{ Params: { id: string }; Body: unknown }>(
     '/entities/:id/business-profile',
     async (request, reply) => {
-      const updated = await updateBusinessProfile(request.scope!, {
-        ...request.body,
+      const body = updateBusinessProfileSchema.parse(request.body);
+      const input: UpdateBusinessProfileInput = {
+        ...body,
         entityId: request.params.id,
-      });
+      };
+      const updated = await updateBusinessProfile(request.scope!, input);
       return reply.send(updated);
     }
   );

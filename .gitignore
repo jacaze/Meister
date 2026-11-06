@@ -27,6 +27,7 @@ backend/src/generated/
 .claude/*
 !.claude/agents/
 !.claude/skills/
+!.claude/hardening/
 .claude/settings.local.json
 .cursor/
 .devin/

@@ -9,6 +9,7 @@ import {
   defaultEventBus,
   type WorkspaceScope,
 } from '../../../../shared/index.js';
+import { updateTransactionSchema } from '../schemas/ledger-schemas.js';
 
 export interface UpdateTransactionInput {
   readonly description?: unknown;
@@ -35,6 +36,8 @@ export async function updateTransaction(
   if (!tx) {
     throw new NotFoundError('Transação não encontrada');
   }
+
+  updateTransactionSchema.parse(input);
 
   const beforeAudit = {
     amount: tx.amount.toString(),

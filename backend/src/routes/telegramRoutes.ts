@@ -9,6 +9,7 @@ import {
   type TelegramUpdate,
 } from '../modules/telegram/public.js';
 import { UnauthorizedError, constantTimeEquals } from '../shared/index.js';
+import { telegramWebhookUpdateSchema } from '../modules/telegram/application/schemas/telegram-schemas.js';
 
 export async function telegramRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', authMiddleware);
@@ -53,7 +54,16 @@ export async function telegramWebhookRoute(fastify: FastifyInstance) {
       throw new UnauthorizedError('INVALID_WEBHOOK_SECRET', 'Secret token inválido.');
     }
 
-    const update = request.body as TelegramUpdate;
+    const parsed = telegramWebhookUpdateSchema.safeParse(request.body);
+    if (!parsed.success) {
+      // Rejeita com 400 se payload estiver malformado
+      return reply.status(400).send({
+        code: 'VALIDATION_ERROR',
+        message: 'Payload de atualização do Telegram malformado.',
+      });
+    }
+
+    const update = parsed.data as TelegramUpdate;
     if (update && typeof update === 'object' && 'update_id' in update) {
       try {
         await handleTelegramUpdate(update, channel);

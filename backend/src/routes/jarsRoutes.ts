@@ -11,6 +11,11 @@ import {
   type MapCategoriesInput,
   type BatchMapCategoriesInput,
 } from '../modules/jars/public.js';
+import {
+  createJarPlanSchema,
+  mapCategoriesSchema,
+  batchMapCategoriesSchema,
+} from '../modules/jars/application/schemas/jars-schemas.js';
 
 export async function jarsRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', authMiddleware);
@@ -26,7 +31,8 @@ export async function jarsRoutes(fastify: FastifyInstance) {
   });
 
   fastify.post<{ Body: CreateJarPlanInput }>('/jars/plan', async (request, reply) => {
-    const plan = await createJarPlan(request.scope!, request.body ?? {});
+    const body = createJarPlanSchema.parse(request.body);
+    const plan = await createJarPlan(request.scope!, body as unknown as CreateJarPlanInput);
     return reply.status(201).send(plan);
   });
 
@@ -36,12 +42,14 @@ export async function jarsRoutes(fastify: FastifyInstance) {
   });
 
   fastify.put<{ Body: MapCategoriesInput }>('/jars/categories', async (request, reply) => {
-    const result = await mapCategories(request.scope!, request.body);
+    const body = mapCategoriesSchema.parse(request.body);
+    const result = await mapCategories(request.scope!, body);
     return reply.send(result);
   });
 
   fastify.put<{ Body: BatchMapCategoriesInput }>('/jars/categories/batch', async (request, reply) => {
-    const result = await batchMapCategories(request.scope!, request.body);
+    const body = batchMapCategoriesSchema.parse(request.body);
+    const result = await batchMapCategories(request.scope!, body);
     return reply.send(result);
   });
 }

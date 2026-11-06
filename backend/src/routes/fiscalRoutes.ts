@@ -6,6 +6,7 @@ import {
   markDasPaid,
   unmarkDasPaid,
 } from '../modules/fiscal/public.js';
+import { markDasPaidSchema } from '../modules/fiscal/application/schemas/fiscal-schemas.js';
 
 export async function fiscalRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', authMiddleware);
@@ -31,10 +32,11 @@ export async function fiscalRoutes(fastify: FastifyInstance) {
   fastify.post<{ Params: { id: string }; Body: { paidOn: string; paidAmount?: string } }>(
     '/das/:id/pay',
     async (request, reply) => {
+      const body = markDasPaidSchema.parse(request.body);
       const updated = await markDasPaid(request.scope!, {
         dasId: request.params.id,
-        paidOn: request.body?.paidOn,
-        paidAmount: request.body?.paidAmount,
+        paidOn: body.paidOn,
+        paidAmount: body.paidAmount ? String(body.paidAmount) : undefined,
       });
       return reply.send(updated);
     }
