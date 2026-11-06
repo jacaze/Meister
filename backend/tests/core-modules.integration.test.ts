@@ -675,7 +675,7 @@ describe('Core Modules Integration Suite (PostgreSQL 16)', () => {
     // Execute the real migration SQL file, extracting ONLY the UPDATE statements
     const migrationFilePath = path.resolve(
       __dirname,
-      '../prisma/migrations/20261106003200_backfill_transfer_type_enum/migration.sql'
+      '../prisma/migrations/20261106001135_add_transfer_type_to_transactions/migration.sql'
     );
     const migrationSql = fs.readFileSync(migrationFilePath, 'utf8');
 
