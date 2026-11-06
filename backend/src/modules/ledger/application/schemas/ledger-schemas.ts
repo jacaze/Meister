@@ -17,7 +17,7 @@ export const createTransactionSchema = z.object({
   splits: z.array(createSplitSchema).optional(),
   financialAccountId: z.string().uuid().nullable().optional(),
   paymentMethod: z.enum(['dinheiro', 'pix', 'cartao_credito', 'cartao_debito', 'boleto', 'outro']).nullable().optional(),
-  origin: z.enum(['manual', 'open_finance', 'extrato_ofx', 'recibo', 'telegram', 'recorrente']).optional(),
+  origin: z.enum(['manual', 'open_finance', 'importacao', 'telegram']).optional(),
   status: z.enum(['confirmado', 'pendente_revisao']).optional(),
   sourceRef: z.string().nullable().optional(),
   viaPersonalAccount: z.boolean().optional(),
