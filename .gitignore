@@ -5,6 +5,7 @@ node_modules/
 .env
 .env.*
 !.env.example
+!backend/.env.test.example
 
 # ===== Builds e arquivos gerados =====
 dist/

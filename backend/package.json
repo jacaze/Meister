@@ -16,6 +16,7 @@
     "db:generate": "prisma generate",
     "db:migrate:dev": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
+    "db:test:prepare": "tsx scripts/prepare-test-db.ts",
     "db:seed": "tsx prisma/seed.ts",
     "tunnel": "tsx scripts/ngrok-tunnel.ts",
     "telegram:webhook": "tsx scripts/telegram-webhook.ts"

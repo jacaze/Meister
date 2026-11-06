@@ -270,6 +270,44 @@ Para garantir o funcionamento pleno do Service Worker, precache offline e atuali
 
 ---
 
+## Testes Automatizados
+
+O projeto conta com suítes de testes unitários, testes de propriedades e testes de integração com banco de dados real.
+
+### Banco de Dados Isolado para Testes de Integração Locais
+
+Para evitar que a execução dos testes de integração apague dados locais de desenvolvimento ou a conta de demonstração (`demo@meister.com`), os testes utilizam um banco isolado cujo nome deve terminar obrigatoriamente com o sufixo `_test` (por padrão: `meister_test`).
+
+1. **Configurar variáveis de teste:**
+   Copie o modelo de teste para criar o arquivo local ignorado pelo git:
+   ```bash
+   cp backend/.env.test.example backend/.env.test
+   ```
+
+2. **Preparar o banco de dados de teste:**
+   Execute o script para criar o banco `meister_test` (se não existir) e aplicar as migrações:
+   ```bash
+   npm --prefix backend run db:test:prepare
+   ```
+
+3. **Executar as suítes:**
+   - **Testes unitários do backend:**
+     ```bash
+     npm --prefix backend test
+     ```
+   - **Testes de integração do backend (banco `_test` obrigatório):**
+     ```bash
+     npm --prefix backend run test:integration
+     ```
+   - **Testes unitários do frontend:**
+     ```bash
+     npm --prefix frontend test
+     ```
+
+> **Trava de Segurança:** Se a variável `DATABASE_URL` apontar para um banco que não termine em `_test` (por exemplo, o banco de desenvolvimento `meister`), a suíte de integração aborta imediatamente antes de executar qualquer limpeza de tabelas.
+
+---
+
 ## Segurança
 
 - Senhas armazenadas apenas como hash (bcrypt)
