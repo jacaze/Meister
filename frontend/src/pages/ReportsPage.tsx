@@ -171,23 +171,39 @@ export const ReportsPage: React.FC = () => {
       const trendResults = await Promise.all(monthPromises);
       setMonthlyTrends(trendResults);
 
-      // 4. Fetch transactions respecting the selected period to compute category breakdown & pró-labore
-      const allTxRes = await api.get('/transactions', {
-        params: {
-          pageSize: 100,
-          type: 'despesa',
-          startDate: dates.startDate,
-          endDate: dates.endDate,
-          ...(activeEntityId ? { entityId: activeEntityId } : {}),
-        },
-      });
+      // 4. Fetch all transactions respecting the selected period to compute category breakdown & pró-labore without truncation
+      let txPage = 1;
+      let hasMore = true;
+      const allTxItems: any[] = [];
 
-      const txItems = allTxRes.data?.items || [];
+      while (hasMore) {
+        const txRes = await api.get('/transactions', {
+          params: {
+            page: txPage,
+            pageSize: 100,
+            type: 'despesa',
+            startDate: dates.startDate,
+            endDate: dates.endDate,
+            ...(activeEntityId ? { entityId: activeEntityId } : {}),
+          },
+        });
+
+        const items = txRes.data?.items || [];
+        allTxItems.push(...items);
+
+        const totalPages = txRes.data?.totalPaginas || (txRes.data?.total ? Math.ceil(txRes.data.total / 100) : 1);
+        if (txPage >= totalPages || items.length === 0) {
+          hasMore = false;
+        } else {
+          txPage++;
+        }
+      }
+
       const catTotals: Record<string, number> = {};
       let totalExpenseSum = 0;
       let ownerWithdrawals = 0;
 
-      for (const tx of txItems) {
+      for (const tx of allTxItems) {
         const amt = parseFloat(tx.amount) || 0;
         const isTransfer = tx.transferType === 'transfer';
         const isProLabore =
