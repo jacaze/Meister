@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,6 +29,7 @@ if (!databaseUrl) {
 const parsedUrl = new URL(databaseUrl);
 const dbName = parsedUrl.pathname.replace(/^\//, '');
 
+// Trava de segurança: somente bancos com sufixo _test
 if (!dbName.endsWith('_test')) {
   console.error(`❌ Trava de segurança ativada: o banco de dados "${dbName}" não termina com "_test".`);
   process.exit(1);
@@ -36,34 +37,10 @@ if (!dbName.endsWith('_test')) {
 
 function prepareTestDatabase() {
   console.log(`🔧 Preparando banco de dados de testes: ${dbName}...`);
-
-  const user = parsedUrl.username || 'meister';
-  const password = parsedUrl.password || '';
-  const host = parsedUrl.hostname || 'localhost';
-  const port = parsedUrl.port || '5432';
-
-  // Usar psql para criar o banco de dados caso não exista conectando em 'postgres'
-  const checkCmd = `PGPASSWORD="${password}" psql -h "${host}" -p "${port}" -U "${user}" -d postgres -tc "SELECT 1 FROM pg_database WHERE datname = '${dbName}'"`;
-  try {
-    const res = execSync(checkCmd, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
-    if (res !== '1') {
-      console.log(`📦 Criando banco de dados "${dbName}"...`);
-      execSync(`PGPASSWORD="${password}" psql -h "${host}" -p "${port}" -U "${user}" -d postgres -c "CREATE DATABASE \\"${dbName}\\";"`, {
-        stdio: 'inherit',
-      });
-      console.log(`✅ Banco "${dbName}" criado com sucesso.`);
-    } else {
-      console.log(`ℹ️  Banco de dados "${dbName}" já existe.`);
-    }
-  } catch (err) {
-    console.error('❌ Erro ao conectar/criar banco de teste via psql:', err);
-    process.exit(1);
-  }
-
-  // Rodar prisma migrate deploy no banco de teste
   console.log(`🚀 Executando prisma migrate deploy no banco "${dbName}"...`);
+
   try {
-    execSync('npx prisma migrate deploy', {
+    execFileSync('npx', ['prisma', 'migrate', 'deploy'], {
       cwd: backendDir,
       stdio: 'inherit',
       env: {
