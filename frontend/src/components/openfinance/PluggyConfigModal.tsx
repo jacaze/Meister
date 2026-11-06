@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Sheet from '../ui/Sheet.js';
 import Mel from '../brand/Mel.js';
-import { Bank, CheckCircle, Info, CircleNotch } from '../ui/icons.js';
+import { ArrowsClockwise, Bank, CheckCircle, Info, CircleNotch, WarningCircle } from '../ui/icons.js';
 import api from '../../api/client.js';
 
 interface PluggyConfigModalProps {
@@ -19,13 +19,19 @@ export const PluggyConfigModal: React.FC<PluggyConfigModalProps> = ({
     readonly hasCredentials: boolean;
   } | null>(null);
 
+  const [loadFailed, setLoadFailed] = useState(false);
+
   const fetchCurrentConfig = useCallback(async () => {
     setFetching(true);
+    setLoadFailed(false);
     try {
       const res = await api.get('/openfinance/config');
       setConfigStatus(res.data);
     } catch (err: unknown) {
+      // Falha ao consultar não é o mesmo que "sem credenciais": mostra o erro com nova tentativa.
       console.error('Erro ao consultar config Pluggy:', err);
+      setConfigStatus(null);
+      setLoadFailed(true);
     } finally {
       setFetching(false);
     }
@@ -64,6 +70,22 @@ export const PluggyConfigModal: React.FC<PluggyConfigModalProps> = ({
           <div className="p-4 rounded-2xl bg-field border border-ink/5 flex items-center gap-2.5 text-xs text-muted">
             <CircleNotch size={18} className="animate-spin text-brand" />
             <span>Verificando credenciais de conexão no servidor...</span>
+          </div>
+        ) : loadFailed ? (
+          <div role="alert" className="p-4 rounded-2xl bg-danger/10 border border-danger/30 space-y-3">
+            <div className="flex items-center gap-2 text-danger">
+              <WarningCircle size={18} weight="bold" />
+              <span className="text-xs font-extrabold">Não foi possível verificar a integração agora</span>
+            </div>
+            <p className="text-xs text-ink-soft">Pode ser a conexão ou o servidor. Isso não quer dizer que as credenciais estão faltando.</p>
+            <button
+              type="button"
+              onClick={fetchCurrentConfig}
+              className="min-h-[44px] px-4 py-2 rounded-xl bg-card ring-1 ring-ink/10 text-xs font-bold text-ink inline-flex items-center gap-2 hover:bg-field transition"
+            >
+              <ArrowsClockwise size={16} weight="bold" />
+              Tentar de novo
+            </button>
           </div>
         ) : configStatus?.hasCredentials ? (
           <div className="p-4 rounded-2xl bg-success/10 border border-success/30 space-y-2">
