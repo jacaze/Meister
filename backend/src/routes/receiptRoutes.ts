@@ -3,6 +3,10 @@ import type { PaymentMethod } from '@prisma/client';
 import authMiddleware from '../middlewares/authMiddleware.js';
 import { parseReceiptPhoto, registerReceipt } from '../modules/receipts/public.js';
 import { createTransaction } from '../modules/ledger/public.js';
+import {
+  parseReceiptPhotoSchema,
+  confirmReceiptSchema,
+} from '../modules/receipts/application/schemas/receipt-schemas.js';
 
 export async function receiptRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', authMiddleware);
@@ -16,7 +20,8 @@ export async function receiptRoutes(fastify: FastifyInstance) {
     };
   }>('/receipts/parse', async (request, reply) => {
     const scope = request.scope!;
-    const result = await parseReceiptPhoto(scope, request.body || {});
+    const body = parseReceiptPhotoSchema.parse(request.body || {});
+    const result = await parseReceiptPhoto(scope, body);
     return reply.send(result);
   });
 
@@ -34,7 +39,7 @@ export async function receiptRoutes(fastify: FastifyInstance) {
     };
   }>('/receipts/confirm', async (request, reply) => {
     const scope = request.scope!;
-    const body = request.body;
+    const body = confirmReceiptSchema.parse(request.body || {});
 
     const transaction = await createTransaction(scope, {
       type: 'despesa',
