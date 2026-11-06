@@ -1,5 +1,6 @@
 // Service Worker MEIster — Cache de assets estáticos e SPA offline resiliente (exclui estritamente /api)
-const CACHE_NAME = 'meister-static-v2';
+const CACHE_NAME = 'meister-static-v3';
+const MAX_STATIC_ENTRIES = 60;
 const STATIC_EXTENSIONS = [
   '.js',
   '.css',
@@ -11,6 +12,15 @@ const STATIC_EXTENSIONS = [
   '.woff2',
   '.ttf',
 ];
+
+async function trimCache(cacheName, maxItems) {
+  const cache = await caches.open(cacheName);
+  const keys = await cache.keys();
+  if (keys.length > maxItems) {
+    await cache.delete(keys[0]);
+    return trimCache(cacheName, maxItems);
+  }
+}
 
 self.addEventListener('install', () => {
   self.skipWaiting();
@@ -64,9 +74,15 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse;
         })
-        .catch(() => {
-          return caches.match(event.request).then((cached) => {
-            return cached || caches.match('/index.html');
+        .catch(async () => {
+          const cached = await caches.match(event.request);
+          if (cached) return cached;
+          const indexFallback = await caches.match('/index.html');
+          if (indexFallback) return indexFallback;
+          return new Response('Rede indisponível no momento.', {
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' },
           });
         })
     );
@@ -77,24 +93,36 @@ self.addEventListener('fetch', (event) => {
   const isStaticAsset = STATIC_EXTENSIONS.some((ext) => url.pathname.endsWith(ext));
   if (isStaticAsset) {
     event.respondWith(
-      caches.open(CACHE_NAME).then((cache) =>
-        cache.match(event.request).then((cachedResponse) => {
-          const fetchPromise = fetch(event.request)
-            .then((networkResponse) => {
-              if (
-                networkResponse &&
-                networkResponse.status === 200 &&
-                networkResponse.type === 'basic'
-              ) {
-                cache.put(event.request, networkResponse.clone());
-              }
-              return networkResponse;
-            })
-            .catch(() => cachedResponse);
+      caches.open(CACHE_NAME).then(async (cache) => {
+        const cachedResponse = await cache.match(event.request);
+        const fetchPromise = fetch(event.request)
+          .then((networkResponse) => {
+            if (
+              networkResponse &&
+              networkResponse.status === 200 &&
+              networkResponse.type === 'basic'
+            ) {
+              cache.put(event.request, networkResponse.clone());
+              trimCache(CACHE_NAME, MAX_STATIC_ENTRIES).catch(() => {});
+            }
+            return networkResponse;
+          })
+          .catch(() => null);
 
-          return cachedResponse || fetchPromise;
-        })
-      )
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+
+        const networkRes = await fetchPromise;
+        if (networkRes) {
+          return networkRes;
+        }
+
+        return new Response('', {
+          status: 504,
+          statusText: 'Gateway Timeout',
+        });
+      })
     );
   }
 });
