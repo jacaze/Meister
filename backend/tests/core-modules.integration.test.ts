@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app.js';
@@ -524,36 +526,59 @@ describe('Core Modules Integration Suite (PostgreSQL 16)', () => {
       ],
     });
 
-    // Execute the exact backfill query from migration
-    await prisma.$executeRawUnsafe(`
-      UPDATE "transactions" t
-      SET "transfer_type" = 'pro_labore'::"TransferType"
-      WHERE t."transfer_group_id" IS NOT NULL
-        AND t."transfer_type" IS NULL
-        AND EXISTS (
-          SELECT 1
-          FROM "transactions" t_pj
-          JOIN "entities" e_pj ON e_pj."id" = t_pj."entity_id"
-          WHERE t_pj."transfer_group_id" = t."transfer_group_id"
-            AND e_pj."kind" = 'pj'
-            AND (t_pj."direction" = 'out' OR t_pj."type" = 'despesa')
-        )
-        AND EXISTS (
-          SELECT 1
-          FROM "transactions" t_pf
-          JOIN "entities" e_pf ON e_pf."id" = t_pf."entity_id"
-          WHERE t_pf."transfer_group_id" = t."transfer_group_id"
-            AND e_pf."kind" = 'pf'
-            AND (t_pf."direction" = 'in' OR t_pf."type" = 'receita')
-        );
-    `);
+    // Caso 1 do backfill: Categoria com slug 'pro-labore' vinculada mesmo sem padrão estrito PJ->PF
+    const proLaboreCategory = await prisma.category.findFirst({
+      where: { workspaceId: wsOverview.workspace.id, slug: 'pro-labore' },
+    });
+    const legacyCategoryTransferGroupId = `legacy_cat_pro_labore_${Date.now()}`;
+    await prisma.transaction.createMany({
+      data: [
+        {
+          workspaceId: wsOverview.workspace.id,
+          entityId: pfEntity.id,
+          type: 'despesa',
+          direction: 'out',
+          amount: 250,
+          description: 'Transferência legada PF com categoria pro-labore OUT',
+          transactionDate: new Date('2026-10-03'),
+          transferGroupId: legacyCategoryTransferGroupId,
+          transferType: null,
+          status: 'confirmado',
+        },
+        {
+          workspaceId: wsOverview.workspace.id,
+          entityId: pfEntity.id,
+          categoryId: proLaboreCategory?.id ?? null,
+          type: 'receita',
+          direction: 'in',
+          amount: 250,
+          description: 'Transferência legada PF com categoria pro-labore IN',
+          transactionDate: new Date('2026-10-03'),
+          transferGroupId: legacyCategoryTransferGroupId,
+          transferType: null,
+          status: 'confirmado',
+        },
+      ],
+    });
 
-    await prisma.$executeRawUnsafe(`
-      UPDATE "transactions" t
-      SET "transfer_type" = 'transfer'::"TransferType"
-      WHERE t."transfer_group_id" IS NOT NULL
-        AND t."transfer_type" IS NULL;
-    `);
+    // Execute the real migration SQL file, extracting ONLY the UPDATE statements
+    const migrationFilePath = path.resolve(
+      __dirname,
+      '../prisma/migrations/20261106003200_backfill_transfer_type_enum/migration.sql'
+    );
+    const migrationSql = fs.readFileSync(migrationFilePath, 'utf8');
+
+    // Split statements by semicolon, strip comments, filter only UPDATE statements
+    const updateStatements = migrationSql
+      .split(';')
+      .map((stmt) => stmt.replace(/--.*$/gm, '').trim())
+      .filter((stmt) => stmt.toUpperCase().startsWith('UPDATE'));
+
+    expect(updateStatements.length).toBeGreaterThanOrEqual(3);
+
+    for (const stmt of updateStatements) {
+      await prisma.$executeRawUnsafe(stmt);
+    }
 
     const backfilledProLabore = await prisma.transaction.findFirst({
       where: { transferGroupId: legacyTransferGroupId, direction: 'out' },
@@ -561,8 +586,12 @@ describe('Core Modules Integration Suite (PostgreSQL 16)', () => {
     const backfilledAccountTransfer = await prisma.transaction.findFirst({
       where: { transferGroupId: legacyAccountTransferGroupId, direction: 'out' },
     });
+    const backfilledCategoryProLabore = await prisma.transaction.findFirst({
+      where: { transferGroupId: legacyCategoryTransferGroupId, direction: 'out' },
+    });
 
     expect(backfilledProLabore?.transferType).toBe('pro_labore');
     expect(backfilledAccountTransfer?.transferType).toBe('transfer');
+    expect(backfilledCategoryProLabore?.transferType).toBe('pro_labore');
   });
 });
