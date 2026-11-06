@@ -8,6 +8,7 @@ import CheckRow from '../ui/CheckRow.js';
 import Mel from '../brand/Mel.js';
 import { celebrate, haptic } from '../../lib/celebrate.js';
 import { parseBRL } from '../../lib/money.js';
+import { todayLocalIso } from '../../lib/date.js';
 
 interface QuickTransactionModalProps {
   readonly onClose: () => void;
@@ -44,7 +45,7 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
   const [description, setDescription] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('pix');
-  const [transactionDate, setTransactionDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [transactionDate, setTransactionDate] = useState(() => todayLocalIso());
   const [entityId, setEntityId] = useState(activeEntityId || '');
   const [viaPersonalAccount, setViaPersonalAccount] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);

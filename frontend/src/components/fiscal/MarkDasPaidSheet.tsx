@@ -6,6 +6,7 @@ import api from '../../api/client.js';
 import { useToast } from '../ui/Toast.js';
 import { formatBRL, parseBRL } from '../../lib/money.js';
 import { celebrate, haptic } from '../../lib/celebrate.js';
+import { todayLocalIso } from '../../lib/date.js';
 
 export interface DasItemForPay {
   readonly id: string;
@@ -40,14 +41,14 @@ export const MarkDasPaidSheet: React.FC<MarkDasPaidSheetProps> = ({
   onSaved,
 }) => {
   const toast = useToast();
-  const [paidOn, setPaidOn] = useState(() => new Date().toISOString().slice(0, 10));
+  const [paidOn, setPaidOn] = useState(() => todayLocalIso());
   const [paidAmount, setPaidAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (das) {
-      setPaidOn(new Date().toISOString().slice(0, 10));
+      setPaidOn(todayLocalIso());
       setPaidAmount(das.amount || '');
       setError(null);
     }
@@ -146,7 +147,7 @@ export const MarkDasPaidSheet: React.FC<MarkDasPaidSheetProps> = ({
             <input
               type="date"
               value={paidOn}
-              max={new Date().toISOString().slice(0, 10)}
+              max={todayLocalIso()}
               onChange={(e) => setPaidOn(e.target.value)}
               required
               className="w-full min-h-[44px] px-3.5 py-2.5 bg-canvas border border-ink/10 rounded-2xl text-sm font-medium text-ink focus:outline-none focus:border-primary transition"

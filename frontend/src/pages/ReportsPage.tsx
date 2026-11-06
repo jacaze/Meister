@@ -19,6 +19,7 @@ import {
   ArrowSquareOut,
   Info,
 } from '../components/ui/icons.js';
+import { toLocalIsoDate } from '../lib/date.js';
 
 interface MonthComparison {
   readonly monthName: string;
@@ -56,7 +57,7 @@ function getPeriodDates(period: PeriodFilter): { startDate: string; endDate: str
   const now = new Date();
   const y = now.getFullYear();
   const m = now.getMonth();
-  const todayIso = now.toISOString().slice(0, 10);
+  const todayIso = toLocalIsoDate(now);
 
   if (period === 'mes_atual') {
     const firstDay = `${y}-${String(m + 1).padStart(2, '0')}-01`;

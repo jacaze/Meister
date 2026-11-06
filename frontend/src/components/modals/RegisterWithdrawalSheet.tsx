@@ -6,6 +6,7 @@ import api from '../../api/client.js';
 import { useToast } from '../ui/Toast.js';
 import { parseBRL } from '../../lib/money.js';
 import { celebrate, haptic } from '../../lib/celebrate.js';
+import { todayLocalIso } from '../../lib/date.js';
 
 interface RegisterWithdrawalSheetProps {
   readonly open: boolean;
@@ -20,7 +21,7 @@ export const RegisterWithdrawalSheet: React.FC<RegisterWithdrawalSheetProps> = (
 }) => {
   const toast = useToast();
   const [amount, setAmount] = useState('');
-  const [occurredOn, setOccurredOn] = useState(() => new Date().toISOString().slice(0, 10));
+  const [occurredOn, setOccurredOn] = useState(() => todayLocalIso());
   const [description, setDescription] = useState('Retirada de Pró-labore');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +29,7 @@ export const RegisterWithdrawalSheet: React.FC<RegisterWithdrawalSheetProps> = (
   useEffect(() => {
     if (open) {
       setAmount('');
-      setOccurredOn(new Date().toISOString().slice(0, 10));
+      setOccurredOn(todayLocalIso());
       setDescription('Retirada de Pró-labore');
       setError(null);
     }
@@ -145,7 +146,7 @@ export const RegisterWithdrawalSheet: React.FC<RegisterWithdrawalSheetProps> = (
           <input
             type="date"
             value={occurredOn}
-            max={new Date().toISOString().slice(0, 10)}
+            max={todayLocalIso()}
             onChange={(e) => setOccurredOn(e.target.value)}
             required
             className="w-full min-h-[44px] px-3.5 py-2.5 bg-canvas border border-ink/10 rounded-2xl text-sm font-medium text-ink focus:outline-none focus:border-primary transition"

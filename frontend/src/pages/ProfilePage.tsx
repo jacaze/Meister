@@ -16,6 +16,7 @@ import {
   ArrowSquareOut,
   FileText,
 } from '../components/ui/icons.js';
+import { todayLocalIso } from '../lib/date.js';
 
 // Algoritmo oficial de validação de dígitos verificadores do CNPJ
 function isValidCnpj(cnpj: string): boolean {
@@ -206,7 +207,7 @@ export const ProfilePage: React.FC = () => {
       const objectUrl = URL.createObjectURL(blob);
       const downloadAnchor = document.createElement('a');
       downloadAnchor.setAttribute('href', objectUrl);
-      downloadAnchor.setAttribute('download', `meister-export-lgpd-${new Date().toISOString().slice(0, 10)}.json`);
+      downloadAnchor.setAttribute('download', `meister-export-lgpd-${todayLocalIso()}.json`);
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
       downloadAnchor.remove();
@@ -319,7 +320,7 @@ export const ProfilePage: React.FC = () => {
                 <input
                   type="date"
                   min="2009-07-01"
-                  max={new Date().toISOString().slice(0, 10)}
+                  max={todayLocalIso()}
                   value={openedOn}
                   onChange={(e) => {
                     setOpenedOn(e.target.value);
