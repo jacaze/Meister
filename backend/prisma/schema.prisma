@@ -150,6 +150,7 @@ model Entity {
   name        String
   cnpj        String?   @unique
   legalName   String?   @map("legal_name")
+  tradeName   String?   @map("trade_name")
   openedOn    DateTime? @map("opened_on") @db.Date
   activity    String?   // comercio | servicos | misto
   isMei       Boolean   @default(false) @map("is_mei")

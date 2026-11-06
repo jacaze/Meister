@@ -86,6 +86,7 @@ export async function exportUserData(scope: WorkspaceScope): Promise<UserDataExp
         name: e.name,
         cnpj: e.cnpj,
         legalName: e.legalName,
+        tradeName: e.tradeName,
         isMei: e.isMei,
       })),
     })),

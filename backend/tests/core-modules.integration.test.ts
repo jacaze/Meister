@@ -94,6 +94,7 @@ describe('Core Modules Integration Suite (PostgreSQL 16)', () => {
       payload: {
         cnpj: validCnpj,
         legalName: 'Carlos Silva Instalacoes MEI',
+        tradeName: '  Carlão Instalações  ',
         openedOn: '2026-02-15',
         activity: 'servicos',
       },
@@ -102,6 +103,14 @@ describe('Core Modules Integration Suite (PostgreSQL 16)', () => {
     const updatedEntity = updateProfileRes.json();
     expect(updatedEntity.cnpj).toBe(validCnpj);
     expect(updatedEntity.activity).toBe('servicos');
+    expect(updatedEntity.tradeName).toBe('Carlão Instalações');
+
+    // O nome fantasia volta no overview (é de lá que o Perfil carrega o formulário)
+    const overviewAfter = (
+      await app.inject({ method: 'GET', url: '/api/workspace', headers: { authorization: `Bearer ${token}` } })
+    ).json();
+    const pjAfter = overviewAfter.entities.find((e: { id: string }) => e.id === pjEntity.id);
+    expect(pjAfter.tradeName).toBe('Carlão Instalações');
 
     // 3. Proportional MEI limit check for opening in Feb 2026
     // Months = 12 - (2 - 1) = 11 months -> 11 * 6750 = 74,250.00

@@ -28,6 +28,7 @@ export interface UserDataExport {
       readonly name: string;
       readonly cnpj?: string | null;
       readonly legalName?: string | null;
+      readonly tradeName?: string | null;
       readonly isMei: boolean;
     }>;
   }>;

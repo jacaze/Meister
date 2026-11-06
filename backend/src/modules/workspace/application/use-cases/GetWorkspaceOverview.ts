@@ -24,6 +24,7 @@ export async function getWorkspaceOverview(scope: WorkspaceScope) {
       name: e.name,
       cnpj: e.cnpj,
       legalName: e.legalName,
+      tradeName: e.tradeName,
       openedOn: e.openedOn ? e.openedOn.toISOString().slice(0, 10) : null,
       activity: e.activity,
       isMei: e.isMei,

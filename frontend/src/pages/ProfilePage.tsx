@@ -100,6 +100,7 @@ export const ProfilePage: React.FC = () => {
     if (pjEntity && !formInitialized) {
       setCnpj(pjEntity.cnpj ? formatCnpj(pjEntity.cnpj) : '');
       setLegalName(pjEntity.legalName || '');
+      setTradeName(pjEntity.tradeName || '');
       setTradeName(pjEntity.name || '');
       setOpenedOn(pjEntity.openedOn ? pjEntity.openedOn.slice(0, 10) : '');
       setActivity(pjEntity.activity || 'servicos');
@@ -138,6 +139,7 @@ export const ProfilePage: React.FC = () => {
       await api.put(`/entities/${pjEntity.id}/business-profile`, {
         cnpj: cleanCnpj,
         legalName: legalName.trim() || null,
+        tradeName: tradeName.trim() || null,
         openedOn,
         activity,
       });
