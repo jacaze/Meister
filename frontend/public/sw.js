@@ -134,33 +134,36 @@ self.addEventListener('fetch', (event) => {
   // 2. Assets estáticos com extensão conhecida: Cache-First com atualização em background
   const isStaticAsset = STATIC_EXTENSIONS.some((ext) => url.pathname.endsWith(ext));
   if (isStaticAsset) {
+    // Dispara a busca na rede e o salvamento em cache de forma síncrona
+    const updatePromise = fetch(event.request)
+      .then((networkResponse) => {
+        if (
+          networkResponse &&
+          networkResponse.status === 200 &&
+          networkResponse.type === 'basic'
+        ) {
+          const forCache = networkResponse.clone();
+          caches
+            .open(CACHE_NAME)
+            .then((c) => c.put(event.request, forCache))
+            .then(() => trimCache(CACHE_NAME, MAX_STATIC_ENTRIES))
+            .catch(() => {});
+        }
+        return networkResponse;
+      })
+      .catch(() => null);
+
+    // Registra imediatamente o trabalho de atualização em segundo plano para o SW não morrer
+    event.waitUntil(updatePromise);
+
     event.respondWith(
       caches.open(CACHE_NAME).then(async (cache) => {
         const cachedResponse = await cache.match(event.request);
-        const fetchPromise = fetch(event.request)
-          .then((networkResponse) => {
-            if (
-              networkResponse &&
-              networkResponse.status === 200 &&
-              networkResponse.type === 'basic'
-            ) {
-              const forCache = networkResponse.clone();
-              event.waitUntil(
-                caches
-                  .open(CACHE_NAME)
-                  .then((c) => c.put(event.request, forCache))
-                  .then(() => trimCache(CACHE_NAME, MAX_STATIC_ENTRIES))
-              );
-            }
-            return networkResponse;
-          })
-          .catch(() => null);
-
         if (cachedResponse) {
           return cachedResponse;
         }
 
-        const networkRes = await fetchPromise;
+        const networkRes = await updatePromise;
         if (networkRes) {
           return networkRes;
         }
