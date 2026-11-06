@@ -202,13 +202,15 @@ export const ProfilePage: React.FC = () => {
     setExportingData(true);
     try {
       const res = await api.get('/me/export');
-      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(res.data, null, 2));
+      const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+      const objectUrl = URL.createObjectURL(blob);
       const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute('href', dataStr);
+      downloadAnchor.setAttribute('href', objectUrl);
       downloadAnchor.setAttribute('download', `meister-export-lgpd-${new Date().toISOString().slice(0, 10)}.json`);
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
       downloadAnchor.remove();
+      URL.revokeObjectURL(objectUrl);
 
       toast.success('Portabilidade de dados (LGPD) concluída com sucesso!');
     } catch {
