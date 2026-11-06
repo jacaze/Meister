@@ -1,0 +1,26 @@
+[P-S1 papel desconhecido escreve?] "ForbiddenError"  | esperado: ForbiddenError
+[P-TS1 POST com entityId de outro workspace] 404  | esperado: 404
+[P-CT1 categoria de outro workspace (pendente)] "Categoria não encontrada"  | esperado: erro de validação
+[P-C1 LocalDate.fromInput] [["04/11/2026","2026-11-04"],["2026","ERRO"],["1","ERRO"],["2026-11-4","ERRO"],["31/02/2026","ERRO"]]  | esperado: 04/11/2026→2026-11-04; demais ERRO
+[P-LT1 resultado negativo na listagem] "-250.00"  | esperado: "-250.00" sem erro
+[P-TR1a limite MEI após transferência PF→PJ de 10000] ["0.00","0.00"]  | esperado: inalterado
+[P-TR1b dashboard período (entradas, despesas)] {"entradas":[0,0],"despesas":[250,250]}  | esperado: inalterados
+[P-TR1c resumo do ledger (entradas, despesas)] {"entradas":["0.00","0.00"],"despesas":["250.00","250.00"]}  | esperado: inalterados
+[P-orfa DELETE de uma perna (legado): pernas vivas] 0  | esperado: 0
+[P-TS5 PUT type em lançamento sem categoria] 400  | esperado: 400
+[P-TS4 PUT amount numa perna de transferência] {"status":400,"pernas":["50","50"]}  | esperado: 400 ou par alinhado
+[P-UT1 PUT amount divergente dos splits] 400  | esperado: 400
+[P-CT3 8 creates simultâneos, mesmo sourceRef] {"ok":8}  | esperado: 8
+[P-N1 restaurar (ledger) dividido sem splits] {"total":"30","temCategoria":true,"somaSplits":0}  | esperado: somaSplits 0 (splits antigos removidos)
+[P-N2 6 restaurações simultâneas (total 100)] {"ok":6,"somaSplits":100,"auditsRestore":1}  | esperado: somaSplits 100, 1 audit de restore
+[P-N3 restaurar pelo legado] {"status":201,"total":"7","somaSplits":0,"audits":3}  | esperado: splits removidos + audit de restore
+[P-N4 cliente ocupa sourceRef do Open Finance] {"devolvido":"5000","origin":"importacao"}  | esperado: importação de 5000 gravada
+[P-N4b sourceRef interno aceito pelo POST legado?] {"pluggy:x":400,"ofx:x":400,"csv:x":400,"proposal:x":400,"tg:msg:1":400,"tg:photo:x":400,"PLUGGY:x":400}  | esperado: todos 400
+[P-N4c cliente ocupa sourceRef de importação CSV] {"devolvido":"5000","origin":"importacao"}  | esperado: importação de 5000 gravada
+[P-TR1d resumo GET /api/transactions (legado)] {"entradas":[0,0],"despesas":[0,0]}  | esperado: inalterados
+[P-TS4b PUT data numa perna de transferência] {"status":400,"datas":["2026-11-04","2026-11-04"]}  | esperado: 400 ou datas alinhadas
+[P-WH webhook sem segredo / segredo errado] [401,401]  | esperado: 401 / 401
+[P-CFG POST de credenciais globais] [404,404]  | esperado: 404 / 404
+[P-N2b eventos transaction.created em 6 restaurações simultâneas] 1  | esperado: 1
+[P-TG1 5 entregas simultâneas do mesmo update_id] {"http":[200],"registros":1,"status":["processada"]}  | esperado: 1 registro, processada
+[P-TG2 reenvio de update preso em processando] {"status":"processando","processadoEm":null}  | esperado: reprocessado após prazo (ou documentado como perda)

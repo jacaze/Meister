@@ -1,0 +1,740 @@
+◇ injected env (7) from .env.test // tip: ⌘ override existing { override: true }
+# Probe de fuzz de rotas — DEPOIS
+
+Rotas-alvo: 46 | Rotas inexistentes: 0
+
+| Rota | Cenário | Status | Código | Alerta |
+|---|---|:---:|---|:---:|
+| POST /api/register | corpo null | 400 | VALIDATION_ERROR |  |
+| POST /api/register | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| POST /api/register | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| POST /api/register | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| POST /api/register | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| POST /api/register | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| POST /api/register | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/register | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/register | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| POST /api/register | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| POST /api/register | campos como objeto | 400 | VALIDATION_ERROR |  |
+| POST /api/register | campos como null | 400 | VALIDATION_ERROR |  |
+| POST /api/register | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| POST /api/register | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| POST /api/register | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| POST /api/login | corpo null | 400 | VALIDATION_ERROR |  |
+| POST /api/login | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| POST /api/login | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| POST /api/login | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| POST /api/login | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| POST /api/login | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| POST /api/login | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/login | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/login | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| POST /api/login | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| POST /api/login | campos como objeto | 400 | VALIDATION_ERROR |  |
+| POST /api/login | campos como null | 400 | VALIDATION_ERROR |  |
+| POST /api/login | campos numéricos como "1500" | 401 | UNAUTHORIZED |  |
+| POST /api/login | campos como "1.500,00" | 401 | UNAUTHORIZED |  |
+| POST /api/login | datas inválidas "2026-02-30" | 401 | UNAUTHORIZED |  |
+| POST /api/receipts/parse | corpo null | 400 | VALIDATION_ERROR |  |
+| POST /api/receipts/parse | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| POST /api/receipts/parse | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| POST /api/receipts/parse | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| POST /api/receipts/parse | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| POST /api/receipts/parse | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| POST /api/receipts/parse | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/receipts/parse | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/receipts/parse | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| POST /api/receipts/parse | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| POST /api/receipts/parse | campos como objeto | 400 | VALIDATION_ERROR |  |
+| POST /api/receipts/parse | campos como null | 400 | VALIDATION_ERROR |  |
+| POST /api/receipts/parse | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| POST /api/receipts/parse | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| POST /api/receipts/parse | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| POST /api/receipts/confirm | corpo null | 400 | VALIDATION_ERROR |  |
+| POST /api/receipts/confirm | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| POST /api/receipts/confirm | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| POST /api/receipts/confirm | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| POST /api/receipts/confirm | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| POST /api/receipts/confirm | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| POST /api/receipts/confirm | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/receipts/confirm | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/receipts/confirm | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| POST /api/receipts/confirm | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| POST /api/receipts/confirm | campos como objeto | 400 | VALIDATION_ERROR |  |
+| POST /api/receipts/confirm | campos como null | 400 | VALIDATION_ERROR |  |
+| POST /api/receipts/confirm | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| POST /api/receipts/confirm | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| POST /api/receipts/confirm | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| POST /api/categories | corpo null | 400 | VALIDATION_ERROR |  |
+| POST /api/categories | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| POST /api/categories | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| POST /api/categories | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| POST /api/categories | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| POST /api/categories | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| POST /api/categories | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/categories | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/categories | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| POST /api/categories | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| POST /api/categories | campos como objeto | 400 | VALIDATION_ERROR |  |
+| POST /api/categories | campos como null | 400 | VALIDATION_ERROR |  |
+| POST /api/categories | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| POST /api/categories | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| POST /api/categories | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| PUT /api/categories/:id | corpo null | 400 | VALIDATION_ERROR |  |
+| PUT /api/categories/:id | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| PUT /api/categories/:id | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| PUT /api/categories/:id | objeto vazio {} | 404 | NOT_FOUND |  |
+| PUT /api/categories/:id | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| PUT /api/categories/:id | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| PUT /api/categories/:id | chave __proto__ | 400 | REQUEST_ERROR |  |
+| PUT /api/categories/:id | chave constructor | 400 | REQUEST_ERROR |  |
+| PUT /api/categories/:id | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| PUT /api/categories/:id | campo isolado com tipo inválido | 404 | NOT_FOUND |  |
+| PUT /api/categories/:id | campos como objeto | 400 | VALIDATION_ERROR |  |
+| PUT /api/categories/:id | campos como null | 400 | VALIDATION_ERROR |  |
+| PUT /api/categories/:id | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| PUT /api/categories/:id | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| PUT /api/categories/:id | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| PUT /api/categories/:id | :id UUID inválido | 404 | NOT_FOUND |  |
+| PUT /api/categories/:id | :id UUID inexistente | 404 | NOT_FOUND |  |
+| PUT /api/categories/:id | :id de OUTRO workspace | 404 | NOT_FOUND |  |
+| DELETE /api/categories/:id | corpo null | 404 | NOT_FOUND |  |
+| DELETE /api/categories/:id | array no lugar de objeto [] | 404 | NOT_FOUND |  |
+| DELETE /api/categories/:id | Content-Type text/plain | 404 | NOT_FOUND |  |
+| DELETE /api/categories/:id | objeto vazio {} | 404 | NOT_FOUND |  |
+| DELETE /api/categories/:id | string de 1 MB nos campos | 404 | NOT_FOUND |  |
+| DELETE /api/categories/:id | objeto aninhado (50 níveis) | 404 | NOT_FOUND |  |
+| DELETE /api/categories/:id | chave __proto__ | 400 | REQUEST_ERROR |  |
+| DELETE /api/categories/:id | chave constructor | 400 | REQUEST_ERROR |  |
+| DELETE /api/categories/:id | campos como número 123 | 404 | NOT_FOUND |  |
+| DELETE /api/categories/:id | campo isolado com tipo inválido | 404 | NOT_FOUND |  |
+| DELETE /api/categories/:id | campos como objeto | 404 | NOT_FOUND |  |
+| DELETE /api/categories/:id | campos como null | 404 | NOT_FOUND |  |
+| DELETE /api/categories/:id | campos numéricos como "1500" | 404 | NOT_FOUND |  |
+| DELETE /api/categories/:id | campos como "1.500,00" | 404 | NOT_FOUND |  |
+| DELETE /api/categories/:id | datas inválidas "2026-02-30" | 404 | NOT_FOUND |  |
+| DELETE /api/categories/:id | :id UUID inválido | 404 | NOT_FOUND |  |
+| DELETE /api/categories/:id | :id UUID inexistente | 404 | NOT_FOUND |  |
+| DELETE /api/categories/:id | :id de OUTRO workspace | 404 | NOT_FOUND |  |
+| POST /api/consents | corpo null | 400 | VALIDATION_ERROR |  |
+| POST /api/consents | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| POST /api/consents | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| POST /api/consents | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| POST /api/consents | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| POST /api/consents | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| POST /api/consents | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/consents | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/consents | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| POST /api/consents | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| POST /api/consents | campos como objeto | 400 | VALIDATION_ERROR |  |
+| POST /api/consents | campos como null | 400 | VALIDATION_ERROR |  |
+| POST /api/consents | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| POST /api/consents | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| POST /api/consents | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| POST /api/transactions | corpo null | 400 | VALIDATION_ERROR |  |
+| POST /api/transactions | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| POST /api/transactions | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| POST /api/transactions | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| POST /api/transactions | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| POST /api/transactions | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| POST /api/transactions | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/transactions | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/transactions | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| POST /api/transactions | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| POST /api/transactions | campos como objeto | 400 | VALIDATION_ERROR |  |
+| POST /api/transactions | campos como null | 400 | VALIDATION_ERROR |  |
+| POST /api/transactions | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| POST /api/transactions | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| POST /api/transactions | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| PUT /api/transactions/:id | corpo null | 400 | VALIDATION_ERROR |  |
+| PUT /api/transactions/:id | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| PUT /api/transactions/:id | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| PUT /api/transactions/:id | objeto vazio {} | 404 | NOT_FOUND |  |
+| PUT /api/transactions/:id | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| PUT /api/transactions/:id | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| PUT /api/transactions/:id | chave __proto__ | 400 | REQUEST_ERROR |  |
+| PUT /api/transactions/:id | chave constructor | 400 | REQUEST_ERROR |  |
+| PUT /api/transactions/:id | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| PUT /api/transactions/:id | campo isolado com tipo inválido | 404 | NOT_FOUND |  |
+| PUT /api/transactions/:id | campos como objeto | 400 | VALIDATION_ERROR |  |
+| PUT /api/transactions/:id | campos como null | 400 | VALIDATION_ERROR |  |
+| PUT /api/transactions/:id | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| PUT /api/transactions/:id | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| PUT /api/transactions/:id | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| PUT /api/transactions/:id | :id UUID inválido | 404 | NOT_FOUND |  |
+| PUT /api/transactions/:id | :id UUID inexistente | 404 | NOT_FOUND |  |
+| PUT /api/transactions/:id | :id de OUTRO workspace | 404 | NOT_FOUND |  |
+| DELETE /api/transactions/:id | corpo null | 404 | NOT_FOUND |  |
+| DELETE /api/transactions/:id | array no lugar de objeto [] | 404 | NOT_FOUND |  |
+| DELETE /api/transactions/:id | Content-Type text/plain | 404 | NOT_FOUND |  |
+| DELETE /api/transactions/:id | objeto vazio {} | 404 | NOT_FOUND |  |
+| DELETE /api/transactions/:id | string de 1 MB nos campos | 404 | NOT_FOUND |  |
+| DELETE /api/transactions/:id | objeto aninhado (50 níveis) | 404 | NOT_FOUND |  |
+| DELETE /api/transactions/:id | chave __proto__ | 400 | REQUEST_ERROR |  |
+| DELETE /api/transactions/:id | chave constructor | 400 | REQUEST_ERROR |  |
+| DELETE /api/transactions/:id | campos como número 123 | 404 | NOT_FOUND |  |
+| DELETE /api/transactions/:id | campo isolado com tipo inválido | 404 | NOT_FOUND |  |
+| DELETE /api/transactions/:id | campos como objeto | 404 | NOT_FOUND |  |
+| DELETE /api/transactions/:id | campos como null | 404 | NOT_FOUND |  |
+| DELETE /api/transactions/:id | campos numéricos como "1500" | 404 | NOT_FOUND |  |
+| DELETE /api/transactions/:id | campos como "1.500,00" | 404 | NOT_FOUND |  |
+| DELETE /api/transactions/:id | datas inválidas "2026-02-30" | 404 | NOT_FOUND |  |
+| DELETE /api/transactions/:id | :id UUID inválido | 404 | NOT_FOUND |  |
+| DELETE /api/transactions/:id | :id UUID inexistente | 404 | NOT_FOUND |  |
+| DELETE /api/transactions/:id | :id de OUTRO workspace | 404 | NOT_FOUND |  |
+| POST /api/transfers | corpo null | 400 | VALIDATION_ERROR |  |
+| POST /api/transfers | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| POST /api/transfers | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| POST /api/transfers | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| POST /api/transfers | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| POST /api/transfers | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| POST /api/transfers | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/transfers | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/transfers | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| POST /api/transfers | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| POST /api/transfers | campos como objeto | 400 | VALIDATION_ERROR |  |
+| POST /api/transfers | campos como null | 400 | VALIDATION_ERROR |  |
+| POST /api/transfers | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| POST /api/transfers | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| POST /api/transfers | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| POST /api/owner-withdrawals | corpo null | 400 | VALIDATION_ERROR |  |
+| POST /api/owner-withdrawals | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| POST /api/owner-withdrawals | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| POST /api/owner-withdrawals | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| POST /api/owner-withdrawals | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| POST /api/owner-withdrawals | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| POST /api/owner-withdrawals | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/owner-withdrawals | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/owner-withdrawals | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| POST /api/owner-withdrawals | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| POST /api/owner-withdrawals | campos como objeto | 400 | VALIDATION_ERROR |  |
+| POST /api/owner-withdrawals | campos como null | 400 | VALIDATION_ERROR |  |
+| POST /api/owner-withdrawals | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| POST /api/owner-withdrawals | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| POST /api/owner-withdrawals | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| POST /api/telegram/link-token | corpo null | 201 | - |  |
+| POST /api/telegram/link-token | array no lugar de objeto [] | 201 | - |  |
+| POST /api/telegram/link-token | Content-Type text/plain | 201 | - |  |
+| POST /api/telegram/link-token | objeto vazio {} | 201 | - |  |
+| POST /api/telegram/link-token | string de 1 MB nos campos | 201 | - |  |
+| POST /api/telegram/link-token | objeto aninhado (50 níveis) | 201 | - |  |
+| POST /api/telegram/link-token | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/telegram/link-token | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/telegram/link-token | campos como número 123 | 201 | - |  |
+| POST /api/telegram/link-token | campo isolado com tipo inválido | 201 | - |  |
+| POST /api/telegram/link-token | campos como objeto | 201 | - |  |
+| POST /api/telegram/link-token | campos como null | 201 | - |  |
+| POST /api/telegram/link-token | campos numéricos como "1500" | 201 | - |  |
+| POST /api/telegram/link-token | campos como "1.500,00" | 201 | - |  |
+| POST /api/telegram/link-token | datas inválidas "2026-02-30" | 201 | - |  |
+| POST /api/telegram/unlink | corpo null | 200 | - |  |
+| POST /api/telegram/unlink | array no lugar de objeto [] | 200 | - |  |
+| POST /api/telegram/unlink | Content-Type text/plain | 200 | - |  |
+| POST /api/telegram/unlink | objeto vazio {} | 200 | - |  |
+| POST /api/telegram/unlink | string de 1 MB nos campos | 200 | - |  |
+| POST /api/telegram/unlink | objeto aninhado (50 níveis) | 200 | - |  |
+| POST /api/telegram/unlink | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/telegram/unlink | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/telegram/unlink | campos como número 123 | 200 | - |  |
+| POST /api/telegram/unlink | campo isolado com tipo inválido | 200 | - |  |
+| POST /api/telegram/unlink | campos como objeto | 200 | - |  |
+| POST /api/telegram/unlink | campos como null | 200 | - |  |
+| POST /api/telegram/unlink | campos numéricos como "1500" | 200 | - |  |
+| POST /api/telegram/unlink | campos como "1.500,00" | 200 | - |  |
+| POST /api/telegram/unlink | datas inválidas "2026-02-30" | 200 | - |  |
+| POST /api/das/:id/pay | corpo null | 400 | VALIDATION_ERROR |  |
+| POST /api/das/:id/pay | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| POST /api/das/:id/pay | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| POST /api/das/:id/pay | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| POST /api/das/:id/pay | string de 1 MB nos campos | 404 | NOT_FOUND |  |
+| POST /api/das/:id/pay | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| POST /api/das/:id/pay | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/das/:id/pay | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/das/:id/pay | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| POST /api/das/:id/pay | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| POST /api/das/:id/pay | campos como objeto | 400 | VALIDATION_ERROR |  |
+| POST /api/das/:id/pay | campos como null | 400 | VALIDATION_ERROR |  |
+| POST /api/das/:id/pay | campos numéricos como "1500" | 404 | NOT_FOUND |  |
+| POST /api/das/:id/pay | campos como "1.500,00" | 404 | NOT_FOUND |  |
+| POST /api/das/:id/pay | datas inválidas "2026-02-30" | 404 | NOT_FOUND |  |
+| POST /api/das/:id/pay | :id UUID inválido | 404 | NOT_FOUND |  |
+| POST /api/das/:id/pay | :id UUID inexistente | 404 | NOT_FOUND |  |
+| DELETE /api/das/:id/pay | corpo null | 404 | NOT_FOUND |  |
+| DELETE /api/das/:id/pay | array no lugar de objeto [] | 404 | NOT_FOUND |  |
+| DELETE /api/das/:id/pay | Content-Type text/plain | 404 | NOT_FOUND |  |
+| DELETE /api/das/:id/pay | objeto vazio {} | 404 | NOT_FOUND |  |
+| DELETE /api/das/:id/pay | string de 1 MB nos campos | 404 | NOT_FOUND |  |
+| DELETE /api/das/:id/pay | objeto aninhado (50 níveis) | 404 | NOT_FOUND |  |
+| DELETE /api/das/:id/pay | chave __proto__ | 400 | REQUEST_ERROR |  |
+| DELETE /api/das/:id/pay | chave constructor | 400 | REQUEST_ERROR |  |
+| DELETE /api/das/:id/pay | campos como número 123 | 404 | NOT_FOUND |  |
+| DELETE /api/das/:id/pay | campo isolado com tipo inválido | 404 | NOT_FOUND |  |
+| DELETE /api/das/:id/pay | campos como objeto | 404 | NOT_FOUND |  |
+| DELETE /api/das/:id/pay | campos como null | 404 | NOT_FOUND |  |
+| DELETE /api/das/:id/pay | campos numéricos como "1500" | 404 | NOT_FOUND |  |
+| DELETE /api/das/:id/pay | campos como "1.500,00" | 404 | NOT_FOUND |  |
+| DELETE /api/das/:id/pay | datas inválidas "2026-02-30" | 404 | NOT_FOUND |  |
+| DELETE /api/das/:id/pay | :id UUID inválido | 404 | NOT_FOUND |  |
+| DELETE /api/das/:id/pay | :id UUID inexistente | 404 | NOT_FOUND |  |
+| PATCH /api/me | corpo null | 400 | VALIDATION_ERROR |  |
+| PATCH /api/me | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| PATCH /api/me | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| PATCH /api/me | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| PATCH /api/me | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| PATCH /api/me | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| PATCH /api/me | chave __proto__ | 400 | REQUEST_ERROR |  |
+| PATCH /api/me | chave constructor | 400 | REQUEST_ERROR |  |
+| PATCH /api/me | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| PATCH /api/me | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| PATCH /api/me | campos como objeto | 400 | VALIDATION_ERROR |  |
+| PATCH /api/me | campos como null | 400 | VALIDATION_ERROR |  |
+| PATCH /api/me | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| PATCH /api/me | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| PATCH /api/me | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| PUT /api/entities/:id/business-profile | corpo null | 400 | VALIDATION_ERROR |  |
+| PUT /api/entities/:id/business-profile | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| PUT /api/entities/:id/business-profile | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| PUT /api/entities/:id/business-profile | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| PUT /api/entities/:id/business-profile | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| PUT /api/entities/:id/business-profile | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| PUT /api/entities/:id/business-profile | chave __proto__ | 400 | REQUEST_ERROR |  |
+| PUT /api/entities/:id/business-profile | chave constructor | 400 | REQUEST_ERROR |  |
+| PUT /api/entities/:id/business-profile | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| PUT /api/entities/:id/business-profile | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| PUT /api/entities/:id/business-profile | campos como objeto | 400 | VALIDATION_ERROR |  |
+| PUT /api/entities/:id/business-profile | campos como null | 400 | VALIDATION_ERROR |  |
+| PUT /api/entities/:id/business-profile | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| PUT /api/entities/:id/business-profile | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| PUT /api/entities/:id/business-profile | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| PUT /api/entities/:id/business-profile | :id UUID inválido | 404 | NOT_FOUND |  |
+| PUT /api/entities/:id/business-profile | :id UUID inexistente | 404 | NOT_FOUND |  |
+| POST /api/education/lessons/:slug/quiz | corpo null | 400 | VALIDATION_ERROR |  |
+| POST /api/education/lessons/:slug/quiz | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| POST /api/education/lessons/:slug/quiz | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| POST /api/education/lessons/:slug/quiz | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| POST /api/education/lessons/:slug/quiz | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| POST /api/education/lessons/:slug/quiz | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| POST /api/education/lessons/:slug/quiz | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/education/lessons/:slug/quiz | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/education/lessons/:slug/quiz | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| POST /api/education/lessons/:slug/quiz | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| POST /api/education/lessons/:slug/quiz | campos como objeto | 400 | VALIDATION_ERROR |  |
+| POST /api/education/lessons/:slug/quiz | campos como null | 400 | VALIDATION_ERROR |  |
+| POST /api/education/lessons/:slug/quiz | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| POST /api/education/lessons/:slug/quiz | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| POST /api/education/lessons/:slug/quiz | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| POST /api/education/lessons/:slug/quiz | :id UUID inválido | 404 | REQUEST_ERROR |  |
+| POST /api/education/lessons/:slug/quiz | :id UUID inexistente | 404 | REQUEST_ERROR |  |
+| POST /api/education/lessons/:slug/complete | corpo null | 404 | REQUEST_ERROR |  |
+| POST /api/education/lessons/:slug/complete | array no lugar de objeto [] | 404 | REQUEST_ERROR |  |
+| POST /api/education/lessons/:slug/complete | Content-Type text/plain | 404 | REQUEST_ERROR |  |
+| POST /api/education/lessons/:slug/complete | objeto vazio {} | 404 | REQUEST_ERROR |  |
+| POST /api/education/lessons/:slug/complete | string de 1 MB nos campos | 404 | REQUEST_ERROR |  |
+| POST /api/education/lessons/:slug/complete | objeto aninhado (50 níveis) | 404 | REQUEST_ERROR |  |
+| POST /api/education/lessons/:slug/complete | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/education/lessons/:slug/complete | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/education/lessons/:slug/complete | campos como número 123 | 404 | REQUEST_ERROR |  |
+| POST /api/education/lessons/:slug/complete | campo isolado com tipo inválido | 404 | REQUEST_ERROR |  |
+| POST /api/education/lessons/:slug/complete | campos como objeto | 404 | REQUEST_ERROR |  |
+| POST /api/education/lessons/:slug/complete | campos como null | 404 | REQUEST_ERROR |  |
+| POST /api/education/lessons/:slug/complete | campos numéricos como "1500" | 404 | REQUEST_ERROR |  |
+| POST /api/education/lessons/:slug/complete | campos como "1.500,00" | 404 | REQUEST_ERROR |  |
+| POST /api/education/lessons/:slug/complete | datas inválidas "2026-02-30" | 404 | REQUEST_ERROR |  |
+| POST /api/education/lessons/:slug/complete | :id UUID inválido | 404 | REQUEST_ERROR |  |
+| POST /api/education/lessons/:slug/complete | :id UUID inexistente | 404 | REQUEST_ERROR |  |
+| POST /api/education/ask | corpo null | 400 | VALIDATION_ERROR |  |
+| POST /api/education/ask | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| POST /api/education/ask | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| POST /api/education/ask | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| POST /api/education/ask | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| POST /api/education/ask | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| POST /api/education/ask | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/education/ask | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/education/ask | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| POST /api/education/ask | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| POST /api/education/ask | campos como objeto | 400 | VALIDATION_ERROR |  |
+| POST /api/education/ask | campos como null | 400 | VALIDATION_ERROR |  |
+| POST /api/education/ask | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| POST /api/education/ask | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| POST /api/education/ask | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| POST /api/education/nudges/:id/feedback | corpo null | 400 | VALIDATION_ERROR |  |
+| POST /api/education/nudges/:id/feedback | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| POST /api/education/nudges/:id/feedback | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| POST /api/education/nudges/:id/feedback | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| POST /api/education/nudges/:id/feedback | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| POST /api/education/nudges/:id/feedback | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| POST /api/education/nudges/:id/feedback | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/education/nudges/:id/feedback | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/education/nudges/:id/feedback | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| POST /api/education/nudges/:id/feedback | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| POST /api/education/nudges/:id/feedback | campos como objeto | 400 | VALIDATION_ERROR |  |
+| POST /api/education/nudges/:id/feedback | campos como null | 400 | VALIDATION_ERROR |  |
+| POST /api/education/nudges/:id/feedback | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| POST /api/education/nudges/:id/feedback | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| POST /api/education/nudges/:id/feedback | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| POST /api/education/nudges/:id/feedback | :id UUID inválido | 400 | VALIDATION_ERROR |  |
+| POST /api/education/nudges/:id/feedback | :id UUID inexistente | 400 | VALIDATION_ERROR |  |
+| POST /api/jars/plan | corpo null | 400 | VALIDATION_ERROR |  |
+| POST /api/jars/plan | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| POST /api/jars/plan | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| POST /api/jars/plan | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| POST /api/jars/plan | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| POST /api/jars/plan | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| POST /api/jars/plan | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/jars/plan | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/jars/plan | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| POST /api/jars/plan | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| POST /api/jars/plan | campos como objeto | 400 | VALIDATION_ERROR |  |
+| POST /api/jars/plan | campos como null | 400 | VALIDATION_ERROR |  |
+| POST /api/jars/plan | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| POST /api/jars/plan | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| POST /api/jars/plan | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| PATCH /api/jars/plan/:planId | corpo null | 400 | VALIDATION_ERROR |  |
+| PATCH /api/jars/plan/:planId | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| PATCH /api/jars/plan/:planId | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| PATCH /api/jars/plan/:planId | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| PATCH /api/jars/plan/:planId | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| PATCH /api/jars/plan/:planId | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| PATCH /api/jars/plan/:planId | chave __proto__ | 400 | REQUEST_ERROR |  |
+| PATCH /api/jars/plan/:planId | chave constructor | 400 | REQUEST_ERROR |  |
+| PATCH /api/jars/plan/:planId | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| PATCH /api/jars/plan/:planId | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| PATCH /api/jars/plan/:planId | campos como objeto | 400 | VALIDATION_ERROR |  |
+| PATCH /api/jars/plan/:planId | campos como null | 400 | VALIDATION_ERROR |  |
+| PATCH /api/jars/plan/:planId | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| PATCH /api/jars/plan/:planId | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| PATCH /api/jars/plan/:planId | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| PATCH /api/jars/plan/:planId | :id UUID inválido | 404 | NOT_FOUND |  |
+| PATCH /api/jars/plan/:planId | :id UUID inexistente | 404 | NOT_FOUND |  |
+| PUT /api/jars/categories | corpo null | 400 | VALIDATION_ERROR |  |
+| PUT /api/jars/categories | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| PUT /api/jars/categories | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| PUT /api/jars/categories | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| PUT /api/jars/categories | string de 1 MB nos campos | 404 | NOT_FOUND |  |
+| PUT /api/jars/categories | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| PUT /api/jars/categories | chave __proto__ | 400 | REQUEST_ERROR |  |
+| PUT /api/jars/categories | chave constructor | 400 | REQUEST_ERROR |  |
+| PUT /api/jars/categories | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| PUT /api/jars/categories | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| PUT /api/jars/categories | campos como objeto | 400 | VALIDATION_ERROR |  |
+| PUT /api/jars/categories | campos como null | 400 | VALIDATION_ERROR |  |
+| PUT /api/jars/categories | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| PUT /api/jars/categories | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| PUT /api/jars/categories | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| PUT /api/jars/categories/batch | corpo null | 400 | VALIDATION_ERROR |  |
+| PUT /api/jars/categories/batch | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| PUT /api/jars/categories/batch | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| PUT /api/jars/categories/batch | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| PUT /api/jars/categories/batch | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| PUT /api/jars/categories/batch | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| PUT /api/jars/categories/batch | chave __proto__ | 400 | REQUEST_ERROR |  |
+| PUT /api/jars/categories/batch | chave constructor | 400 | REQUEST_ERROR |  |
+| PUT /api/jars/categories/batch | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| PUT /api/jars/categories/batch | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| PUT /api/jars/categories/batch | campos como objeto | 400 | VALIDATION_ERROR |  |
+| PUT /api/jars/categories/batch | campos como null | 400 | VALIDATION_ERROR |  |
+| PUT /api/jars/categories/batch | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| PUT /api/jars/categories/batch | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| PUT /api/jars/categories/batch | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| POST /api/openfinance/connect-token | corpo null | 200 | - |  |
+| POST /api/openfinance/connect-token | array no lugar de objeto [] | 200 | - |  |
+| POST /api/openfinance/connect-token | Content-Type text/plain | 200 | - |  |
+| POST /api/openfinance/connect-token | objeto vazio {} | 200 | - |  |
+| POST /api/openfinance/connect-token | string de 1 MB nos campos | 200 | - |  |
+| POST /api/openfinance/connect-token | objeto aninhado (50 níveis) | 200 | - |  |
+| POST /api/openfinance/connect-token | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/openfinance/connect-token | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/openfinance/connect-token | campos como número 123 | 200 | - |  |
+| POST /api/openfinance/connect-token | campo isolado com tipo inválido | 200 | - |  |
+| POST /api/openfinance/connect-token | campos como objeto | 200 | - |  |
+| POST /api/openfinance/connect-token | campos como null | 200 | - |  |
+| POST /api/openfinance/connect-token | campos numéricos como "1500" | 200 | - |  |
+| POST /api/openfinance/connect-token | campos como "1.500,00" | 200 | - |  |
+| POST /api/openfinance/connect-token | datas inválidas "2026-02-30" | 200 | - |  |
+| POST /api/openfinance/connect-item | corpo null | 400 | VALIDATION_ERROR |  |
+| POST /api/openfinance/connect-item | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| POST /api/openfinance/connect-item | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| POST /api/openfinance/connect-item | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| POST /api/openfinance/connect-item | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| POST /api/openfinance/connect-item | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| POST /api/openfinance/connect-item | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/openfinance/connect-item | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/openfinance/connect-item | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| POST /api/openfinance/connect-item | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| POST /api/openfinance/connect-item | campos como objeto | 400 | VALIDATION_ERROR |  |
+| POST /api/openfinance/connect-item | campos como null | 400 | VALIDATION_ERROR |  |
+| POST /api/openfinance/connect-item | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| POST /api/openfinance/connect-item | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| POST /api/openfinance/connect-item | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| POST /api/openfinance/connections/:id/sync | corpo null | 404 | NOT_FOUND |  |
+| POST /api/openfinance/connections/:id/sync | array no lugar de objeto [] | 404 | NOT_FOUND |  |
+| POST /api/openfinance/connections/:id/sync | Content-Type text/plain | 404 | NOT_FOUND |  |
+| POST /api/openfinance/connections/:id/sync | objeto vazio {} | 404 | NOT_FOUND |  |
+| POST /api/openfinance/connections/:id/sync | string de 1 MB nos campos | 404 | NOT_FOUND |  |
+| POST /api/openfinance/connections/:id/sync | objeto aninhado (50 níveis) | 404 | NOT_FOUND |  |
+| POST /api/openfinance/connections/:id/sync | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/openfinance/connections/:id/sync | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/openfinance/connections/:id/sync | campos como número 123 | 404 | NOT_FOUND |  |
+| POST /api/openfinance/connections/:id/sync | campo isolado com tipo inválido | 404 | NOT_FOUND |  |
+| POST /api/openfinance/connections/:id/sync | campos como objeto | 404 | NOT_FOUND |  |
+| POST /api/openfinance/connections/:id/sync | campos como null | 404 | NOT_FOUND |  |
+| POST /api/openfinance/connections/:id/sync | campos numéricos como "1500" | 404 | NOT_FOUND |  |
+| POST /api/openfinance/connections/:id/sync | campos como "1.500,00" | 404 | NOT_FOUND |  |
+| POST /api/openfinance/connections/:id/sync | datas inválidas "2026-02-30" | 404 | NOT_FOUND |  |
+| POST /api/openfinance/connections/:id/sync | :id UUID inválido | 404 | NOT_FOUND |  |
+| POST /api/openfinance/connections/:id/sync | :id UUID inexistente | 404 | NOT_FOUND |  |
+| DELETE /api/openfinance/connections/:id | corpo null | 404 | NOT_FOUND |  |
+| DELETE /api/openfinance/connections/:id | array no lugar de objeto [] | 404 | NOT_FOUND |  |
+| DELETE /api/openfinance/connections/:id | Content-Type text/plain | 404 | NOT_FOUND |  |
+| DELETE /api/openfinance/connections/:id | objeto vazio {} | 404 | NOT_FOUND |  |
+| DELETE /api/openfinance/connections/:id | string de 1 MB nos campos | 404 | NOT_FOUND |  |
+| DELETE /api/openfinance/connections/:id | objeto aninhado (50 níveis) | 404 | NOT_FOUND |  |
+| DELETE /api/openfinance/connections/:id | chave __proto__ | 400 | REQUEST_ERROR |  |
+| DELETE /api/openfinance/connections/:id | chave constructor | 400 | REQUEST_ERROR |  |
+| DELETE /api/openfinance/connections/:id | campos como número 123 | 404 | NOT_FOUND |  |
+| DELETE /api/openfinance/connections/:id | campo isolado com tipo inválido | 404 | NOT_FOUND |  |
+| DELETE /api/openfinance/connections/:id | campos como objeto | 404 | NOT_FOUND |  |
+| DELETE /api/openfinance/connections/:id | campos como null | 404 | NOT_FOUND |  |
+| DELETE /api/openfinance/connections/:id | campos numéricos como "1500" | 404 | NOT_FOUND |  |
+| DELETE /api/openfinance/connections/:id | campos como "1.500,00" | 404 | NOT_FOUND |  |
+| DELETE /api/openfinance/connections/:id | datas inválidas "2026-02-30" | 404 | NOT_FOUND |  |
+| DELETE /api/openfinance/connections/:id | :id UUID inválido | 404 | NOT_FOUND |  |
+| DELETE /api/openfinance/connections/:id | :id UUID inexistente | 404 | NOT_FOUND |  |
+| POST /api/insights/ask | corpo null | 400 | VALIDATION_ERROR |  |
+| POST /api/insights/ask | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| POST /api/insights/ask | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| POST /api/insights/ask | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| POST /api/insights/ask | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| POST /api/insights/ask | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| POST /api/insights/ask | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/insights/ask | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/insights/ask | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| POST /api/insights/ask | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| POST /api/insights/ask | campos como objeto | 400 | VALIDATION_ERROR |  |
+| POST /api/insights/ask | campos como null | 400 | VALIDATION_ERROR |  |
+| POST /api/insights/ask | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| POST /api/insights/ask | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| POST /api/insights/ask | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| POST /api/insights/run | corpo null | 200 | - |  |
+| POST /api/insights/run | array no lugar de objeto [] | 200 | - |  |
+| POST /api/insights/run | Content-Type text/plain | 200 | - |  |
+| POST /api/insights/run | objeto vazio {} | 200 | - |  |
+| POST /api/insights/run | string de 1 MB nos campos | 200 | - |  |
+| POST /api/insights/run | objeto aninhado (50 níveis) | 200 | - |  |
+| POST /api/insights/run | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/insights/run | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/insights/run | campos como número 123 | 200 | - |  |
+| POST /api/insights/run | campo isolado com tipo inválido | 200 | - |  |
+| POST /api/insights/run | campos como objeto | 200 | - |  |
+| POST /api/insights/run | campos como null | 200 | - |  |
+| POST /api/insights/run | campos numéricos como "1500" | 200 | - |  |
+| POST /api/insights/run | campos como "1.500,00" | 200 | - |  |
+| POST /api/insights/run | datas inválidas "2026-02-30" | 200 | - |  |
+| POST /api/insights/:id/dismiss | corpo null | 404 | NOT_FOUND |  |
+| POST /api/insights/:id/dismiss | array no lugar de objeto [] | 404 | NOT_FOUND |  |
+| POST /api/insights/:id/dismiss | Content-Type text/plain | 404 | NOT_FOUND |  |
+| POST /api/insights/:id/dismiss | objeto vazio {} | 404 | NOT_FOUND |  |
+| POST /api/insights/:id/dismiss | string de 1 MB nos campos | 404 | NOT_FOUND |  |
+| POST /api/insights/:id/dismiss | objeto aninhado (50 níveis) | 404 | NOT_FOUND |  |
+| POST /api/insights/:id/dismiss | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/insights/:id/dismiss | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/insights/:id/dismiss | campos como número 123 | 404 | NOT_FOUND |  |
+| POST /api/insights/:id/dismiss | campo isolado com tipo inválido | 404 | NOT_FOUND |  |
+| POST /api/insights/:id/dismiss | campos como objeto | 404 | NOT_FOUND |  |
+| POST /api/insights/:id/dismiss | campos como null | 404 | NOT_FOUND |  |
+| POST /api/insights/:id/dismiss | campos numéricos como "1500" | 404 | NOT_FOUND |  |
+| POST /api/insights/:id/dismiss | campos como "1.500,00" | 404 | NOT_FOUND |  |
+| POST /api/insights/:id/dismiss | datas inválidas "2026-02-30" | 404 | NOT_FOUND |  |
+| POST /api/insights/:id/dismiss | :id UUID inválido | 404 | NOT_FOUND |  |
+| POST /api/insights/:id/dismiss | :id UUID inexistente | 404 | NOT_FOUND |  |
+| POST /api/insights/:id/feedback | corpo null | 400 | VALIDATION_ERROR |  |
+| POST /api/insights/:id/feedback | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| POST /api/insights/:id/feedback | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| POST /api/insights/:id/feedback | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| POST /api/insights/:id/feedback | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| POST /api/insights/:id/feedback | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| POST /api/insights/:id/feedback | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/insights/:id/feedback | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/insights/:id/feedback | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| POST /api/insights/:id/feedback | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| POST /api/insights/:id/feedback | campos como objeto | 400 | VALIDATION_ERROR |  |
+| POST /api/insights/:id/feedback | campos como null | 400 | VALIDATION_ERROR |  |
+| POST /api/insights/:id/feedback | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| POST /api/insights/:id/feedback | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| POST /api/insights/:id/feedback | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| POST /api/insights/:id/feedback | :id UUID inválido | 400 | VALIDATION_ERROR |  |
+| POST /api/insights/:id/feedback | :id UUID inexistente | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/statement | corpo null | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/statement | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/statement | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/statement | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/statement | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/statement | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/statement | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/imports/statement | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/imports/statement | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/statement | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/statement | campos como objeto | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/statement | campos como null | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/statement | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/statement | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/statement | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/approve | corpo null | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/approve | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/approve | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/approve | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/approve | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/approve | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/approve | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/imports/approve | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/imports/approve | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/approve | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/approve | campos como objeto | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/approve | campos como null | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/approve | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/approve | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/approve | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/batch-approve | corpo null | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/batch-approve | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/batch-approve | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/batch-approve | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/batch-approve | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/batch-approve | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/batch-approve | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/imports/batch-approve | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/imports/batch-approve | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/batch-approve | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/batch-approve | campos como objeto | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/batch-approve | campos como null | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/batch-approve | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/batch-approve | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/batch-approve | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/ignore | corpo null | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/ignore | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/ignore | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/ignore | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/ignore | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/ignore | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/ignore | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/imports/ignore | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/imports/ignore | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/ignore | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/ignore | campos como objeto | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/ignore | campos como null | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/ignore | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/ignore | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| POST /api/imports/ignore | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/chat | corpo null | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/chat | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/chat | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/chat | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/chat | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/chat | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/chat | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/assistant/chat | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/assistant/chat | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/chat | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/chat | campos como objeto | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/chat | campos como null | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/chat | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/chat | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/chat | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/receipt | corpo null | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/receipt | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/receipt | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/receipt | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/receipt | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/receipt | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/receipt | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/assistant/receipt | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/assistant/receipt | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/receipt | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/receipt | campos como objeto | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/receipt | campos como null | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/receipt | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/receipt | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/receipt | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/proposals | corpo null | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/proposals | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/proposals | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/proposals | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/proposals | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/proposals | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/proposals | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/assistant/proposals | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/assistant/proposals | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/proposals | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/proposals | campos como objeto | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/proposals | campos como null | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/proposals | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/proposals | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/proposals | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/proposals/:id/confirm | corpo null | 404 | NOT_FOUND |  |
+| POST /api/assistant/proposals/:id/confirm | array no lugar de objeto [] | 404 | NOT_FOUND |  |
+| POST /api/assistant/proposals/:id/confirm | Content-Type text/plain | 404 | NOT_FOUND |  |
+| POST /api/assistant/proposals/:id/confirm | objeto vazio {} | 404 | NOT_FOUND |  |
+| POST /api/assistant/proposals/:id/confirm | string de 1 MB nos campos | 404 | NOT_FOUND |  |
+| POST /api/assistant/proposals/:id/confirm | objeto aninhado (50 níveis) | 404 | NOT_FOUND |  |
+| POST /api/assistant/proposals/:id/confirm | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/assistant/proposals/:id/confirm | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/assistant/proposals/:id/confirm | campos como número 123 | 404 | NOT_FOUND |  |
+| POST /api/assistant/proposals/:id/confirm | campo isolado com tipo inválido | 404 | NOT_FOUND |  |
+| POST /api/assistant/proposals/:id/confirm | campos como objeto | 404 | NOT_FOUND |  |
+| POST /api/assistant/proposals/:id/confirm | campos como null | 404 | NOT_FOUND |  |
+| POST /api/assistant/proposals/:id/confirm | campos numéricos como "1500" | 404 | NOT_FOUND |  |
+| POST /api/assistant/proposals/:id/confirm | campos como "1.500,00" | 404 | NOT_FOUND |  |
+| POST /api/assistant/proposals/:id/confirm | datas inválidas "2026-02-30" | 404 | NOT_FOUND |  |
+| POST /api/assistant/proposals/:id/confirm | :id UUID inválido | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/proposals/:id/confirm | :id UUID inexistente | 404 | NOT_FOUND |  |
+| POST /api/assistant/proposals/:id/cancel | corpo null | 404 | NOT_FOUND |  |
+| POST /api/assistant/proposals/:id/cancel | array no lugar de objeto [] | 404 | NOT_FOUND |  |
+| POST /api/assistant/proposals/:id/cancel | Content-Type text/plain | 404 | NOT_FOUND |  |
+| POST /api/assistant/proposals/:id/cancel | objeto vazio {} | 404 | NOT_FOUND |  |
+| POST /api/assistant/proposals/:id/cancel | string de 1 MB nos campos | 404 | NOT_FOUND |  |
+| POST /api/assistant/proposals/:id/cancel | objeto aninhado (50 níveis) | 404 | NOT_FOUND |  |
+| POST /api/assistant/proposals/:id/cancel | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /api/assistant/proposals/:id/cancel | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /api/assistant/proposals/:id/cancel | campos como número 123 | 404 | NOT_FOUND |  |
+| POST /api/assistant/proposals/:id/cancel | campo isolado com tipo inválido | 404 | NOT_FOUND |  |
+| POST /api/assistant/proposals/:id/cancel | campos como objeto | 404 | NOT_FOUND |  |
+| POST /api/assistant/proposals/:id/cancel | campos como null | 404 | NOT_FOUND |  |
+| POST /api/assistant/proposals/:id/cancel | campos numéricos como "1500" | 404 | NOT_FOUND |  |
+| POST /api/assistant/proposals/:id/cancel | campos como "1.500,00" | 404 | NOT_FOUND |  |
+| POST /api/assistant/proposals/:id/cancel | datas inválidas "2026-02-30" | 404 | NOT_FOUND |  |
+| POST /api/assistant/proposals/:id/cancel | :id UUID inválido | 400 | VALIDATION_ERROR |  |
+| POST /api/assistant/proposals/:id/cancel | :id UUID inexistente | 404 | NOT_FOUND |  |
+| POST /telegram/webhook | corpo null | 400 | VALIDATION_ERROR |  |
+| POST /telegram/webhook | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| POST /telegram/webhook | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| POST /telegram/webhook | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| POST /telegram/webhook | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| POST /telegram/webhook | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| POST /telegram/webhook | chave __proto__ | 400 | REQUEST_ERROR |  |
+| POST /telegram/webhook | chave constructor | 400 | REQUEST_ERROR |  |
+| POST /telegram/webhook | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| POST /telegram/webhook | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| POST /telegram/webhook | campos como objeto | 400 | VALIDATION_ERROR |  |
+| POST /telegram/webhook | campos como null | 400 | VALIDATION_ERROR |  |
+| POST /telegram/webhook | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| POST /telegram/webhook | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| POST /telegram/webhook | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+| DELETE /api/me | corpo null | 400 | VALIDATION_ERROR |  |
+| DELETE /api/me | array no lugar de objeto [] | 400 | VALIDATION_ERROR |  |
+| DELETE /api/me | Content-Type text/plain | 400 | VALIDATION_ERROR |  |
+| DELETE /api/me | objeto vazio {} | 400 | VALIDATION_ERROR |  |
+| DELETE /api/me | string de 1 MB nos campos | 400 | VALIDATION_ERROR |  |
+| DELETE /api/me | objeto aninhado (50 níveis) | 400 | VALIDATION_ERROR |  |
+| DELETE /api/me | chave __proto__ | 400 | REQUEST_ERROR |  |
+| DELETE /api/me | chave constructor | 400 | REQUEST_ERROR |  |
+| DELETE /api/me | campos como número 123 | 400 | VALIDATION_ERROR |  |
+| DELETE /api/me | campo isolado com tipo inválido | 400 | VALIDATION_ERROR |  |
+| DELETE /api/me | campos como objeto | 400 | VALIDATION_ERROR |  |
+| DELETE /api/me | campos como null | 400 | VALIDATION_ERROR |  |
+| DELETE /api/me | campos numéricos como "1500" | 400 | VALIDATION_ERROR |  |
+| DELETE /api/me | campos como "1.500,00" | 400 | VALIDATION_ERROR |  |
+| DELETE /api/me | datas inválidas "2026-02-30" | 400 | VALIDATION_ERROR |  |
+
+Total de requisições: 728
+🔴 Respostas 5xx: 0
+429 (rate limit — deve ser 0, senão o resultado está mascarado): 0
+🟡 2xx com corpo malformado (aceitação indevida, rotas que leem o corpo): 0
