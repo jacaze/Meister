@@ -31,13 +31,7 @@ export interface BuildAppOptions {
 
 export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
   // Configuração global de locale do Zod em português (Zod 4)
-  const zodWithLocales = z as unknown as {
-    config?: (locale: unknown) => void;
-    locales?: { pt?: () => unknown };
-  };
-  if (typeof zodWithLocales.locales?.pt === 'function' && typeof zodWithLocales.config === 'function') {
-    zodWithLocales.config(zodWithLocales.locales.pt());
-  }
+  z.config(z.locales.pt());
 
   const env = options.env ?? parseEnv(process.env);
   const fastify = Fastify({
