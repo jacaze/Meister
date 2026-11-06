@@ -15,6 +15,10 @@ const envTestExamplePath = path.join(backendDir, '.env.test.example');
 if (existsSync(envTestPath)) {
   dotenv.config({ path: envTestPath });
 } else if (existsSync(envTestExamplePath)) {
+  console.warn(
+    '⚠️  [Aviso] backend/.env.test não encontrado. Usando backend/.env.test.example por padrão.\n' +
+    '   Para customizar seu ambiente de testes local, crie o arquivo: cp backend/.env.test.example backend/.env.test'
+  );
   dotenv.config({ path: envTestExamplePath });
 } else {
   dotenv.config();
