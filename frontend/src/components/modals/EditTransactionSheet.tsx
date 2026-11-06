@@ -47,7 +47,7 @@ export const EditTransactionSheet: React.FC<EditTransactionSheetProps> = ({
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [categoryId, setCategoryId] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('pix');
+  const [paymentMethod, setPaymentMethod] = useState<string>('');
   const [transactionDate, setTransactionDate] = useState('');
   const [viaPersonalAccount, setViaPersonalAccount] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -59,7 +59,7 @@ export const EditTransactionSheet: React.FC<EditTransactionSheetProps> = ({
       setDescription(transaction.description || '');
       setAmount(String(transaction.amount || ''));
       setCategoryId(transaction.categoryId || '');
-      setPaymentMethod(transaction.paymentMethod || 'pix');
+      setPaymentMethod(transaction.paymentMethod ?? '');
       setTransactionDate(transaction.transactionDate ? transaction.transactionDate.slice(0, 10) : '');
       setViaPersonalAccount(Boolean(transaction.viaPersonalAccount));
       setError(null);
@@ -78,7 +78,7 @@ export const EditTransactionSheet: React.FC<EditTransactionSheetProps> = ({
       return;
     }
 
-    if (!categoryId) {
+    if (!isTransfer && !categoryId) {
       setError('Selecione uma categoria.');
       return;
     }
@@ -99,11 +99,13 @@ export const EditTransactionSheet: React.FC<EditTransactionSheetProps> = ({
 
     setLoading(true);
     try {
+      const normalizedPaymentMethod = paymentMethod ? paymentMethod : null;
+
       const payload = isTransfer
         ? {
             description: description.trim(),
-            categoryId,
-            paymentMethod,
+            ...(categoryId ? { categoryId } : {}),
+            paymentMethod: normalizedPaymentMethod,
             viaPersonalAccount,
           }
         : {
@@ -111,7 +113,7 @@ export const EditTransactionSheet: React.FC<EditTransactionSheetProps> = ({
             amount: numAmount.toFixed(2),
             type,
             categoryId,
-            paymentMethod,
+            paymentMethod: normalizedPaymentMethod,
             transactionDate,
             viaPersonalAccount,
           };
@@ -290,6 +292,7 @@ export const EditTransactionSheet: React.FC<EditTransactionSheetProps> = ({
               onChange={(e) => setPaymentMethod(e.target.value)}
               className="w-full min-h-[44px] px-3.5 py-2.5 bg-canvas border border-ink/8 rounded-2xl text-sm text-ink focus:outline-none focus:border-primary transition"
             >
+              <option value="">Não informado</option>
               <option value="pix">Pix</option>
               <option value="cartao_debito">Cartão de Débito</option>
               <option value="cartao_credito">Cartão de Crédito</option>
