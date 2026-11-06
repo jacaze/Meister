@@ -1,5 +1,5 @@
 // Service Worker MEIster — Cache de assets estáticos e SPA offline resiliente (exclui estritamente /api)
-const CACHE_NAME = 'meister-static-v4';
+const CACHE_NAME = 'meister-static-v5';
 const MAX_STATIC_ENTRIES = 80;
 const PROTECTED_PATHS = ['/', '/index.html', '/favicon.svg', '/manifest.webmanifest'];
 const STATIC_EXTENSIONS = [
@@ -14,14 +14,32 @@ const STATIC_EXTENSIONS = [
   '.ttf',
 ];
 
+// Conjunto de assets referenciados diretamente pelo HTML do deploy ativo
+const activeHtmlChunks = new Set();
+
+/**
+ * Analisa o HTML do deploy atual para extrair caminhos de assets gerados pelo bundler (/assets/*)
+ * e impedir que o descarte de cache (trimCache) remova pedaços essenciais da SPA em execução.
+ */
+function recordActiveChunksFromHtml(htmlText) {
+  if (!htmlText || typeof htmlText !== 'string') return;
+  const chunkRegex = /(?:\/assets\/[a-zA-Z0-9_\-\.]+\.(?:js|css))/g;
+  let match;
+  while ((match = chunkRegex.exec(htmlText)) !== null) {
+    activeHtmlChunks.add(match[0]);
+  }
+}
+
 async function trimCache(cacheName, maxItems) {
   const cache = await caches.open(cacheName);
   const requests = await cache.keys();
   if (requests.length > maxItems) {
-    // Procura a primeira entrada descartável que NÃO seja protegida
+    // Procura a primeira entrada descartável que NÃO seja protegida nem pertença ao deploy atual
     const candidate = requests.find((req) => {
       const path = new URL(req.url).pathname;
-      return !PROTECTED_PATHS.includes(path);
+      if (PROTECTED_PATHS.includes(path)) return false;
+      if (activeHtmlChunks.has(path)) return false;
+      return true;
     });
 
     if (candidate) {
@@ -80,15 +98,25 @@ self.addEventListener('fetch', (event) => {
             networkResponse.type === 'basic'
           ) {
             const clone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+            clone.text().then((text) => {
+              recordActiveChunksFromHtml(text);
+            }).catch(() => {});
+
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse.clone()));
           }
           return networkResponse;
         })
         .catch(async () => {
           const cached = await caches.match(event.request);
-          if (cached) return cached;
+          if (cached) {
+            cached.clone().text().then((text) => recordActiveChunksFromHtml(text)).catch(() => {});
+            return cached;
+          }
           const indexFallback = await caches.match('/index.html');
-          if (indexFallback) return indexFallback;
+          if (indexFallback) {
+            indexFallback.clone().text().then((text) => recordActiveChunksFromHtml(text)).catch(() => {});
+            return indexFallback;
+          }
           return new Response('Rede indisponível no momento.', {
             status: 503,
             statusText: 'Service Unavailable',
