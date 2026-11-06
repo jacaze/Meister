@@ -374,5 +374,20 @@ describe('Core Modules Integration Suite (PostgreSQL 16)', () => {
     const withdrawalData = withdrawalRes.json();
     expect(withdrawalData.legPj.entityId).toBe(pjEntity.id);
     expect(withdrawalData.legPf.entityId).toBe(pfEntity.id);
+
+    // Verify transferType distinction in database and listing
+    const txListRes = await app.inject({
+      method: 'GET',
+      url: '/api/transactions',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(txListRes.statusCode).toBe(200);
+    const txItems = txListRes.json().items;
+
+    const transferLegOut = txItems.find((t: { id: string }) => t.id === transferData.legOut.id);
+    const proLaboreLegPj = txItems.find((t: { id: string }) => t.id === withdrawalData.legPj.id);
+
+    expect(transferLegOut.transferType).toBe('transfer');
+    expect(proLaboreLegPj.transferType).toBe('pro_labore');
   });
 });

@@ -68,6 +68,7 @@ export async function createTransfer(
         description: desc,
         transactionDate: txDateDb,
         transferGroupId,
+        transferType: 'transfer',
         status: 'confirmado',
       },
     });
@@ -83,6 +84,7 @@ export async function createTransfer(
         description: desc,
         transactionDate: txDateDb,
         transferGroupId,
+        transferType: 'transfer',
         status: 'confirmado',
       },
     });
@@ -141,6 +143,7 @@ export async function registerOwnerWithdrawal(
         description: desc,
         transactionDate: txDateDb,
         transferGroupId,
+        transferType: 'pro_labore',
         status: 'confirmado',
       },
     });
@@ -157,6 +160,7 @@ export async function registerOwnerWithdrawal(
         description: desc,
         transactionDate: txDateDb,
         transferGroupId,
+        transferType: 'pro_labore',
         status: 'confirmado',
       },
     });

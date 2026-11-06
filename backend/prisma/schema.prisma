@@ -241,6 +241,7 @@ model Transaction {
   externalProvider   String?            @map("external_provider")
   externalId         String?            @map("external_id")
   transferGroupId    String?            @map("transfer_group_id")
+  transferType       String?            @map("transfer_type") // transfer | pro_labore
   counterparty       String?
   notes              String?
   sourceRef          String?            @map("source_ref")
