@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const telegramWebhookUpdateSchema = z.object({
-  update_id: z.number({ error: 'update_id deve ser um número inteiro' }),
+  update_id: z.number(),
   message: z
     .object({
       message_id: z.number().optional(),
