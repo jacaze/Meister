@@ -1,440 +1,257 @@
-import { buildApp } from '../../src/app.js';
-import type { FastifyInstance } from 'fastify';
+/**
+ * Probe de fuzz adversarial das rotas de escrita (Etapa 3 — validação de entrada).
+ *
+ * Uso (dentro de backend/): PROBE_LABEL="ANTES|DEPOIS" npx tsx tests/hardening/fuzz-rotas.ts
+ *
+ * - Cada rota alvo é conferida com app.hasRoute(): se não existir, o probe FALHA (exit 2),
+ *   para nunca contar 404 de "rota inexistente" como "sem 500".
+ * - Marca 🔴 para qualquer 5xx e 🟡 para 2xx com corpo malformado (aceitação indevida),
+ *   exceto em rotas que não leem o corpo (noBody).
+ * - Usa um usuário descartável por execução (DELETE /api/me é a última chamada).
+ */
 import dotenv from 'dotenv';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import prisma from '../../src/config/prisma.js';
-import { provisionWorkspace } from '../../src/modules/workspace/public.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const backendDir = path.resolve(__dirname, '../..');
-
-dotenv.config({ path: path.join(backendDir, '.env.test') });
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(path.resolve(__dirname, '../..'), '.env.test') });
 process.env.NODE_ENV = 'test';
 
-export interface RouteFuzzTarget {
-  method: 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-  urlTemplate: string; // ex: '/api/transactions/:id'
-  group: string;
-  name: string;
-  validPayloadBase: Record<string, unknown>;
-  hasParamId?: boolean;
+const { buildApp } = await import('../../src/app.js');
+const { default: prisma } = await import('../../src/config/prisma.js');
+const { provisionWorkspace } = await import('../../src/modules/workspace/public.js');
+const { createTransaction } = await import('../../src/modules/ledger/public.js');
+
+type Method = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+
+interface Target {
+  method: Method;
+  url: string; // template registrado no Fastify
+  base: Record<string, unknown>; // corpo "válido" de referência (nomes de campos)
+  noBody?: boolean; // rota que não lê o corpo: 2xx com corpo ruim é esperado
+  public?: boolean; // sem Authorization
+  last?: boolean; // executar por último (destrutiva)
+  foreign?: 'transaction' | 'category'; // tipo de recurso do :id de outro workspace
 }
 
-// 16 rotas de escrita
-export const TARGET_ROUTES: RouteFuzzTarget[] = [
-  // 1. Grupo Dinheiro
-  {
-    method: 'POST',
-    urlTemplate: '/api/transactions',
-    group: '1. Dinheiro',
-    name: 'POST /api/transactions',
-    validPayloadBase: {
-      description: 'Venda de consultoria',
-      amount: 150.00,
-      type: 'receita',
-      transactionDate: '2026-03-15T12:00:00Z',
-    },
-  },
-  {
-    method: 'PUT',
-    urlTemplate: '/api/transactions/:id',
-    group: '1. Dinheiro',
-    name: 'PUT /api/transactions/:id',
-    hasParamId: true,
-    validPayloadBase: {
-      description: 'Venda atualizada',
-      amount: 180.00,
-      type: 'receita',
-    },
-  },
-  {
-    method: 'POST',
-    urlTemplate: '/api/transfers',
-    group: '1. Dinheiro',
-    name: 'POST /api/transfers',
-    validPayloadBase: {
-      amount: 100.00,
-      transferType: 'transfer',
-      description: 'Transferência entre contas',
-    },
-  },
-  {
-    method: 'POST',
-    urlTemplate: '/api/owner-withdrawals',
-    group: '1. Dinheiro',
-    name: 'POST /api/owner-withdrawals',
-    validPayloadBase: {
-      amount: 250.00,
-      description: 'Retirada de pró-labore',
-    },
-  },
+const UUID0 = '00000000-0000-4000-8000-000000000000';
 
-  // 2. Grupo Open Finance
-  {
-    method: 'POST',
-    urlTemplate: '/api/openfinance/connect-token',
-    group: '2. Open Finance',
-    name: 'POST /api/openfinance/connect-token',
-    validPayloadBase: {
-      itemId: 'pluggy-item-12345',
-    },
-  },
-  {
-    method: 'POST',
-    urlTemplate: '/api/openfinance/import-statements',
-    group: '2. Open Finance',
-    name: 'POST /api/openfinance/import-statements',
-    validPayloadBase: {
-      connectionId: 'conn-pluggy-01',
-      dateFrom: '2026-01-01',
-      dateTo: '2026-01-31',
-    },
-  },
-  {
-    method: 'POST',
-    urlTemplate: '/api/openfinance/batch-approve',
-    group: '2. Open Finance',
-    name: 'POST /api/openfinance/batch-approve',
-    validPayloadBase: {
-      transactionIds: ['00000000-0000-0000-0000-000000000001'],
-    },
-  },
-
-  // 3. Grupo Notas Fiscais
-  {
-    method: 'POST',
-    urlTemplate: '/api/receipts/confirm',
-    group: '3. Notas Fiscais',
-    name: 'POST /api/receipts/confirm',
-    validPayloadBase: {
-      receiptId: '00000000-0000-0000-0000-000000000001',
-      amount: 120.50,
-      date: '2026-03-10',
-    },
-  },
-
-  // 4. Grupo Telegram & Assistente
-  {
-    method: 'POST',
-    urlTemplate: '/telegram/webhook',
-    group: '4. Telegram & Assistente',
-    name: 'POST /telegram/webhook',
-    validPayloadBase: {
-      update_id: 10001,
-      message: {
-        message_id: 1,
-        chat: { id: 999999, type: 'private' },
-        date: Math.floor(Date.now() / 1000),
-        text: 'Registrar almoço de 45 reais',
-      },
-    },
-  },
-  {
-    method: 'POST',
-    urlTemplate: '/api/assistant/chat',
-    group: '4. Telegram & Assistente',
-    name: 'POST /api/assistant/chat',
-    validPayloadBase: {
-      message: 'Quanto gastei este mês?',
-    },
-  },
-  {
-    method: 'POST',
-    urlTemplate: '/api/assistant/proposals/:id/approve',
-    group: '4. Telegram & Assistente',
-    name: 'POST /api/assistant/proposals/:id/approve',
-    hasParamId: true,
-    validPayloadBase: {
-      modifications: { amount: 50.00 },
-    },
-  },
-
-  // 5. Grupo Categorias, Fiscal & Auth
-  {
-    method: 'POST',
-    urlTemplate: '/api/categories',
-    group: '5. Categorias, Fiscal & Auth',
-    name: 'POST /api/categories',
-    validPayloadBase: {
-      name: 'Software e Ferramentas',
-      type: 'despesa',
-    },
-  },
-  {
-    method: 'POST',
-    urlTemplate: '/api/fiscal/generate-invoice',
-    group: '5. Categorias, Fiscal & Auth',
-    name: 'POST /api/fiscal/generate-invoice',
-    validPayloadBase: {
-      amount: 1500.00,
-      description: 'Desenvolvimento de software MEI',
-      customerName: 'Cliente Teste',
-      customerCpfCnpj: '12345678909',
-    },
-  },
-  {
-    method: 'POST',
-    urlTemplate: '/api/workspaces/members',
-    group: '5. Categorias, Fiscal & Auth',
-    name: 'POST /api/workspaces/members',
-    validPayloadBase: {
-      email: 'colaborador@empresa.com',
-      role: 'member',
-    },
-  },
-  {
-    method: 'POST',
-    urlTemplate: '/api/register',
-    group: '5. Categorias, Fiscal & Auth',
-    name: 'POST /api/register',
-    validPayloadBase: {
-      name: 'Novo Usuário',
-      email: 'novo_usuario_valido@teste.local',
-      password: 'SenhaForte123!',
-      accountType: 'mei',
-    },
-  },
-
-  // 6. Grupo Potes
-  {
-    method: 'POST',
-    urlTemplate: '/api/jars/plan',
-    group: '6. Potes',
-    name: 'POST /api/jars/plan',
-    validPayloadBase: {
-      baseMode: 'percentage',
-      percentage: 20,
-    },
-  },
-  {
-    method: 'PUT',
-    urlTemplate: '/api/jars/categories',
-    group: '6. Potes',
-    name: 'PUT /api/jars/categories',
-    validPayloadBase: {
-      categoryId: '00000000-0000-0000-0000-000000000001',
-      jarId: '00000000-0000-0000-0000-000000000002',
-    },
-  },
+export const TARGETS: Target[] = [
+  { method: 'POST', url: '/api/register', public: true, base: { name: 'Fulano', email: 'f@t.local', password: 'Senha123!', accountType: 'mei' } },
+  { method: 'POST', url: '/api/login', public: true, base: { email: 'f@t.local', password: 'Senha123!' } },
+  { method: 'POST', url: '/api/receipts/parse', base: { imageBase64: 'abc', mimeType: 'image/png', textOrQrUrl: 'http://x', entityId: UUID0 } },
+  { method: 'POST', url: '/api/receipts/confirm', base: { total: '100.00', description: 'x', date: '2026-03-01', categoryId: UUID0, accessKey: 'k', splits: [] } },
+  { method: 'POST', url: '/api/categories', base: { name: 'Cat', type: 'despesa' } },
+  { method: 'PUT', url: '/api/categories/:id', foreign: 'category', base: { name: 'Cat', type: 'despesa' } },
+  { method: 'DELETE', url: '/api/categories/:id', foreign: 'category', noBody: true, base: {} },
+  { method: 'POST', url: '/api/consents', base: { type: 'terms', version: '1' } },
+  { method: 'POST', url: '/api/transactions', base: { type: 'despesa', amount: '100.00', description: 'x', occurredOn: '2026-03-01', categoryId: UUID0 } },
+  { method: 'PUT', url: '/api/transactions/:id', foreign: 'transaction', base: { description: 'x', amount: '100.00', type: 'despesa', categoryId: UUID0, paymentMethod: 'pix', transactionDate: '2026-03-01' } },
+  { method: 'DELETE', url: '/api/transactions/:id', foreign: 'transaction', noBody: true, base: {} },
+  { method: 'POST', url: '/api/transfers', base: { fromAccountId: UUID0, toAccountId: UUID0, amount: '10.00', occurredOn: '2026-03-01' } },
+  { method: 'POST', url: '/api/owner-withdrawals', base: { amount: '10.00', occurredOn: '2026-03-01' } },
+  { method: 'POST', url: '/api/telegram/link-token', noBody: true, base: {} },
+  { method: 'POST', url: '/api/telegram/unlink', noBody: true, base: {} },
+  { method: 'POST', url: '/api/das/:id/pay', base: { paidOn: '2026-03-01', paidAmount: '70.60' } },
+  { method: 'DELETE', url: '/api/das/:id/pay', noBody: true, base: {} },
+  { method: 'PATCH', url: '/api/me', base: { name: 'Novo', email: 'n@t.local', accountType: 'mei' } },
+  { method: 'PUT', url: '/api/entities/:id/business-profile', base: { cnpj: '11222333000181', legalName: 'X', tradeName: 'Y', openedOn: '2026-01-01', activity: 'servicos' } },
+  { method: 'POST', url: '/api/education/lessons/:slug/quiz', base: { answers: [0, 1] } },
+  { method: 'POST', url: '/api/education/lessons/:slug/complete', noBody: true, base: {} },
+  { method: 'POST', url: '/api/education/ask', base: { question: 'O que é MEI?', contextId: UUID0 } },
+  { method: 'POST', url: '/api/education/nudges/:id/feedback', base: { helpful: true } },
+  { method: 'POST', url: '/api/jars/plan', base: { templateSlug: 'seis-potes', baseMode: 'mes_atual', name: 'P', entityId: UUID0 } },
+  { method: 'PATCH', url: '/api/jars/plan/:planId', base: { baseMode: 'mes_atual' } },
+  { method: 'PUT', url: '/api/jars/categories', base: { planId: UUID0, jarId: UUID0, categoryIds: [UUID0] } },
+  { method: 'PUT', url: '/api/jars/categories/batch', base: { planId: UUID0, mappings: [{ jarId: UUID0, categoryIds: [] }] } },
+  { method: 'POST', url: '/api/openfinance/connect-token', noBody: true, base: {} },
+  { method: 'POST', url: '/api/openfinance/connect-item', base: { itemId: 'item-1', entityId: UUID0 } },
+  { method: 'POST', url: '/api/openfinance/connections/:id/sync', noBody: true, base: {} },
+  { method: 'DELETE', url: '/api/openfinance/connections/:id', noBody: true, base: {} },
+  { method: 'POST', url: '/api/insights/ask', base: { question: 'Como foi o mês?', entityId: UUID0 } },
+  { method: 'POST', url: '/api/insights/run', noBody: true, base: {} },
+  { method: 'POST', url: '/api/insights/:id/dismiss', noBody: true, base: {} },
+  { method: 'POST', url: '/api/insights/:id/feedback', base: { helpful: true } },
+  { method: 'POST', url: '/api/imports/statement', base: { content: 'OFX', provider: 'ofx', institution: 'Banco', entityId: UUID0 } },
+  { method: 'POST', url: '/api/imports/approve', base: { bankTransactionId: UUID0, categoryId: UUID0, entityId: UUID0, viaPersonalAccount: false } },
+  { method: 'POST', url: '/api/imports/batch-approve', base: { items: [{ bankTransactionId: UUID0 }] } },
+  { method: 'POST', url: '/api/imports/ignore', base: { bankTransactionId: UUID0 } },
+  { method: 'POST', url: '/api/assistant/chat', base: { message: 'Oi', history: [] } },
+  { method: 'POST', url: '/api/assistant/receipt', base: { imageBase64: 'abc', mimeType: 'image/png', textOrQrUrl: 'http://x' } },
+  { method: 'POST', url: '/api/assistant/proposals', base: { text: 'almoço 45', entityId: UUID0 } },
+  { method: 'POST', url: '/api/assistant/proposals/:id/confirm', noBody: true, base: {} },
+  { method: 'POST', url: '/api/assistant/proposals/:id/cancel', noBody: true, base: {} },
+  { method: 'POST', url: '/telegram/webhook', public: true, base: { update_id: 1, message: { chat: { id: 1 }, text: 'oi' } } },
+  { method: 'DELETE', url: '/api/me', noBody: true, last: true, base: {} },
 ];
 
-// Montador de aninhamento profundo
-function makeDeepNestedObject(depth: number): Record<string, unknown> {
-  let obj: Record<string, unknown> = { leaf: 'deep_val' };
-  for (let i = 0; i < depth; i++) {
-    obj = { level: obj };
-  }
+function deepNested(depth: number): Record<string, unknown> {
+  let obj: Record<string, unknown> = { leaf: 1 };
+  for (let i = 0; i < depth; i++) obj = { level: obj };
   return obj;
 }
 
-export async function runFuzzProbe() {
-  const app: FastifyInstance = await buildApp();
+function mapValues(base: Record<string, unknown>, fn: (k: string) => unknown): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const k of Object.keys(base)) out[k] = fn(k);
+  return Object.keys(out).length ? out : { campo: fn('campo') };
+}
 
-  // Usuário A (requisitante principal)
-  let userA = await prisma.user.findFirst({ where: { email: 'fuzz-test@meister.local' } });
-  if (!userA) {
-    userA = await prisma.user.create({
-      data: {
-        name: 'Fuzz Tester A',
-        email: 'fuzz-test@meister.local',
-        passwordHash: 'dummy',
-        accountType: 'mei',
-      },
-    });
+interface Case {
+  desc: string;
+  payload?: unknown;
+  raw?: string;
+  contentType?: string;
+}
+
+function casesFor(t: Target): Case[] {
+  const b = t.base;
+  const bigStr = 'X'.repeat(1024 * 1024);
+  return [
+    { desc: 'corpo null', raw: 'null' },
+    { desc: 'array no lugar de objeto []', payload: [] },
+    { desc: 'Content-Type text/plain', raw: 'texto qualquer', contentType: 'text/plain' },
+    { desc: 'objeto vazio {}', payload: {} },
+    {
+      desc: 'string de 1 MB nos campos',
+      payload: mapValues(b, (k) => (Array.isArray(b[k]) ? [bigStr] : bigStr)),
+    },
+    { desc: 'objeto aninhado (50 níveis)', payload: mapValues(b, () => deepNested(50)) },
+    { desc: 'chave __proto__', raw: '{"__proto__":{"admin":true}}' },
+    { desc: 'chave constructor', raw: '{"constructor":{"prototype":{"x":1}}}' },
+    { desc: 'campos como número 123', payload: mapValues(b, () => 123) },
+    {
+      desc: 'campo isolado com tipo inválido',
+      payload: { baseMode: 123, items: 'abc', answers: 'abc', helpful: 'sim', update_id: 'abc' },
+    },
+    { desc: 'campos como objeto', payload: mapValues(b, () => ({ a: 1 })) },
+    { desc: 'campos como null', payload: mapValues(b, () => null) },
+    { desc: 'campos numéricos como "1500"', payload: mapValues(b, () => '1500') },
+    { desc: 'campos como "1.500,00"', payload: mapValues(b, () => '1.500,00') },
+    { desc: 'datas inválidas "2026-02-30"', payload: mapValues(b, () => '2026-02-30') },
+  ];
+}
+
+export interface Result {
+  route: string;
+  desc: string;
+  status: number;
+  code?: string;
+  flag: '' | '🔴' | '🟡';
+}
+
+export async function runFuzzProbe(): Promise<{ results: Result[]; missing: string[] }> {
+  const trace = (m: string) => { if (process.env.PROBE_TRACE) console.error(`[setup] ${m}`); };
+  trace('buildApp');
+  const app = await buildApp({ logger: false });
+  await app.ready();
+  trace('ready');
+
+  const missing: string[] = [];
+  for (const t of TARGETS) {
+    if (!app.hasRoute({ method: t.method, url: t.url })) missing.push(`${t.method} ${t.url}`);
   }
 
-  const scopeA = await prisma.workspaceMember.findFirst({
-    where: { userId: userA.id },
-    include: { workspace: true },
+  const stamp = Date.now();
+  const user = await prisma.user.create({
+    data: { name: 'Fuzz A', email: `fuzz_a_${stamp}@meister.test`, passwordHash: 'x', accountType: 'mei' },
   });
-  let workspaceIdA = scopeA?.workspaceId;
-  if (!workspaceIdA) {
-    const provA = await provisionWorkspace({
-      userId: userA.id,
-      accountType: 'mei',
-      workspaceName: 'Workspace Fuzz A',
-    });
-    workspaceIdA = provA.workspaceId;
-  }
-
-  // Usuário B e recurso no Workspace B (para prova de isolamento entre workspaces)
-  let userB = await prisma.user.findFirst({ where: { email: 'other-user@meister.local' } });
-  if (!userB) {
-    userB = await prisma.user.create({
-      data: {
-        name: 'User B',
-        email: 'other-user@meister.local',
-        passwordHash: 'dummy',
-        accountType: 'mei',
-      },
-    });
-  }
-  const scopeB = await prisma.workspaceMember.findFirst({
-    where: { userId: userB.id },
-    include: { workspace: true },
+  const provA = await provisionWorkspace({ userId: user.id, accountType: 'mei', workspaceName: 'Fuzz A' });
+  const userB = await prisma.user.create({
+    data: { name: 'Fuzz B', email: `fuzz_b_${stamp}@meister.test`, passwordHash: 'x', accountType: 'mei' },
   });
-  let workspaceIdB = scopeB?.workspaceId;
-  if (!workspaceIdB) {
-    const provB = await provisionWorkspace({
-      userId: userB.id,
-      accountType: 'mei',
-      workspaceName: 'Workspace B',
-    });
-    workspaceIdB = provB.workspaceId;
-  }
+  const provB = await provisionWorkspace({ userId: userB.id, accountType: 'mei', workspaceName: 'Fuzz B' });
 
-  // Obter ou criar uma transação no Workspace B
-  const entityB = await prisma.entity.findFirst({ where: { workspaceId: workspaceIdB } });
-  const categoryB = await prisma.category.findFirst({ where: { workspaceId: workspaceIdB } });
-  let txInWorkspaceB = await prisma.transaction.findFirst({ where: { workspaceId: workspaceIdB } });
-  if (!txInWorkspaceB && entityB && categoryB) {
-    txInWorkspaceB = await prisma.transaction.create({
-      data: {
-        workspaceId: workspaceIdB,
-        entityId: entityB.id,
-        categoryId: categoryB.id,
-        amount: 50.0,
-        type: 'despesa',
-        description: 'Transação do Workspace B',
-        transactionDate: new Date(),
-      },
-    });
-  }
-  const foreignResourceId = txInWorkspaceB?.id ?? 'e52692f2-62a2-40b0-bc8f-65dde6949a48';
+  const catB = await prisma.category.create({
+    data: { workspaceId: provB.workspaceId, name: 'Cat B', slug: 'cat-b', type: 'despesa' },
+  });
+  const txB = await createTransaction(provB.scope, {
+    type: 'despesa',
+    amount: '10.00',
+    description: 'Do workspace B',
+    occurredOn: '2026-03-01',
+    categoryId: catB.id,
+  } as never);
+  const foreignIds = { transaction: (txB as { id: string }).id, category: catB.id };
 
+  trace('fixtures ok');
   const token = app.jwt.sign(
-    { sub: userA.id, userId: userA.id, email: userA.email, wid: workspaceIdA },
+    { sub: user.id, userId: user.id, email: user.email, wid: provA.workspaceId },
     { expiresIn: '1h' }
   );
 
-  const defaultHeaders: Record<string, string> = {
-    'content-type': 'application/json',
-    authorization: `Bearer ${token}`,
-  };
+  const ordered = [...TARGETS.filter((t) => !t.last), ...TARGETS.filter((t) => t.last)];
+  const results: Result[] = [];
+  let seq = 0; // IP distinto por requisição: evita que o rate limit (300/min por IP) mascare resultados
 
-  const results: Array<{
-    group: string;
-    name: string;
-    desc: string;
-    status: number;
-    is500: boolean;
-    code?: string;
-    message?: string;
-  }> = [];
+  for (const t of ordered) {
+    const idCases: Array<{ desc: string; id: string }> = [];
+    if (t.url.includes(':')) {
+      idCases.push({ desc: ':id UUID inválido', id: 'nao-e-uuid' });
+      idCases.push({ desc: ':id UUID inexistente', id: UUID0 });
+      if (t.foreign) idCases.push({ desc: ':id de OUTRO workspace', id: foreignIds[t.foreign] });
+    }
+    const fill = (id: string) => t.url.replace(/:[a-zA-Z]+/g, id === '' ? UUID0 : id);
 
-  for (const target of TARGET_ROUTES) {
-    // Definir os casos adversariais
-    const cases: Array<{
-      desc: string;
-      urlOverride?: string;
-      payloadOverride?: unknown;
-      contentType?: string;
-      customHeaders?: Record<string, string>;
-    }> = [
-      { desc: 'corpo null', payloadOverride: null },
-      { desc: 'array no lugar de objeto []', payloadOverride: [] },
-      { desc: 'Content-Type errado (text/plain)', contentType: 'text/plain', payloadOverride: 'raw text payload' },
-      { desc: 'string de 1 MB em campo string', payloadOverride: { ...target.validPayloadBase, description: 'X'.repeat(1024 * 1024), text: 'X'.repeat(1024 * 1024), message: 'X'.repeat(1024 * 1024), name: 'X'.repeat(1024 * 1024) } },
-      { desc: 'objeto muito aninhado (profundidade 50)', payloadOverride: { ...target.validPayloadBase, nested: makeDeepNestedObject(50) } },
-      { desc: 'chave __proto__ maliciosa', payloadOverride: JSON.parse('{"__proto__": {"admin": true}}') },
-      { desc: 'chave constructor maliciosa', payloadOverride: JSON.parse('{"constructor": {"prototype": {"polluted": true}}}') },
-      { desc: 'número como string ("1500")', payloadOverride: { ...target.validPayloadBase, amount: '1500', update_id: '1500' } },
-      { desc: 'número com vírgula ("1.500,00")', payloadOverride: { ...target.validPayloadBase, amount: '1.500,00' } },
-      { desc: 'data inválida ("2026-02-30")', payloadOverride: { ...target.validPayloadBase, transactionDate: '2026-02-30', date: '2026-02-30', dateFrom: '2026-02-30' } },
-    ];
-
-    // Se a rota possui parâmetro :id, adicionamos os casos de UUID inválido e ID de outro workspace
-    if (target.hasParamId) {
-      cases.push({
-        desc: 'UUID inválido no :id (formato não-UUID)',
-        urlOverride: target.urlTemplate.replace(':id', 'uuid-invalido-123'),
-        payloadOverride: target.validPayloadBase,
-      });
-      cases.push({
-        desc: 'id existente de OUTRO workspace no :id',
-        urlOverride: target.urlTemplate.replace(':id', foreignResourceId),
-        payloadOverride: target.validPayloadBase,
-      });
+    const runs: Array<{ desc: string; url: string; c: Case }> = [];
+    for (const c of casesFor(t)) runs.push({ desc: c.desc, url: fill(UUID0), c });
+    for (const ic of idCases) {
+      runs.push({ desc: ic.desc, url: fill(t.url.includes('/lessons/') ? 'licao-x' : ic.id), c: { desc: ic.desc, payload: t.base } });
     }
 
-    for (const testCase of cases) {
-      const finalUrl = testCase.urlOverride || target.urlTemplate.replace(':id', '00000000-0000-0000-0000-000000000000');
-      const reqHeaders: Record<string, string> = {
-        ...defaultHeaders,
-        ...(testCase.contentType ? { 'content-type': testCase.contentType } : {}),
-        ...(testCase.customHeaders || {}),
+    for (const r of runs) {
+      const headers: Record<string, string> = {
+        'content-type': r.c.contentType ?? 'application/json',
+        ...(t.public ? {} : { authorization: `Bearer ${token}` }),
       };
-
-      if (target.urlTemplate === '/api/register' || target.urlTemplate === '/telegram/webhook') {
-        delete reqHeaders['authorization'];
+      if (t.url === '/telegram/webhook' && process.env.TELEGRAM_WEBHOOK_SECRET) {
+        headers['x-telegram-bot-api-secret-token'] = process.env.TELEGRAM_WEBHOOK_SECRET;
       }
-
+      if (process.env.PROBE_TRACE) console.error(`-> ${t.method} ${r.url} :: ${r.desc}`);
+      let status = 500;
+      let code: string | undefined;
       try {
         const res = await app.inject({
-          method: target.method,
-          url: finalUrl,
-          headers: reqHeaders,
-          payload: testCase.payloadOverride as Record<string, unknown>,
+          method: t.method,
+          url: r.url,
+          remoteAddress: `10.${(seq >> 16) & 255}.${(seq >> 8) & 255}.${seq++ & 255}`,
+          headers,
+          payload: r.c.raw ?? (r.c.payload === undefined ? undefined : JSON.stringify(r.c.payload)),
         });
-
-        const status = res.statusCode;
-        let responseBody: Record<string, unknown> = {};
+        status = res.statusCode;
         try {
-          responseBody = res.json() as Record<string, unknown>;
+          code = (res.json() as { code?: string }).code;
         } catch {
-          // ignore non-json
+          code = undefined;
         }
-
-        results.push({
-          group: target.group,
-          name: target.name,
-          desc: testCase.desc,
-          status,
-          is500: status >= 500,
-          code: typeof responseBody?.code === 'string' ? responseBody.code : undefined,
-          message: typeof responseBody?.message === 'string' ? responseBody.message : undefined,
-        });
-      } catch (err: unknown) {
-        const error = err as Error;
-        results.push({
-          group: target.group,
-          name: target.name,
-          desc: testCase.desc,
-          status: 500,
-          is500: true,
-          code: 'UNCAUGHT_EXCEPTION',
-          message: error?.message,
-        });
+      } catch (err) {
+        code = `UNCAUGHT:${(err as Error).message}`;
       }
+      const isBodyCase = !r.desc.startsWith(':id');
+      const flag: Result['flag'] = status >= 500 ? '🔴' : isBodyCase && !t.noBody && status >= 200 && status < 300 ? '🟡' : '';
+      results.push({ route: `${t.method} ${t.url}`, desc: r.desc, status, code, flag });
     }
   }
 
   await app.close();
-  return results;
+  return { results, missing };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  runFuzzProbe().then((results) => {
-    console.log('\n========================================================================');
-    console.log('       RELATÓRIO OFICIAL DO PROBE DE FUZZ ADVERSARIAL (ANTES)           ');
-    console.log('========================================================================\n');
-
-    let total500 = 0;
-    const totalTested = results.length;
-
-    console.log('| Grupo | Rota | Cenário Adversarial | Status | Código de Erro |');
-    console.log('|---|---|---|:---:|---|');
-    for (const r of results) {
-      if (r.is500) total500++;
-      const statusLabel = r.is500 ? `🔴 ${r.status}` : `${r.status}`;
-      console.log(`| ${r.group} | ${r.name} | ${r.desc} | ${statusLabel} | ${r.code || '-'} |`);
-    }
-
-    console.log('\n------------------------------------------------------------------------');
-    console.log(`Total de requisições de fuzz testadas: ${totalTested}`);
-    console.log(`Total de respostas 500 (Erros Internos): ${total500}`);
-    console.log('------------------------------------------------------------------------\n');
-  });
+  const label = process.env.PROBE_LABEL ?? 'PROBE';
+  const { results, missing } = await runFuzzProbe();
+  const n5xx = results.filter((r) => r.flag === '🔴').length;
+  const n2xx = results.filter((r) => r.flag === '🟡').length;
+  console.log(`# Probe de fuzz de rotas — ${label}\n`);
+  console.log(`Rotas-alvo: ${TARGETS.length} | Rotas inexistentes: ${missing.length}`);
+  if (missing.length) console.log(`INEXISTENTES: ${missing.join(', ')}`);
+  console.log('\n| Rota | Cenário | Status | Código | Alerta |');
+  console.log('|---|---|:---:|---|:---:|');
+  for (const r of results) console.log(`| ${r.route} | ${r.desc} | ${r.status} | ${r.code ?? '-'} | ${r.flag} |`);
+  console.log(`\nTotal de requisições: ${results.length}`);
+  console.log(`🔴 Respostas 5xx: ${n5xx}`);
+  const n429 = results.filter((r) => r.status === 429).length;
+  console.log(`429 (rate limit — deve ser 0, senão o resultado está mascarado): ${n429}`);
+  console.log(`🟡 2xx com corpo malformado (aceitação indevida, rotas que leem o corpo): ${n2xx}`);
+  process.exit(missing.length ? 2 : n429 ? 3 : 0);
 }
