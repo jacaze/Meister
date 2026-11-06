@@ -88,6 +88,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await fastify.register(assistantRoutes, { prefix: '/api' });
   await fastify.register(telegramRoutes, { prefix: '/api' });
   await fastify.register(telegramWebhookRoute);
+  await fastify.register(telegramWebhookRoute, { prefix: '/api' });
 
   fastify.get('/health', async () => ({
     status: 'ok',
