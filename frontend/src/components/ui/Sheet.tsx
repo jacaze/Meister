@@ -39,13 +39,20 @@ export const Sheet: React.FC<SheetProps> = ({
   const panelRef = useRef<HTMLDivElement>(null);
   const isMobile = typeof window !== 'undefined' && window.matchMedia(MOBILE_QUERY).matches;
 
+  // onClose costuma vir inline do pai (nova função a cada render). Se fosse dependência do
+  // efeito abaixo, cada render do pai devolveria o foco para trás do modal e de volta.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (!open) return;
     const previous = document.activeElement as HTMLElement | null;
     const { overflow } = document.body.style;
     document.body.style.overflow = 'hidden';
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onCloseRef.current();
     };
     window.addEventListener('keydown', onKey);
     const t = window.setTimeout(() => {
@@ -57,7 +64,7 @@ export const Sheet: React.FC<SheetProps> = ({
       window.clearTimeout(t);
       previous?.focus?.({ preventScroll: true });
     };
-  }, [open, onClose]);
+  }, [open]);
 
   const onDragEnd = (_: unknown, info: PanInfo) => {
     if (info.offset.y > 120 || info.velocity.y > 600) onClose();
