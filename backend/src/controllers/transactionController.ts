@@ -25,8 +25,11 @@ export async function getById(
 
 export async function create(request: FastifyRequest, reply: FastifyReply) {
   if (request.scope) assertCanWrite(request.scope);
-  const body = (request.body ?? {}) as Parameters<typeof transactionService.create>[1];
-  const transaction = await transactionService.create(request.userId, body, request.scope);
+  const transaction = await transactionService.create(
+    request.userId,
+    request.body as Parameters<typeof transactionService.create>[1],
+    request.scope
+  );
   return reply.status(201).send(transaction);
 }
 
@@ -35,11 +38,10 @@ export async function update(
   reply: FastifyReply
 ) {
   if (request.scope) assertCanWrite(request.scope);
-  const body = (request.body ?? {}) as Parameters<typeof transactionService.update>[2];
   const transaction = await transactionService.update(
     request.userId,
     request.params.id,
-    body,
+    request.body as Parameters<typeof transactionService.update>[2],
     request.scope
   );
   return reply.send(transaction);

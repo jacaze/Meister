@@ -44,7 +44,7 @@ export async function approveImportedTransaction(
   const tx = await createTransaction(scope, {
     type: item.direction === 'in' ? 'receita' : 'despesa',
     amount: String(item.amount),
-    description: item.description,
+    description: item.description.slice(0, 1000),
     occurredOn: item.occurredOn.toISOString().slice(0, 10),
     categoryId: categoryId || undefined,
     entityId: input.entityId,

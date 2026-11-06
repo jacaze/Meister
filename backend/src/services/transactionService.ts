@@ -11,6 +11,10 @@ import {
   type WorkspaceScope,
 } from '../shared/index.js';
 import { resolveScopeForUser } from '../modules/workspace/public.js';
+import {
+  httpCreateTransactionSchema,
+  httpUpdateTransactionSchema,
+} from '../modules/ledger/application/schemas/ledger-schemas.js';
 
 const TRANSACTION_TYPES: readonly TransactionType[] = ['receita', 'despesa'] as const;
 const PAYMENT_METHODS: readonly PaymentMethod[] = [
@@ -43,8 +47,8 @@ function parseDescription(value: unknown): string {
   if (!description) {
     throw new ValidationError('Informe a descrição do lançamento');
   }
-  if (description.length > 255) {
-    throw new ValidationError('A descrição pode ter no máximo 255 caracteres');
+  if (description.length > 1000) {
+    throw new ValidationError('A descrição pode ter no máximo 1000 caracteres');
   }
   return description;
 }
@@ -121,7 +125,7 @@ function buildWhere(scope: WorkspaceScope, query: TransactionQuery = {}): Prisma
 
 export async function create(
   userId: string | undefined,
-  input: {
+  rawInput: {
     description?: unknown;
     amount?: unknown;
     type?: unknown;
@@ -137,6 +141,8 @@ export async function create(
   assertAuthenticated(userId);
   const resolvedScope = scope ?? (await resolveScopeForUser(userId));
   assertCanWrite(resolvedScope);
+
+  const input = httpCreateTransactionSchema.parse(rawInput);
 
   const description = parseDescription(input.description);
   const money = parseAmountToMoney(input.amount);
@@ -391,7 +397,7 @@ export async function getById(userId: string | undefined, id: string, scope?: Wo
 export async function update(
   userId: string | undefined,
   id: string,
-  input: {
+  rawInput: {
     description?: unknown;
     amount?: unknown;
     type?: unknown;
@@ -405,6 +411,8 @@ export async function update(
   assertAuthenticated(userId);
   const resolvedScope = scope ?? (await resolveScopeForUser(userId));
   assertCanWrite(resolvedScope);
+
+  const input = httpUpdateTransactionSchema.parse(rawInput);
 
   const transaction = await prisma.transaction.findFirst({
     where: { id, workspaceId: resolvedScope.workspaceId, deletedAt: null },

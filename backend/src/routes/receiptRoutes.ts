@@ -20,7 +20,7 @@ export async function receiptRoutes(fastify: FastifyInstance) {
     };
   }>('/receipts/parse', async (request, reply) => {
     const scope = request.scope!;
-    const body = parseReceiptPhotoSchema.parse(request.body || {});
+    const body = parseReceiptPhotoSchema.parse(request.body);
     const result = await parseReceiptPhoto(scope, body);
     return reply.send(result);
   });
@@ -39,7 +39,7 @@ export async function receiptRoutes(fastify: FastifyInstance) {
     };
   }>('/receipts/confirm', async (request, reply) => {
     const scope = request.scope!;
-    const body = confirmReceiptSchema.parse(request.body || {});
+    const body = confirmReceiptSchema.parse(request.body);
 
     const transaction = await createTransaction(scope, {
       type: 'despesa',

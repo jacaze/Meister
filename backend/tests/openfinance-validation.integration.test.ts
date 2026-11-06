@@ -84,4 +84,55 @@ describe('OpenFinance Validation Hardening (Integration)', () => {
     const body = res.json();
     expect(body.code).toBe('VALIDATION_ERROR');
   });
+
+  it('aprova transação importada com descrição longa de extrato (300 caracteres) sem quebrar contrato com 400', async () => {
+    const longMemo = `PIX RECEBIDO CLIENTE CONTRATO ANUAL DE PRESTACAO DE SERVICOS DE MANUTENCAO E CONSULTORIA TECNICA ESPECIALIZADA EM INFRAESTRUTURA E REDES CORPORATIVAS - PARCELA 01/12 - IDENTIFICADOR BANCARIO E2E99887766554433221100 - DOCUMENTO FISCAL VINCULADO E CONFERIDO PELO DEPARTAMENTO FINANCEIRO CENTRAL ${'X'.repeat(40)}`;
+    expect(longMemo.length).toBeGreaterThanOrEqual(300);
+
+    await prisma.category.create({
+      data: {
+        workspaceId,
+        name: `Receita OF ${Date.now()}`,
+        slug: `receita-of-${Date.now()}`,
+        type: 'receita',
+      },
+    });
+
+    const ofx = `
+OFXHEADER:100
+<OFX>
+  <STMTTRN>
+    <TRNTYPE>CREDIT</TRNTYPE>
+    <DTPOSTED>20261104120000</DTPOSTED>
+    <TRNAMT>1250.00</TRNAMT>
+    <FITID>FIT-LONG-${Date.now()}</FITID>
+    <MEMO>${longMemo}</MEMO>
+  </STMTTRN>
+</OFX>`;
+
+    const impRes = await app.inject({
+      method: 'POST',
+      url: '/api/imports/statement',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { content: ofx, provider: 'ofx', institution: 'Banco Teste' },
+    });
+    expect(impRes.statusCode).toBe(201);
+
+    const inboxRes = await app.inject({
+      method: 'GET',
+      url: '/api/imports',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const importedItem = inboxRes.json().items[0] as { id: string; description: string };
+    expect(importedItem.description.length).toBeGreaterThanOrEqual(300);
+
+    const approveRes = await app.inject({
+      method: 'POST',
+      url: '/api/imports/approve',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { bankTransactionId: importedItem.id },
+    });
+    expect(approveRes.statusCode).toBe(200);
+    expect(approveRes.json().description).toBe(longMemo);
+  });
 });

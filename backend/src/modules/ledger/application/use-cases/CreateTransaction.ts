@@ -77,8 +77,8 @@ export async function createTransaction(
   if (!description) {
     throw new ValidationError('A descrição da transação é obrigatória');
   }
-  if (description.length > 255) {
-    throw new ValidationError('A descrição pode ter no máximo 255 caracteres');
+  if (description.length > 1000) {
+    throw new ValidationError('A descrição pode ter no máximo 1000 caracteres');
   }
 
   // 4. Validate Date

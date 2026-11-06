@@ -120,4 +120,39 @@ describe('Ledger Validation Hardening (Integration)', () => {
     expect(body.legOut).toBeDefined();
     expect(body.legIn).toBeDefined();
   });
+
+  it('valida POST /api/transactions e PUT /api/transactions/:id via Zod rejeitando corpos malformados com 400 VALIDATION_ERROR', async () => {
+    const badPostArray = await app.inject({
+      method: 'POST',
+      url: '/api/transactions',
+      headers: { authorization: `Bearer ${token}` },
+      payload: [],
+    });
+    expect(badPostArray.statusCode).toBe(400);
+    expect(badPostArray.json().code).toBe('VALIDATION_ERROR');
+
+    const badPostTypes = await app.inject({
+      method: 'POST',
+      url: '/api/transactions',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        description: 123,
+        amount: { invalid: true },
+        type: 'invalido',
+        categoryId: null,
+        transactionDate: 123,
+      },
+    });
+    expect(badPostTypes.statusCode).toBe(400);
+    expect(badPostTypes.json().code).toBe('VALIDATION_ERROR');
+
+    const badPutArray = await app.inject({
+      method: 'PUT',
+      url: '/api/transactions/00000000-0000-4000-8000-000000000000',
+      headers: { authorization: `Bearer ${token}` },
+      payload: [],
+    });
+    expect(badPutArray.statusCode).toBe(400);
+    expect(badPutArray.json().code).toBe('VALIDATION_ERROR');
+  });
 });

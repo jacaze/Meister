@@ -45,7 +45,7 @@ export async function openFinanceRoutes(fastify: FastifyInstance) {
     };
   }>('/openfinance/connect-item', async (request, reply) => {
     const scope = request.scope!;
-    const body = connectPluggyItemSchema.parse(request.body || {});
+    const body = connectPluggyItemSchema.parse(request.body);
 
     const result = await connectPluggyItem(scope, {
       itemId: body.itemId,
@@ -96,7 +96,7 @@ export async function openFinanceRoutes(fastify: FastifyInstance) {
     };
   }>('/imports/statement', async (request, reply) => {
     const scope = request.scope!;
-    const body = importStatementSchema.parse(request.body || {});
+    const body = importStatementSchema.parse(request.body);
 
     const result = await importStatement(scope, {
       content: body.content,
@@ -133,7 +133,7 @@ export async function openFinanceRoutes(fastify: FastifyInstance) {
     };
   }>('/imports/approve', async (request, reply) => {
     const scope = request.scope!;
-    const body = approveImportedTransactionSchema.parse(request.body || {});
+    const body = approveImportedTransactionSchema.parse(request.body);
 
     const transaction = await approveImportedTransaction(scope, {
       bankTransactionId: body.bankTransactionId,
@@ -156,7 +156,7 @@ export async function openFinanceRoutes(fastify: FastifyInstance) {
     };
   }>('/imports/batch-approve', async (request, reply) => {
     const scope = request.scope!;
-    const body = batchApproveImportedTransactionsSchema.parse(request.body || {});
+    const body = batchApproveImportedTransactionsSchema.parse(request.body);
     const items = body.items;
     const approved = [];
 
@@ -179,7 +179,7 @@ export async function openFinanceRoutes(fastify: FastifyInstance) {
     };
   }>('/imports/ignore', async (request, reply) => {
     const scope = request.scope!;
-    const body = ignoreImportedTransactionSchema.parse(request.body || {});
+    const body = ignoreImportedTransactionSchema.parse(request.body);
 
     const result = await ignoreImportedTransaction(scope, body.bankTransactionId);
     return reply.status(200).send(result);
