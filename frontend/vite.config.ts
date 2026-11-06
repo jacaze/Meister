@@ -12,8 +12,9 @@ function assetManifestPlugin(): Plugin {
     closeBundle() {
       const distDir = path.resolve(import.meta.dirname, 'dist');
       const assetsDir = path.join(distDir, 'assets');
+      const templatePath = path.resolve(import.meta.dirname, 'src/sw.template.js');
 
-      if (!fs.existsSync(assetsDir)) return;
+      if (!fs.existsSync(assetsDir) || !fs.existsSync(templatePath)) return;
 
       const assetFiles = fs.readdirSync(assetsDir);
       const manifestList = [
@@ -38,6 +39,15 @@ function assetManifestPlugin(): Plugin {
       }
       const buildVersion = hash.digest('hex').slice(0, 10);
 
+      // Injeta versão do build e lista de assets diretamente no Service Worker gerado em dist/sw.js
+      let swTemplate = fs.readFileSync(templatePath, 'utf8');
+      swTemplate = swTemplate
+        .replace('__BUILD_VERSION__', buildVersion)
+        .replace('__PRECACHE_ASSETS__', JSON.stringify(manifestList, null, 2));
+
+      fs.writeFileSync(path.join(distDir, 'sw.js'), swTemplate, 'utf8');
+
+      // Mantém asset-manifest.json para depuração e inspeção do deploy
       const manifestData = {
         version: buildVersion,
         assets: manifestList,

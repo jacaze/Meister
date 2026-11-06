@@ -1,16 +1,7 @@
 // Service Worker MEIster — Cache de assets estáticos e SPA offline resiliente (exclui estritamente /api)
-const STATIC_CACHE_PREFIX = 'meister-static-';
-const DEFAULT_CACHE_NAME = 'meister-static-v5';
-const FALLBACK_STATIC_ENTRIES = [
-  '/',
-  '/index.html',
-  '/favicon.svg',
-  '/manifest.webmanifest',
-  '/icon-192.png',
-  '/icon-512.png',
-  '/icon-maskable-192.png',
-  '/icon-maskable-512.png',
-];
+const BUILD_VERSION = '__BUILD_VERSION__';
+const PRECACHE_ASSETS = __PRECACHE_ASSETS__;
+const CACHE_NAME = 'meister-static-' + BUILD_VERSION;
 
 const STATIC_EXTENSIONS = [
   '.js',
@@ -24,61 +15,27 @@ const STATIC_EXTENSIONS = [
   '.ttf',
 ];
 
-// Obtém o nome da versão ativa do cache a partir do manifesto do deploy ou usa fallback
-async function getDeployCacheName() {
-  try {
-    const res = await fetch('/asset-manifest.json', { cache: 'no-cache' });
-    if (res && res.status === 200) {
-      const data = await res.json();
-      if (data && data.version) {
-        return `${STATIC_CACHE_PREFIX}${data.version}`;
-      }
-    }
-  } catch {}
-  return DEFAULT_CACHE_NAME;
-}
-
-// Precache no install: carrega asset-manifest.json com TODOS os assets (inclusive chunks dinâmicos)
+// Precache no install: grava atomicamente a lista completa de assets do build atual
 self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
-      let cacheName = DEFAULT_CACHE_NAME;
-      let assetsToCache = FALLBACK_STATIC_ENTRIES;
-
-      try {
-        const res = await fetch('/asset-manifest.json', { cache: 'no-cache' });
-        if (res && res.status === 200) {
-          const manifest = await res.json();
-          if (manifest && Array.isArray(manifest.assets) && manifest.version) {
-            cacheName = `${STATIC_CACHE_PREFIX}${manifest.version}`;
-            assetsToCache = manifest.assets;
-          }
-        }
-      } catch {
-        // Fallback para lista básica caso o manifesto não esteja disponível
-      }
-
-      const cache = await caches.open(cacheName);
+      const cache = await caches.open(CACHE_NAME);
       await Promise.allSettled(
-        assetsToCache.map((url) =>
-          cache.add(url).catch(() => {})
-        )
+        PRECACHE_ASSETS.map((url) => cache.add(url).catch(() => {}))
       );
-
       await self.skipWaiting();
     })()
   );
 });
 
-// Limpeza atômica por deploy: apaga caches antigos preservando apenas a versão do deploy atual
+// Limpeza atômica no activate: apaga todos os caches antigos de deploys anteriores
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
-      const currentCacheName = await getDeployCacheName();
       const keys = await caches.keys();
       await Promise.all(
         keys
-          .filter((k) => k.startsWith(STATIC_CACHE_PREFIX) && k !== currentCacheName)
+          .filter((k) => k.startsWith('meister-static-') && k !== CACHE_NAME)
           .map((k) => caches.delete(k))
       );
       await self.clients.claim();
@@ -120,13 +77,11 @@ self.addEventListener('fetch', (event) => {
             const forIndexHtmlCache = networkResponse.clone();
 
             event.waitUntil(
-              getDeployCacheName().then((cacheName) =>
-                caches.open(cacheName).then((cache) =>
-                  Promise.all([
-                    cache.put(event.request, forCache),
-                    cache.put('/index.html', forIndexHtmlCache),
-                  ])
-                )
+              caches.open(CACHE_NAME).then((cache) =>
+                Promise.all([
+                  cache.put(event.request, forCache),
+                  cache.put('/index.html', forIndexHtmlCache),
+                ])
               )
             );
           }
@@ -147,31 +102,60 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. Assets estáticos com extensão conhecida ou manifesto: Cache-First com atualização em background
-  const isStaticAsset =
-    STATIC_EXTENSIONS.some((ext) => url.pathname.endsWith(ext)) ||
-    url.pathname === '/asset-manifest.json';
+  // 2. Assets estáticos com extensão conhecida:
+  const isStaticAsset = STATIC_EXTENSIONS.some((ext) => url.pathname.endsWith(ext));
 
   if (isStaticAsset) {
-    // Dispara a busca na rede e o salvamento em cache de forma síncrona
+    const isImmutableAsset = url.pathname.startsWith('/assets/');
+
+    // Para /assets/* (com hash gerado pelo Vite): Cache-first puro. Não refaz download na rede se já está em cache.
+    if (isImmutableAsset) {
+      event.respondWith(
+        caches.match(event.request).then(async (cachedResponse) => {
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          try {
+            const networkResponse = await fetch(event.request);
+            if (
+              networkResponse &&
+              networkResponse.status === 200 &&
+              networkResponse.type === 'basic'
+            ) {
+              const forCache = networkResponse.clone();
+              event.waitUntil(
+                caches.open(CACHE_NAME).then((c) => c.put(event.request, forCache))
+              );
+            }
+            return networkResponse;
+          } catch {
+            return new Response('', {
+              status: 504,
+              statusText: 'Gateway Timeout',
+            });
+          }
+        })
+      );
+      return;
+    }
+
+    // Para estáticos mutáveis sem hash (favicon.svg, icon-*.png, manifest):
+    // Revalidação em segundo plano com devolução da promise do cache.put dentro de waitUntil
     const updatePromise = fetch(event.request)
-      .then((networkResponse) => {
+      .then(async (networkResponse) => {
         if (
           networkResponse &&
           networkResponse.status === 200 &&
           networkResponse.type === 'basic'
         ) {
           const forCache = networkResponse.clone();
-          getDeployCacheName()
-            .then((cacheName) => caches.open(cacheName))
-            .then((c) => c.put(event.request, forCache))
-            .catch(() => {});
+          const cache = await caches.open(CACHE_NAME);
+          await cache.put(event.request, forCache);
         }
         return networkResponse;
       })
       .catch(() => null);
 
-    // Registra imediatamente o trabalho de atualização em segundo plano para o SW não morrer
     event.waitUntil(updatePromise);
 
     event.respondWith(
