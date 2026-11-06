@@ -31,7 +31,7 @@ export async function jarsRoutes(fastify: FastifyInstance) {
   });
 
   fastify.post<{ Body: CreateJarPlanInput }>('/jars/plan', async (request, reply) => {
-    const body = createJarPlanSchema.parse(request.body ?? {});
+    const body = createJarPlanSchema.parse(request.body);
     const plan = await createJarPlan(request.scope!, body as unknown as CreateJarPlanInput);
     return reply.status(201).send(plan);
   });
@@ -42,13 +42,13 @@ export async function jarsRoutes(fastify: FastifyInstance) {
   });
 
   fastify.put<{ Body: MapCategoriesInput }>('/jars/categories', async (request, reply) => {
-    const body = mapCategoriesSchema.parse(request.body ?? {});
+    const body = mapCategoriesSchema.parse(request.body);
     const result = await mapCategories(request.scope!, body);
     return reply.send(result);
   });
 
   fastify.put<{ Body: BatchMapCategoriesInput }>('/jars/categories/batch', async (request, reply) => {
-    const body = batchMapCategoriesSchema.parse(request.body ?? {});
+    const body = batchMapCategoriesSchema.parse(request.body);
     const result = await batchMapCategories(request.scope!, body);
     return reply.send(result);
   });

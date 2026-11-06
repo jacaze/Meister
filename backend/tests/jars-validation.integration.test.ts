@@ -70,7 +70,7 @@ describe('Jars Validation Hardening (Integration)', () => {
     expect(body.code).toBe('VALIDATION_ERROR');
   });
 
-  it('cria plano de potes com payload válido com sucesso', async () => {
+  it('cria plano de potes com payload válido e NUNCA apaga ou desativa o plano ativo quando POST /api/jars/plan recebe corpo malformado (regressão P0)', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/jars/plan',
@@ -83,8 +83,66 @@ describe('Jars Validation Hardening (Integration)', () => {
     });
 
     expect(res.statusCode).toBe(201);
-    const body = res.json();
-    expect(body.id).toBeDefined();
-    expect(body.active).toBe(true);
+    const activePlan = res.json();
+    expect(activePlan.id).toBeDefined();
+    expect(activePlan.active).toBe(true);
+    expect(activePlan.jars).toHaveLength(6);
+
+    // Vincula uma categoria ao primeiro pote para garantir que vínculos não são perdidos
+    const cat = await prisma.category.create({
+      data: {
+        workspaceId,
+        name: `Cat Pote ${Date.now()}`,
+        slug: `cat-pote-${Date.now()}`,
+        type: 'despesa',
+      },
+    });
+    const firstJarId = activePlan.jars[0].id as string;
+
+    const mapRes = await app.inject({
+      method: 'PUT',
+      url: '/api/jars/categories',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planId: activePlan.id,
+        jarId: firstJarId,
+        categoryIds: [cat.id],
+      },
+    });
+    expect(mapRes.statusCode).toBe(200);
+
+    // Envia corpos malformados que na develop retornavam 201 (apagando o plano ativo) ou 500
+    const malformedBodies: Array<{ raw?: string; payload?: unknown; contentType?: string }> = [
+      { payload: [] },
+      { payload: {} },
+      { raw: 'null' },
+      { raw: 'texto solto', contentType: 'text/plain' },
+      { payload: { baseMode: 123 } },
+      { payload: { baseMode: 'invalido' } },
+      { payload: { templateSlug: 'template-inexistente' } },
+    ];
+
+    for (const bad of malformedBodies) {
+      const badRes = await app.inject({
+        method: 'POST',
+        url: '/api/jars/plan',
+        headers: {
+          authorization: `Bearer ${token}`,
+          'content-type': bad.contentType ?? 'application/json',
+        },
+        payload: bad.raw ?? JSON.stringify(bad.payload),
+      });
+      expect(badRes.statusCode).toBe(400);
+      expect(badRes.json().code).toBe('VALIDATION_ERROR');
+    }
+
+    // O plano original DEVE continuar ativo no banco e com os 6 potes e categoria vinculada intactos
+    const planInDb = await prisma.jarPlan.findUnique({
+      where: { id: activePlan.id },
+      include: { jars: true, categories: true },
+    });
+    expect(planInDb?.active).toBe(true);
+    expect(planInDb?.jars).toHaveLength(6);
+    expect(planInDb?.categories.some((c) => c.categoryId === cat.id && c.jarId === firstJarId)).toBe(true);
   });
 });

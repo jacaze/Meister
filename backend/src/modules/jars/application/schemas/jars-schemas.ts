@@ -11,27 +11,29 @@ export const customJarInputSchema = z.object({
 });
 
 export const createJarPlanSchema = z.object({
-  entityId: z.string().uuid('ID da entidade deve ser um UUID válido').optional(),
+  entityId: z.string().uuid().optional(),
   name: z.string().max(100).optional(),
   templateSlug: z.string().max(100).optional(),
   baseMode: z.enum(['mes_atual', 'mes_anterior', 'media_3_meses'], {
     error: 'Base de cálculo inválida. Use mes_atual, mes_anterior ou media_3_meses',
   }).optional(),
   customJars: z.array(customJarInputSchema).optional(),
-});
+}).refine(
+  (data) => Boolean(data.templateSlug || (data.customJars && data.customJars.length > 0))
+);
 
 export const mapCategoriesSchema = z.object({
-  planId: z.string().min(1, 'ID do plano é obrigatório'),
-  jarId: z.string().min(1, 'ID do pote é obrigatório'),
+  planId: z.string().min(1),
+  jarId: z.string().min(1),
   categoryIds: z.array(z.string()).default([]),
 });
 
 export const batchMapCategoriesSchema = z.object({
-  planId: z.string().min(1, 'ID do plano é obrigatório'),
+  planId: z.string().min(1),
   mappings: z.array(
     z.object({
-      jarId: z.string().min(1, 'ID do pote é obrigatório'),
+      jarId: z.string().min(1),
       categoryIds: z.array(z.string()).default([]),
     })
-  ).min(1, 'Lista de mapeamentos não pode ser vazia'),
+  ).min(1),
 });

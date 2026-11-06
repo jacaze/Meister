@@ -6,6 +6,7 @@ import {
   type WorkspaceScope,
 } from '../../../../shared/index.js';
 import { JAR_TEMPLATES, type JarTemplate } from '../../domain/templates.js';
+import { createJarPlanSchema } from '../schemas/jars-schemas.js';
 
 export interface CreateJarPlanInput {
   readonly entityId?: string;
@@ -25,24 +26,11 @@ export interface CreateJarPlanInput {
 
 export async function createJarPlan(
   scope: WorkspaceScope,
-  input: CreateJarPlanInput
+  rawInput: CreateJarPlanInput
 ) {
   assertCanWrite(scope);
 
-  const entityId = input.entityId ?? scope.defaultEntityIds.pf;
-  const entity = await prisma.entity.findFirst({
-    where: { id: entityId, workspaceId: scope.workspaceId, active: true },
-  });
-
-  if (!entity) {
-    throw new NotFoundError('Entidade não encontrada');
-  }
-
-  // Deactivate any existing active plan for this entity
-  await prisma.jarPlan.updateMany({
-    where: { entityId, workspaceId: scope.workspaceId, active: true },
-    data: { active: false },
-  });
+  const input = createJarPlanSchema.parse(rawInput);
 
   let template: JarTemplate | undefined;
   if (input.templateSlug) {
@@ -72,7 +60,7 @@ export async function createJarPlan(
         defaultCategorySlugs: [] as readonly string[],
       }));
 
-  // Validate percent jars sum to 100%
+  // Validate percent jars sum to 100% BEFORE mutating any existing active plan
   const percentJars = jarsToCreate.filter((j) => j.percent !== null && j.percent !== undefined);
   if (percentJars.length > 0) {
     const sumPercent = percentJars.reduce((acc, j) => acc + (j.percent ?? 0), 0);
@@ -80,6 +68,21 @@ export async function createJarPlan(
       throw new ValidationError(`A soma dos percentuais dos potes deve ser exatamente 100% (atual: ${sumPercent.toFixed(2)}%)`);
     }
   }
+
+  const entityId = input.entityId ?? scope.defaultEntityIds.pf;
+  const entity = await prisma.entity.findFirst({
+    where: { id: entityId, workspaceId: scope.workspaceId, active: true },
+  });
+
+  if (!entity) {
+    throw new NotFoundError('Entidade não encontrada');
+  }
+
+  // Deactivate any existing active plan for this entity ONLY after all input validations pass
+  await prisma.jarPlan.updateMany({
+    where: { entityId, workspaceId: scope.workspaceId, active: true },
+    data: { active: false },
+  });
 
   const planName = input.name?.trim() || (template ? template.name : 'Plano de Potes');
 
