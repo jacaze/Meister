@@ -308,6 +308,48 @@ describe('Core Modules Integration Suite (PostgreSQL 16)', () => {
     });
     expect(rejectRes.statusCode).toBe(400);
 
+    // Test malformed payload validation (Zod schema protection)
+    const malformedRes = await app.inject({
+      method: 'PUT',
+      url: '/api/jars/categories/batch',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planId: '',
+        mappings: 'invalid',
+      },
+    });
+    expect(malformedRes.statusCode).toBe(400);
+
+    // Test duplicate category across different jars rejection
+    const outroPote = jarsStatus.jars.find((j: { slug: string }) => j.slug === 'liberdade') || jarsStatus.jars[1];
+    const duplicateCrossJarRes = await app.inject({
+      method: 'PUT',
+      url: '/api/jars/categories/batch',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planId: jarsStatus.planId,
+        mappings: [
+          { jarId: necessidades.id, categoryIds: [catRec.id] },
+          { jarId: outroPote.id, categoryIds: [catRec.id] },
+        ],
+      },
+    });
+    expect(duplicateCrossJarRes.statusCode).toBe(400);
+    expect(duplicateCrossJarRes.json().message).toContain('múltiplos potes');
+
+    // Test repeated IDs in single mapping (deduplication without false rejection)
+    const dedupeRes = await app.inject({
+      method: 'PUT',
+      url: '/api/jars/categories',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planId: jarsStatus.planId,
+        jarId: necessidades.id,
+        categoryIds: [catRec.id, catRec.id],
+      },
+    });
+    expect(dedupeRes.statusCode).toBe(200);
+
     // Valid batch mapping
     const batchRes = await app.inject({
       method: 'PUT',

@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import prisma from '../../../../config/prisma.js';
 import {
   NotFoundError,
@@ -5,6 +6,22 @@ import {
   assertCanWrite,
   type WorkspaceScope,
 } from '../../../../shared/index.js';
+
+export const mapCategoriesSchema = z.object({
+  planId: z.string().min(1, 'ID do plano é obrigatório'),
+  jarId: z.string().min(1, 'ID do pote é obrigatório'),
+  categoryIds: z.array(z.string()).default([]),
+});
+
+export const batchMapCategoriesSchema = z.object({
+  planId: z.string().min(1, 'ID do plano é obrigatório'),
+  mappings: z.array(
+    z.object({
+      jarId: z.string().min(1, 'ID do pote é obrigatório'),
+      categoryIds: z.array(z.string()).default([]),
+    })
+  ).min(1, 'Lista de mapeamentos não pode ser vazia'),
+});
 
 export interface MapCategoriesInput {
   readonly planId: string;
@@ -26,29 +43,38 @@ export async function mapCategories(
 ) {
   assertCanWrite(scope);
 
+  const parsed = mapCategoriesSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new ValidationError(parsed.error.issues[0]?.message || 'Dados de entrada inválidos');
+  }
+
+  const { planId, jarId } = parsed.data;
+  // Deduplica IDs de categorias
+  const uniqueCategoryIds = [...new Set(parsed.data.categoryIds)];
+
   const plan = await prisma.jarPlan.findFirst({
-    where: { id: input.planId, workspaceId: scope.workspaceId },
+    where: { id: planId, workspaceId: scope.workspaceId },
   });
   if (!plan) {
     throw new NotFoundError('Plano de potes não encontrado');
   }
 
   const jar = await prisma.jar.findFirst({
-    where: { id: input.jarId, planId: plan.id },
+    where: { id: jarId, planId: plan.id },
   });
   if (!jar) {
     throw new NotFoundError('Pote não encontrado');
   }
 
-  // Validação estrita de posse das categorias no workspace
-  if (input.categoryIds.length > 0) {
+  // Validação estrita de posse das categorias no workspace (sobre IDs únicos)
+  if (uniqueCategoryIds.length > 0) {
     const validCount = await prisma.category.count({
       where: {
-        id: { in: [...input.categoryIds] },
+        id: { in: uniqueCategoryIds },
         workspaceId: scope.workspaceId,
       },
     });
-    if (validCount !== input.categoryIds.length) {
+    if (validCount !== uniqueCategoryIds.length) {
       throw new ValidationError('Uma ou mais categorias não pertencem a este workspace');
     }
   }
@@ -63,15 +89,15 @@ export async function mapCategories(
     });
 
     // 2. Se houver categorias a vincular, remove de outros potes do mesmo plano e insere
-    if (input.categoryIds.length > 0) {
+    if (uniqueCategoryIds.length > 0) {
       await tx.jarCategory.deleteMany({
         where: {
           planId: plan.id,
-          categoryId: { in: [...input.categoryIds] },
+          categoryId: { in: uniqueCategoryIds },
         },
       });
 
-      for (const categoryId of input.categoryIds) {
+      for (const categoryId of uniqueCategoryIds) {
         await tx.jarCategory.create({
           data: {
             planId: plan.id,
@@ -82,7 +108,7 @@ export async function mapCategories(
       }
     }
 
-    return { success: true, count: input.categoryIds.length };
+    return { success: true, count: uniqueCategoryIds.length };
   });
 }
 
@@ -92,8 +118,15 @@ export async function batchMapCategories(
 ) {
   assertCanWrite(scope);
 
+  const parsed = batchMapCategoriesSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new ValidationError(parsed.error.issues[0]?.message || 'Dados de entrada inválidos');
+  }
+
+  const { planId, mappings } = parsed.data;
+
   const plan = await prisma.jarPlan.findFirst({
-    where: { id: input.planId, workspaceId: scope.workspaceId },
+    where: { id: planId, workspaceId: scope.workspaceId },
     include: { jars: true },
   });
   if (!plan) {
@@ -101,31 +134,47 @@ export async function batchMapCategories(
   }
 
   const validJarIds = new Set(plan.jars.map((j) => j.id));
-  const allCategoryIds = input.mappings.flatMap((m) => m.categoryIds);
 
-  for (const m of input.mappings) {
+  // Deduplica categorias por pote e valida potes
+  const normalizedMappings: { jarId: string; categoryIds: string[] }[] = [];
+  const seenCategories = new Set<string>();
+
+  for (const m of mappings) {
     if (!validJarIds.has(m.jarId)) {
       throw new NotFoundError(`Pote ${m.jarId} não pertence ao plano`);
     }
+
+    const uniqueForJar = [...new Set(m.categoryIds)];
+    for (const catId of uniqueForJar) {
+      if (seenCategories.has(catId)) {
+        throw new ValidationError('A mesma categoria não pode ser vinculada a múltiplos potes no mesmo plano');
+      }
+      seenCategories.add(catId);
+    }
+
+    normalizedMappings.push({
+      jarId: m.jarId,
+      categoryIds: uniqueForJar,
+    });
   }
 
-  // Validação estrita de posse de todas as categorias
-  if (allCategoryIds.length > 0) {
-    const uniqueCatIds = [...new Set(allCategoryIds)];
+  // Validação estrita de posse de todas as categorias únicas enviadas
+  const allUniqueCategoryIds = Array.from(seenCategories);
+  if (allUniqueCategoryIds.length > 0) {
     const validCount = await prisma.category.count({
       where: {
-        id: { in: uniqueCatIds },
+        id: { in: allUniqueCategoryIds },
         workspaceId: scope.workspaceId,
       },
     });
-    if (validCount !== uniqueCatIds.length) {
+    if (validCount !== allUniqueCategoryIds.length) {
       throw new ValidationError('Uma ou mais categorias não pertencem a este workspace');
     }
   }
 
   return prisma.$transaction(async (tx) => {
     // Limpa todos os vínculos dos potes envolvidos no lote
-    const jarIdsInBatch = input.mappings.map((m) => m.jarId);
+    const jarIdsInBatch = normalizedMappings.map((m) => m.jarId);
     await tx.jarCategory.deleteMany({
       where: {
         planId: plan.id,
@@ -133,9 +182,19 @@ export async function batchMapCategories(
       },
     });
 
+    // Se alguma das categorias já pertencia a outro pote fora do lote, remove também
+    if (allUniqueCategoryIds.length > 0) {
+      await tx.jarCategory.deleteMany({
+        where: {
+          planId: plan.id,
+          categoryId: { in: allUniqueCategoryIds },
+        },
+      });
+    }
+
     // Insere os novos vínculos atômicos
     let totalMapped = 0;
-    for (const mapping of input.mappings) {
+    for (const mapping of normalizedMappings) {
       for (const categoryId of mapping.categoryIds) {
         await tx.jarCategory.create({
           data: {
