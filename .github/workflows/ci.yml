@@ -113,6 +113,7 @@ jobs:
         working-directory: frontend
         run: npm run typecheck
 
+      # Node >= 22.18 executa testes em TypeScript nativamente via type stripping sem flags adicionais
       - name: Unit Tests
         working-directory: frontend
         run: npm test
