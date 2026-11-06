@@ -22,6 +22,7 @@ import {
   ArrowUp,
   CircleNotch,
 } from '../components/ui/icons.js';
+import { decodeStatement } from '../lib/statementEncoding.js';
 
 interface Category {
   readonly id: string;
@@ -116,27 +117,7 @@ export const ReviewInboxPage: React.FC = () => {
       const isOfx = /\.ofx$/i.test(file.name);
       const provider = isOfx ? 'ofx' : 'csv';
 
-      // Trata encoding ISO-8859-1 (latin1) comum em OFX de bancos brasileiros (Itaú, BB, Caixa, Bradesco)
-      const latinDecoder = new TextDecoder('iso-8859-1');
-      const utf8Decoder = new TextDecoder('utf-8', { fatal: false });
-      const sample = latinDecoder.decode(buffer.slice(0, 500));
-
-      let text: string;
-      if (
-        /CHARSET:1252/i.test(sample) ||
-        /CHARSET:ISO-8859-1/i.test(sample) ||
-        /ENCODING:USASCII/i.test(sample)
-      ) {
-        text = latinDecoder.decode(buffer);
-      } else {
-        const utf8Text = utf8Decoder.decode(buffer);
-        // Se houver caractere de substituição UTF-8 inválido, usa latin1
-        if (utf8Text.includes('\ufffd')) {
-          text = latinDecoder.decode(buffer);
-        } else {
-          text = utf8Text;
-        }
-      }
+      const text = decodeStatement(buffer);
 
       const res = await api.post('/imports/statement', {
         content: text,
