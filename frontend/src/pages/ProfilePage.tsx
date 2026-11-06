@@ -210,7 +210,9 @@ export const ProfilePage: React.FC = () => {
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
       downloadAnchor.remove();
-      URL.revokeObjectURL(objectUrl);
+      setTimeout(() => {
+        URL.revokeObjectURL(objectUrl);
+      }, 1000);
 
       toast.success('Portabilidade de dados (LGPD) concluída com sucesso!');
     } catch {
