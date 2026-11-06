@@ -32,6 +32,18 @@ interface CategoryBreakdown {
   readonly percent: number;
 }
 
+interface ReportTransactionItem {
+  readonly id: string;
+  readonly amount: string | number;
+  readonly type: string;
+  readonly transferType?: string | null;
+  readonly category?: {
+    readonly id: string;
+    readonly name: string;
+    readonly slug: string;
+  } | null;
+}
+
 type PeriodFilter = 'mes_atual' | '3_meses' | 'ano_atual';
 
 const MONTH_NAMES_SHORT = [
@@ -174,9 +186,10 @@ export const ReportsPage: React.FC = () => {
       // 4. Fetch all transactions respecting the selected period to compute category breakdown & pró-labore without truncation
       let txPage = 1;
       let hasMore = true;
-      const allTxItems: any[] = [];
+      const allTxItems: ReportTransactionItem[] = [];
+      const MAX_PAGES = 50;
 
-      while (hasMore) {
+      while (hasMore && txPage <= MAX_PAGES) {
         const txRes = await api.get('/transactions', {
           params: {
             page: txPage,
@@ -188,10 +201,14 @@ export const ReportsPage: React.FC = () => {
           },
         });
 
-        const items = txRes.data?.items || [];
+        const items: readonly ReportTransactionItem[] = txRes.data?.items || [];
         allTxItems.push(...items);
 
-        const totalPages = txRes.data?.totalPaginas || (txRes.data?.total ? Math.ceil(txRes.data.total / 100) : 1);
+        const totalPages =
+          txRes.data?.paginacao?.totalPaginas ??
+          txRes.data?.totalPages ??
+          (txRes.data?.paginacao?.total ? Math.ceil(txRes.data.paginacao.total / 100) : 1);
+
         if (txPage >= totalPages || items.length === 0) {
           hasMore = false;
         } else {
@@ -204,7 +221,7 @@ export const ReportsPage: React.FC = () => {
       let ownerWithdrawals = 0;
 
       for (const tx of allTxItems) {
-        const amt = parseFloat(tx.amount) || 0;
+        const amt = typeof tx.amount === 'number' ? tx.amount : parseFloat(String(tx.amount)) || 0;
         const isTransfer = tx.transferType === 'transfer';
         const isProLabore =
           tx.transferType === 'pro_labore' ||
