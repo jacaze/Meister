@@ -1,0 +1,42 @@
+{
+  "name": "MEIster — Gestão Financeira para MEI",
+  "short_name": "MEIster",
+  "description": "Gestão financeira, conciliação Open Finance e controle fiscal inteligente para Microempreendedores Individuais.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fffbf2",
+  "theme_color": "#fffbf2",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "160x160",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

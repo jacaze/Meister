@@ -1,585 +1,630 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import api from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
+import { formatBRL, parseDecimal } from '../lib/money.js';
+import { useToast } from '../components/ui/Toast.js';
+import Mel from '../components/brand/Mel.js';
+import HoneyJarGraphic from '../components/jars/HoneyJarGraphic.js';
+import ConfigurePlanSheet, { type JarTemplate } from '../components/jars/ConfigurePlanSheet.js';
+import MapCategoriesSheet from '../components/jars/MapCategoriesSheet.js';
+import {
+  CaretLeft,
+  CaretRight,
+  SlidersHorizontal,
+  Tag,
+  Plus,
+  X,
+  WarningCircle,
+  ArrowsClockwise,
+  Jar,
+} from '../components/ui/icons.js';
 
 interface JarItem {
-  id: string;
-  slug: string;
-  name: string;
-  percent?: number | null;
-  fixedAmount?: string | null;
-  alocado: string;
-  carregado: string;
-  totalDisponivelParaGasto: string;
-  usado: string;
-  disponivel: string;
-  percentUsado: number;
-  status: 'ok' | 'atencao' | 'estourado';
-  categoryIds: string[];
+  readonly id: string;
+  readonly slug: string;
+  readonly name: string;
+  readonly percent?: number | null;
+  readonly fixedAmount?: string | null;
+  readonly alocado: string;
+  readonly carregado: string;
+  readonly totalDisponivelParaGasto: string;
+  readonly usado: string;
+  readonly disponivel: string;
+  readonly percentUsado: number;
+  readonly status: 'ok' | 'atencao' | 'estourado';
+  readonly categoryIds: readonly string[];
 }
 
 interface JarsStatusData {
-  planId: string;
-  planName: string;
-  entityId: string;
-  month: string;
-  baseMode: string;
-  base: string;
-  baseInsuficiente: boolean;
-  jars: JarItem[];
-  semPoteUsado: string;
-}
-
-interface JarTemplate {
-  slug: string;
-  name: string;
-  targetKind: 'pj' | 'pf' | 'ambas';
-  jars: {
-    slug: string;
-    name: string;
-    percent?: number;
-    fixedAmount?: string;
-    rollover: boolean;
-  }[];
+  readonly planId: string;
+  readonly planName: string;
+  readonly entityId: string;
+  readonly month: string;
+  readonly baseMode: string;
+  readonly templateSlug?: string;
+  readonly base: string;
+  readonly baseInsuficiente: boolean;
+  readonly jars: readonly JarItem[];
+  readonly semPoteUsado: string;
 }
 
 interface Category {
-  id: string;
-  name: string;
-  type: string;
+  readonly id: string;
+  readonly name: string;
+  readonly type: string;
+}
+
+const MONTH_NAMES = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+];
+
+function formatMonthLabel(isoMonth: string): string {
+  const [y, m] = (isoMonth || '').split('-').map(Number);
+  const name = MONTH_NAMES[(m || 1) - 1] || '';
+  return `${name} de ${y}`;
+}
+
+function shiftMonth(isoMonth: string, delta: number): string {
+  const [y, m] = (isoMonth || '').split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1 + delta, 1));
+  const newY = date.getUTCFullYear();
+  const newM = String(date.getUTCMonth() + 1).padStart(2, '0');
+  return `${newY}-${newM}`;
+}
+
+function getCurrentIsoMonth(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
 export const JarsPage: React.FC = () => {
-  const { activeEntityId } = useAuth();
+  const { workspace, activeEntityId } = useAuth();
+  const toast = useToast();
+
   const [statusData, setStatusData] = useState<JarsStatusData | null>(null);
-  const [templates, setTemplates] = useState<JarTemplate[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [templates, setTemplates] = useState<readonly JarTemplate[]>([]);
+  const [categories, setCategories] = useState<readonly Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Month navigation (YYYY-MM)
-  const [currentMonth, setCurrentMonth] = useState(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  });
+  const [currentMonth, setCurrentMonth] = useState<string>(getCurrentIsoMonth);
 
-  // Modal states
-  const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
-  const [isMapModalOpen, setIsMapModalOpen] = useState(false);
+  // Modals / Sheets
+  const [isPlanSheetOpen, setIsPlanSheetOpen] = useState(false);
+  const [isMapSheetOpen, setIsMapSheetOpen] = useState(false);
 
-  // Plan modal form state
-  const [selectedTemplate, setSelectedTemplate] = useState('mei-empresa');
-  const [selectedBaseMode, setSelectedBaseMode] = useState('faturamento_mes_anterior');
-  const [fixedAmountInput, setFixedAmountInput] = useState('');
-  const [planSubmitting, setPlanSubmitting] = useState(false);
+  const currentEntity = useMemo(() => {
+    return workspace?.entities.find((e) => e.id === activeEntityId);
+  }, [workspace, activeEntityId]);
 
-  // Mapping modal form state
-  const [categoryMappings, setCategoryMappings] = useState<Record<string, string>>({});
-  const [mapSubmitting, setMapSubmitting] = useState(false);
+  const entityKind = (currentEntity?.kind as 'pj' | 'pf') || 'pj';
 
-  const fetchJarsStatus = useCallback(async () => {
-    setLoading(true);
+  const categoryMap = useMemo(() => {
+    const map = new Map<string, Category>();
+    for (const c of categories) {
+      map.set(c.id, c);
+    }
+    return map;
+  }, [categories]);
+
+  // Só a requisição mais recente pode escrever na tela (troca rápida de mês ou de entidade).
+  const latestRequestRef = useRef(0);
+  const [loadError, setLoadError] = useState(false);
+
+  const fetchJarsStatus = useCallback(async (quiet = false) => {
+    const requestId = ++latestRequestRef.current;
+    if (!quiet) setLoading(true);
+    else setIsRefreshing(true);
+
     try {
-      const params: Record<string, any> = { month: currentMonth };
+      const params: Record<string, string> = { month: currentMonth };
       if (activeEntityId) params.entityId = activeEntityId;
       const res = await api.get('/jars', { params });
-      setStatusData(res.data);
-    } catch (err) {
-      console.error('Erro ao buscar status dos potes:', err);
+      if (requestId === latestRequestRef.current) {
+        setStatusData(res.data);
+        setLoadError(false);
+      }
+    } catch {
+      if (requestId !== latestRequestRef.current) return;
+      // Não deixa os dados do mês anterior na tela com o rótulo do mês novo.
+      if (!quiet) {
+        setStatusData(null);
+        setLoadError(true);
+      }
+      toast.error('Não foi possível carregar os potes deste mês.');
     } finally {
-      setLoading(false);
+      if (requestId === latestRequestRef.current) {
+        setLoading(false);
+        setIsRefreshing(false);
+      }
     }
-  }, [activeEntityId, currentMonth]);
+  }, [activeEntityId, currentMonth, toast]);
 
   useEffect(() => {
     fetchJarsStatus();
   }, [fetchJarsStatus]);
 
   useEffect(() => {
-    // Fetch templates and categories once
+    // Carrega templates e categorias de despesa
     api.get('/jars/templates')
-      .then((res) => setTemplates(res.data))
+      .then((res) => setTemplates(res.data || []))
       .catch(() => {});
 
     api.get('/categories?type=despesa')
-      .then((res) => setCategories(res.data))
+      .then((res) => setCategories(res.data || []))
       .catch(() => {});
   }, []);
 
   const handlePrevMonth = () => {
-    const [y, m] = currentMonth.split('-').map(Number);
-    const date = new Date(y, m - 2, 1);
-    setCurrentMonth(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`);
+    setCurrentMonth((prev) => shiftMonth(prev, -1));
   };
 
   const handleNextMonth = () => {
-    const [y, m] = currentMonth.split('-').map(Number);
-    const date = new Date(y, m, 1);
-    setCurrentMonth(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`);
+    setCurrentMonth((prev) => shiftMonth(prev, 1));
   };
 
-  const formatCurrency = (val: number | string) => {
-    const num = typeof val === 'string' ? parseFloat(val) : val;
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(num || 0);
+  const handleResetCurrentMonth = () => {
+    setCurrentMonth(getCurrentIsoMonth());
   };
 
-  const formatMonthLabel = (isoMonth: string) => {
-    const [y, m] = isoMonth.split('-').map(Number);
-    const date = new Date(y, m - 1, 1);
-    return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-  };
+  // Enquanto uma remoção não volta do servidor, os chips do pote ficam travados: a próxima
+  // remoção precisa partir da lista já atualizada, senão desfaz a anterior.
+  const [busyJarId, setBusyJarId] = useState<string | null>(null);
 
-  const handleSavePlan = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPlanSubmitting(true);
+  const handleRemoveCategory = async (jarId: string, categoryIdToRemove: string) => {
+    if (!statusData || busyJarId) return;
+    const targetJar = statusData.jars.find((j) => j.id === jarId);
+    if (!targetJar) return;
+
+    const remainingCategoryIds = targetJar.categoryIds.filter((id) => id !== categoryIdToRemove);
+
+    setBusyJarId(jarId);
     try {
-      await api.post('/jars/plan', {
-        templateSlug: selectedTemplate,
-        baseMode: selectedBaseMode,
-        fixedBaseAmount: selectedBaseMode === 'meta_fixa' ? fixedAmountInput : undefined,
-        entityId: activeEntityId,
-      });
-      setIsPlanModalOpen(false);
-      fetchJarsStatus();
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Falha ao aplicar plano de potes.');
-    } finally {
-      setPlanSubmitting(false);
-    }
-  };
-
-  const openMappingModal = () => {
-    if (!statusData) return;
-    const initialMappings: Record<string, string> = {};
-    for (const jar of statusData.jars) {
-      for (const catId of jar.categoryIds) {
-        initialMappings[catId] = jar.id;
-      }
-    }
-    setCategoryMappings(initialMappings);
-    setIsMapModalOpen(true);
-  };
-
-  const handleSaveMappings = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!statusData) return;
-    setMapSubmitting(true);
-    try {
-      const mappings = Object.entries(categoryMappings)
-        .filter(([, jarId]) => Boolean(jarId))
-        .map(([categoryId, jarId]) => ({
-          categoryId,
-          jarId,
-        }));
-
       await api.put('/jars/categories', {
         planId: statusData.planId,
-        mappings,
+        jarId: targetJar.id,
+        categoryIds: remainingCategoryIds,
       });
-      setIsMapModalOpen(false);
-      fetchJarsStatus();
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Falha ao salvar mapeamento de categorias.');
+      toast.success('Categoria desvinculada do pote.');
+      await fetchJarsStatus(true);
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && 'response' in err && (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          ? (err as { response: { data: { message: string } } }).response.data.message
+          : 'Erro ao desvincular categoria.';
+      toast.error(msg);
     } finally {
-      setMapSubmitting(false);
+      setBusyJarId(null);
     }
   };
 
-  const getStatusColor = (status: 'ok' | 'atencao' | 'estourado') => {
-    switch (status) {
-      case 'ok':
-        return {
-          bar: 'bg-success',
-          bg: 'bg-success/10',
-          text: 'text-success',
-          border: 'border-success/30',
-          label: 'Dentro da Meta',
-          icon: 'check_circle',
-        };
-      case 'atencao':
-        return {
-          bar: 'bg-primary',
-          bg: 'bg-primary/10',
-          text: 'text-brand',
-          border: 'border-primary/30',
-          label: 'Atenção (Acima de 80%)',
-          icon: 'warning',
-        };
-      case 'estourado':
-        return {
-          bar: 'bg-danger',
-          bg: 'bg-danger/10',
-          text: 'text-danger',
-          border: 'border-danger/30',
-          label: 'Orçamento Estourado',
-          icon: 'error',
-        };
+  // Mapeamento inicial para passar para a Sheet de configuração
+  const currentMappings = useMemo(() => {
+    const map: Record<string, string> = {};
+    if (!statusData) return map;
+    for (const jar of statusData.jars) {
+      for (const catId of jar.categoryIds) {
+        map[catId] = jar.id;
+      }
+    }
+    return map;
+  }, [statusData]);
+
+  const semPoteAmount = parseFloat(statusData?.semPoteUsado || '0');
+
+  const getBaseModeLabel = (mode?: string) => {
+    switch (mode) {
+      case 'mes_atual':
+        return 'Faturamento deste mês (tempo real)';
+      case 'mes_anterior':
+        return 'Faturamento do mês anterior';
+      case 'media_3_meses':
+        return 'Média dos últimos 3 meses';
+      default:
+        return mode || 'Faturamento';
     }
   };
+
+  const isCurrentMonthActive = currentMonth === getCurrentIsoMonth();
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
+    <div className="space-y-6 max-w-6xl mx-auto pb-16">
+      {/* Top Header com Título e Navegação de Mês */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-ink flex items-center gap-2">
-            <span className="material-symbols-outlined text-brand text-3xl">savings</span>
-            Potes Financeiros
-          </h1>
-          <p className="text-xs md:text-sm text-ink-soft mt-1">
-            Distribuição orçamentária inteligente para proteger seu caixa PJ e PF sem surpresas.
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-ink tracking-tight">
+              Potes Financeiros
+            </h1>
+            {isRefreshing && (
+              <span className="animate-spin text-brand" title="Atualizando...">
+                <ArrowsClockwise size={18} weight="bold" />
+              </span>
+            )}
+          </div>
+          <p className="text-xs sm:text-sm text-muted mt-0.5">
+            Controle de orçamento por centros de custo e metas de gastos.
           </p>
         </div>
 
-        {/* Month Selector Buttons */}
-        <div className="flex items-center gap-2 bg-card border border-ink/5 rounded-2xl p-1.5 self-start sm:self-auto">
-          <button
-            onClick={handlePrevMonth}
-            className="p-1.5 text-muted hover:text-ink hover:bg-field rounded-xl transition"
-            title="Mês Anterior"
-          >
-            <span className="material-symbols-outlined text-lg">chevron_left</span>
-          </button>
-          <span className="px-3 text-xs md:text-sm font-bold text-ink capitalize min-w-[130px] text-center">
-            {formatMonthLabel(currentMonth)}
-          </span>
-          <button
-            onClick={handleNextMonth}
-            className="p-1.5 text-muted hover:text-ink hover:bg-field rounded-xl transition"
-            title="Próximo Mês"
-          >
-            <span className="material-symbols-outlined text-lg">chevron_right</span>
-          </button>
+        {/* Controles de Navegação de Mês */}
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <div className="flex items-center bg-card rounded-2xl border border-ink/8 p-1 shadow-sm">
+            <button
+              type="button"
+              onClick={handlePrevMonth}
+              aria-label="Mês anterior"
+              className="min-h-[44px] min-w-[44px] p-2.5 rounded-xl text-ink hover:bg-field transition flex items-center justify-center"
+            >
+              <CaretLeft size={18} weight="bold" />
+            </button>
+            <span className="px-3 text-xs sm:text-sm font-extrabold text-ink whitespace-nowrap min-w-[130px] text-center">
+              {formatMonthLabel(currentMonth)}
+            </span>
+            <button
+              type="button"
+              onClick={handleNextMonth}
+              aria-label="Próximo mês"
+              className="min-h-[44px] min-w-[44px] p-2.5 rounded-xl text-ink hover:bg-field transition flex items-center justify-center"
+            >
+              <CaretRight size={18} weight="bold" />
+            </button>
+          </div>
+
+          {!isCurrentMonthActive && (
+            <button
+              type="button"
+              onClick={handleResetCurrentMonth}
+              className="min-h-[44px] px-3 py-2 rounded-2xl bg-primary-soft text-brand font-bold text-xs hover:bg-primary-soft/80 transition flex items-center gap-1.5"
+            >
+              Hoje
+            </button>
+          )}
         </div>
       </div>
 
-      {loading ? (
-        <div className="bg-card border border-ink/5 rounded-3xl p-12 text-center text-muted flex flex-col items-center justify-center gap-2">
-          <span className="material-symbols-outlined text-3xl animate-spin text-brand">sync</span>
-          <p className="text-sm font-semibold">Carregando seus potes financeiros...</p>
-        </div>
-      ) : !statusData ? (
-        <div className="bg-card border border-ink/5 rounded-3xl p-12 text-center">
-          <p className="text-ink font-bold">Nenhum plano ativo encontrado.</p>
-        </div>
-      ) : (
-        <>
-          {/* Summary Hero Banner */}
-          <div className="bg-gradient-to-r from-card via-card-2 to-card border border-ink/5 rounded-3xl p-6 md:p-8 shadow-xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-72 h-72 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
-
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
-              <div className="space-y-2">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-brand border border-primary/20 text-xs font-bold uppercase tracking-wider">
-                  <span className="material-symbols-outlined text-sm">tune</span>
-                  Plano Ativo: {statusData.planName}
-                </div>
-                <div className="text-sm text-muted">Base de Alocação Mensal:</div>
-                <div className="text-3xl md:text-4xl font-extrabold text-ink">
-                  {formatCurrency(statusData.base)}
-                </div>
-                <p className="text-xs text-muted">
-                  {statusData.baseMode === 'faturamento_mes_anterior'
-                    ? 'Calculado com base nas receitas do mês anterior.'
-                    : statusData.baseMode === 'meta_fixa'
-                    ? 'Base fixa configurada manualmente.'
-                    : 'Calculado com base nas receitas deste mês.'}
-                </p>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  onClick={() => setIsPlanModalOpen(true)}
-                  className="inline-flex items-center gap-2 bg-field hover:bg-raised text-ink font-bold text-xs md:text-sm px-4 py-3 rounded-2xl border border-ink/8 transition"
-                >
-                  <span className="material-symbols-outlined text-lg text-brand">swap_horiz</span>
-                  Alterar Template
-                </button>
-                <button
-                  onClick={openMappingModal}
-                  className="inline-flex items-center gap-2 bg-primary hover:bg-primary-soft text-on-primary font-bold text-xs md:text-sm px-4 py-3 rounded-2xl shadow-[0_0_20px_rgba(242,201,76,0.25)] transition"
-                >
-                  <span className="material-symbols-outlined text-lg">category</span>
-                  Mapear Categorias
-                </button>
-              </div>
+      {/* Ações de Gestão de Potes */}
+      {statusData && (
+        <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-card rounded-3xl border border-ink/8 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-primary-soft flex items-center justify-center text-brand shrink-0">
+              <Jar size={22} weight="duotone" />
             </div>
-
-            {/* Warning if sem pote */}
-            {parseFloat(statusData.semPoteUsado) > 0 && (
-              <div className="mt-6 pt-4 border-t border-ink/5 flex items-center gap-3 text-xs md:text-sm text-brand bg-primary-soft/5 p-3 rounded-xl border border-primary-soft/20">
-                <span className="material-symbols-outlined text-xl text-brand">warning</span>
-                <span>
-                  Você possui <strong>{formatCurrency(statusData.semPoteUsado)}</strong> em despesas
-                  deste mês sem pote atribuído. Clique em <strong>Mapear Categorias</strong> para associá-las.
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-sm text-ink">{statusData.planName}</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-field text-ink-soft border border-ink/5 uppercase">
+                  {entityKind.toUpperCase()}
                 </span>
               </div>
-            )}
+              <p className="text-xs text-muted">
+                Base:{' '}
+                <span className="font-semibold text-ink-soft">
+                  {getBaseModeLabel(statusData.baseMode)} ({formatBRL(statusData.base)})
+                </span>
+              </p>
+            </div>
           </div>
 
-          {/* Jars Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {statusData.jars.map((jar) => {
-              const colors = getStatusColor(jar.status);
-              const percentDisplay = jar.percent != null ? `${jar.percent}%` : 'Fixo';
+          <div className="flex items-center gap-2.5 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => setIsMapSheetOpen(true)}
+              className="flex-1 sm:flex-initial min-h-[44px] px-4 py-2 rounded-2xl border border-ink/10 bg-canvas text-ink text-xs font-bold hover:bg-field transition flex items-center justify-center gap-1.5"
+            >
+              <Tag size={16} weight="bold" />
+              Vincular Categorias
+            </button>
 
-              return (
-                <div
-                  key={jar.id}
-                  className="bg-card border border-ink/5 rounded-3xl p-6 flex flex-col justify-between hover:border-ink/10 transition-all duration-300 shadow-lg group relative overflow-hidden"
-                >
-                  <div className="space-y-4">
-                    {/* Header */}
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className="font-bold text-base md:text-lg text-ink group-hover:text-brand transition">
+            <button
+              type="button"
+              onClick={() => setIsPlanSheetOpen(true)}
+              className="flex-1 sm:flex-initial min-h-[44px] px-4 py-2 rounded-2xl bg-primary text-on-primary text-xs font-bold hover:bg-primary-deep transition flex items-center justify-center gap-1.5 shadow-[var(--shadow-honey)]"
+            >
+              <SlidersHorizontal size={16} weight="bold" />
+              Alterar Método
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Alerta de Base Insuficiente */}
+      {statusData?.baseInsuficiente && (
+        <div className="p-4 bg-primary-soft/60 border border-primary/30 rounded-3xl flex items-start gap-3.5">
+          <Mel size={40} mood="alert" />
+          <div className="space-y-1">
+            <p className="text-xs font-bold text-brand">Base de faturamento zerada neste período</p>
+            <p className="text-xs text-ink-soft leading-relaxed">
+              O faturamento base registrado foi de R$ 0,00. Os potes percentuais permanecerão com limite zero até que receitas sejam confirmadas para abastecê-los.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Alerta de Despesas Sem Pote */}
+      {semPoteAmount > 0 && (
+        <div className="p-4 bg-primary-soft/60 ring-1 ring-primary/40 rounded-3xl flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-primary-soft text-brand ring-1 ring-primary/40 flex items-center justify-center shrink-0">
+              <WarningCircle size={22} weight="bold" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-ink">
+                Despesas sem pote alocado: {formatBRL(semPoteAmount)}
+              </p>
+              <p className="text-xs text-muted">
+                Existem lançamentos sem categoria mapeada que não estão sendo debitados de nenhum pote.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsMapSheetOpen(true)}
+            className="glass-btn-honey min-h-[44px] px-4 py-1.5 rounded-xl text-on-primary font-bold text-xs transition hover:brightness-105 active:scale-95 shrink-0"
+          >
+            Mapear Agora
+          </button>
+        </div>
+      )}
+
+      {/* Conteúdo Principal: Lista dos Potes */}
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" aria-busy="true">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="card-surface p-5 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="skeleton w-16 h-20 rounded-2xl" />
+                <div className="space-y-2 flex-1">
+                  <div className="skeleton h-4 w-3/4 rounded-full" />
+                  <div className="skeleton h-3 w-1/2 rounded-full" />
+                </div>
+              </div>
+              <div className="skeleton h-3 w-full rounded-full" />
+              <div className="skeleton h-12 w-full rounded-xl" />
+            </div>
+          ))}
+        </div>
+      ) : loadError ? (
+        <div role="alert" className="text-center py-14 px-4 bg-card rounded-3xl ring-1 ring-ink/8 shadow-sm space-y-4">
+          <div className="flex justify-center">
+            <Mel size={72} mood="alert" />
+          </div>
+          <div className="max-w-sm mx-auto space-y-1.5">
+            <h2 className="text-lg font-extrabold text-ink">Não deu para carregar os potes</h2>
+            <p className="text-xs text-muted leading-relaxed">Verifique sua conexão e tente de novo.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => fetchJarsStatus()}
+            className="min-h-[44px] px-5 py-2.5 rounded-2xl bg-primary text-on-primary font-bold text-sm hover:bg-primary-deep transition inline-flex items-center gap-2"
+          >
+            <ArrowsClockwise size={18} weight="bold" />
+            Tentar de novo
+          </button>
+        </div>
+      ) : !statusData || statusData.jars.length === 0 ? (
+        /* Empty State */
+        <div className="text-center py-16 px-4 bg-card rounded-3xl border border-ink/8 shadow-sm space-y-5">
+          <div className="flex justify-center">
+            <Mel size={80} mood="happy" />
+          </div>
+          <div className="max-w-md mx-auto space-y-2">
+            <h2 className="text-xl font-extrabold text-ink">Nenhum plano de potes ativado</h2>
+            <p className="text-xs text-muted leading-relaxed">
+              Organize seus recursos com base na regra de ouro financeira: separe custos, reserva, impostos e pró-labore antes de gastar.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsPlanSheetOpen(true)}
+            className="min-h-[44px] px-6 py-3 rounded-2xl bg-primary text-on-primary font-bold text-sm hover:bg-primary-deep transition shadow-[var(--shadow-honey)] inline-flex items-center gap-2"
+          >
+            <Plus size={18} weight="bold" />
+            Ativar Plano de Potes
+          </button>
+        </div>
+      ) : (
+        /* Grid de Potes */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {statusData.jars.map((jar) => {
+            const level = Math.round(jar.percentUsado || 0);
+            // Pote sem orçamento no mês: o backend devolve 999.99% como marcador de estouro.
+            const semOrcamento = parseDecimal(jar.totalDisponivelParaGasto) <= 0;
+            const usadoNum = parseDecimal(jar.usado);
+            const isEstourado = jar.status === 'estourado';
+            const isAtencao = jar.status === 'atencao';
+
+            const statusBadgeClasses = isEstourado
+              ? 'bg-danger/10 text-danger border border-danger/30'
+              : isAtencao
+              ? 'bg-primary/10 text-brand border border-primary/30'
+              : 'bg-success/10 text-success border border-success/30';
+
+            const statusText = isEstourado
+              ? 'Estourou o limite'
+              : isAtencao
+              ? 'Atenção aos gastos'
+              : 'Dentro da meta';
+
+            const progressBarColor = isEstourado
+              ? 'bg-danger'
+              : isAtencao
+              ? 'bg-primary'
+              : 'bg-success';
+
+            // Alinhamento sem erro de '%' em valor fixo
+            const ruleLabel =
+              jar.percent !== null && jar.percent !== undefined
+                ? `${jar.percent}% do faturamento`
+                : jar.fixedAmount
+                ? `${formatBRL(jar.fixedAmount)} fixo`
+                : 'Meta personalizada';
+
+            return (
+              <div
+                key={jar.id}
+                className="card-surface p-5 flex flex-col justify-between gap-4 transition hover:shadow-[var(--shadow-float)]"
+              >
+                {/* Cabeçalho do Pote: Gráfico + Nome + Regra */}
+                <div>
+                  <div className="flex items-start gap-4">
+                    <HoneyJarGraphic
+                      id={jar.id}
+                      level={level}
+                      status={jar.status}
+                      size="md"
+                    />
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-1">
+                        <h3 className="font-extrabold text-base text-ink truncate leading-tight">
                           {jar.name}
                         </h3>
-                        <span className="text-[11px] font-bold text-muted uppercase tracking-wider block mt-0.5">
-                          Alocação: {percentDisplay}
-                          {jar.fixedAmount && ` (R$ ${jar.fixedAmount})`}
+                      </div>
+
+                      <p className="text-xs font-semibold text-muted mt-0.5">
+                        {ruleLabel}
+                      </p>
+
+                      <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold tracking-tight">
+                        <span className={`px-2 py-0.5 rounded-lg ${statusBadgeClasses}`}>
+                          {statusText}
                         </span>
-                      </div>
-                      <span
-                        className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full ${colors.bg} ${colors.text} border ${colors.border}`}
-                      >
-                        <span className="material-symbols-outlined text-xs">{colors.icon}</span>
-                        {colors.label}
-                      </span>
-                    </div>
-
-                    {/* Available Balance Highlight */}
-                    <div className="bg-canvas rounded-2xl p-4 border border-ink/4">
-                      <span className="text-[11px] font-semibold text-muted block">
-                        Saldo Disponível
-                      </span>
-                      <div className="text-2xl font-extrabold text-ink mt-1">
-                        {formatCurrency(jar.disponivel)}
-                      </div>
-                      <div className="text-xs text-muted mt-1 flex items-center justify-between">
-                        <span>Total p/ gasto: {formatCurrency(jar.totalDisponivelParaGasto)}</span>
-                        <span className="font-bold text-ink">{jar.percentUsado.toFixed(1)}% usado</span>
-                      </div>
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div className="space-y-1.5">
-                      <div className="w-full h-2.5 bg-card-2 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full ${colors.bar} rounded-full transition-all duration-500`}
-                          style={{ width: `${Math.min(100, jar.percentUsado)}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Breakdown Details */}
-                    <div className="space-y-1.5 text-xs text-muted pt-2 border-t border-ink/4">
-                      <div className="flex justify-between">
-                        <span>Alocado no mês:</span>
-                        <span className="text-ink font-semibold">{formatCurrency(jar.alocado)}</span>
-                      </div>
-                      {parseFloat(jar.carregado) > 0 && (
-                        <div className="flex justify-between text-success">
-                          <span>Carregado do mês ant. (Rollover):</span>
-                          <span className="font-semibold">+{formatCurrency(jar.carregado)}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between">
-                        <span>Gasto / Usado no mês:</span>
-                        <span className="text-danger font-semibold">-{formatCurrency(jar.usado)}</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Footer / Categories count */}
-                  <div className="mt-4 pt-3 border-t border-ink/4 flex items-center justify-between text-[11px] text-muted">
-                    <span>
-                      {jar.categoryIds.length}{' '}
-                      {jar.categoryIds.length === 1 ? 'categoria vinculada' : 'categorias vinculadas'}
+                  {/* Barra de Progresso com Percentual */}
+                  <div className="mt-4 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <span className="text-muted">Utilizado</span>
+                      <span className={isEstourado ? 'text-danger font-extrabold' : 'text-ink'}>
+                        {semOrcamento ? (usadoNum > 0 ? 'Sem orçamento' : '—') : `${level}%`}
+                      </span>
+                    </div>
+                    <div className="w-full h-2.5 bg-field rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-700 ${progressBarColor}`}
+                        style={{ width: `${Math.min(level, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Detalhes Financeiros do Pote */}
+                  <div className="mt-4 grid grid-cols-2 gap-2 p-3 bg-canvas rounded-2xl border border-ink/5">
+                    <div>
+                      <span className="block text-[10px] font-bold text-muted uppercase tracking-wider">
+                        Disponível
+                      </span>
+                      <span
+                        className={`text-sm font-extrabold tabular ${
+                          isEstourado ? 'text-danger' : 'text-ink'
+                        }`}
+                      >
+                        {formatBRL(jar.disponivel)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] font-bold text-muted uppercase tracking-wider">
+                        Gasto Total
+                      </span>
+                      <span className="text-sm font-extrabold tabular text-ink-soft">
+                        {formatBRL(jar.usado)}
+                      </span>
+                    </div>
+
+                    <div className="col-span-2 pt-2 border-t border-ink/5 flex items-center justify-between text-[11px] text-muted">
+                      <span>Alocado este mês:</span>
+                      <span className="font-bold tabular text-ink-soft">{formatBRL(jar.alocado)}</span>
+                    </div>
+
+                    {parseFloat(jar.carregado || '0') > 0 && (
+                      <div className="col-span-2 flex items-center justify-between text-[11px] text-brand">
+                        <span>Rollover acumulado:</span>
+                        <span className="font-bold tabular">+{formatBRL(jar.carregado)}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Categorias Vinculadas */}
+                <div className="pt-3 border-t border-ink/5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-muted uppercase tracking-wider">
+                      Categorias ({jar.categoryIds.length})
                     </span>
                     <button
-                      onClick={openMappingModal}
-                      className="text-brand hover:underline font-bold"
+                      type="button"
+                      onClick={() => setIsMapSheetOpen(true)}
+                      className="text-[11px] font-bold text-brand hover:underline inline-flex items-center gap-1"
                     >
-                      Ajustar
+                      <Plus size={12} weight="bold" />
+                      Vincular
                     </button>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        </>
-      )}
 
-      {/* Modal: Switch / Configure Jar Plan */}
-      {isPlanModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-sm">
-          <div className="bg-card border border-ink/8 rounded-3xl w-full max-w-lg p-6 md:p-8 shadow-2xl relative">
-            <button
-              onClick={() => setIsPlanModalOpen(false)}
-              className="absolute top-6 right-6 text-muted hover:text-ink p-1 rounded-full hover:bg-field transition"
-            >
-              <span className="material-symbols-outlined text-xl">close</span>
-            </button>
+                  {jar.categoryIds.length === 0 ? (
+                    <p className="text-xs text-muted italic">Nenhuma categoria atribuída a este pote.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {jar.categoryIds.map((catId) => {
+                        const cat = categoryMap.get(catId);
+                        const catName = cat?.name || 'Categoria';
 
-            <h2 className="text-xl font-extrabold text-ink mb-1">Configurar Template de Potes</h2>
-            <p className="text-xs text-muted mb-6">
-              Selecione o modelo orçamentário ideal para sua empresa ou rotina pessoal.
-            </p>
-
-            <form onSubmit={handleSavePlan} className="space-y-5">
-              {/* Template Choice */}
-              <div>
-                <label className="text-xs font-bold text-muted uppercase tracking-wider block mb-2">
-                  Modelo Orçamentário
-                </label>
-                <div className="space-y-2">
-                  {templates.map((tpl) => (
-                    <label
-                      key={tpl.slug}
-                      className={`flex items-start gap-3 p-3.5 rounded-2xl border cursor-pointer transition ${
-                        selectedTemplate === tpl.slug
-                          ? 'bg-field border-primary text-ink shadow-sm'
-                          : 'bg-canvas border-ink/5 text-muted hover:border-ink/13'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="template"
-                        value={tpl.slug}
-                        checked={selectedTemplate === tpl.slug}
-                        onChange={(e) => setSelectedTemplate(e.target.value)}
-                        className="mt-1 text-brand focus:ring-0"
-                      />
-                      <div className="text-xs">
-                        <strong className="block text-sm text-ink font-bold">{tpl.name}</strong>
-                        <span className="text-muted">
-                          {tpl.jars.map((j) => `${j.name} (${j.percent ?? j.fixedAmount}%)`).join(', ')}
-                        </span>
-                      </div>
-                    </label>
-                  ))}
+                        return (
+                          <span
+                            key={catId}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-field text-xs font-semibold text-ink border border-ink/5 group"
+                          >
+                            <span className="truncate max-w-[120px]">{catName}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveCategory(jar.id, catId)}
+                              disabled={busyJarId !== null}
+                              aria-label={`Desvincular categoria ${catName}`}
+                              className="text-muted hover:text-danger p-0.5 rounded transition disabled:opacity-40 disabled:cursor-wait"
+                            >
+                              <X size={12} weight="bold" />
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
-
-              {/* Base Mode Choice */}
-              <div>
-                <label className="text-xs font-bold text-muted uppercase tracking-wider block mb-2">
-                  Modo de Cálculo da Base
-                </label>
-                <select
-                  value={selectedBaseMode}
-                  onChange={(e) => setSelectedBaseMode(e.target.value)}
-                  className="w-full bg-canvas text-sm text-ink rounded-xl px-3.5 py-2.5 border border-ink/5 focus:outline-none focus:border-primary"
-                >
-                  <option value="faturamento_mes_anterior">
-                    Faturamento do Mês Anterior (Recomendado para MEI)
-                  </option>
-                  <option value="receita_mes_atual">Receita Realizada do Mês Atual</option>
-                  <option value="meta_fixa">Meta Fixa Manual (R$)</option>
-                </select>
-              </div>
-
-              {selectedBaseMode === 'meta_fixa' && (
-                <div>
-                  <label className="text-xs font-bold text-muted uppercase tracking-wider block mb-1">
-                    Valor Fixo Mensal (R$)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="Ex: 10000.00"
-                    value={fixedAmountInput}
-                    onChange={(e) => setFixedAmountInput(e.target.value)}
-                    required
-                    className="w-full bg-canvas text-sm text-ink rounded-xl px-3.5 py-2.5 border border-ink/5 focus:outline-none focus:border-primary"
-                  />
-                </div>
-              )}
-
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-ink/5">
-                <button
-                  type="button"
-                  onClick={() => setIsPlanModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-muted hover:bg-field transition"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={planSubmitting}
-                  className="px-5 py-2.5 rounded-xl text-xs font-bold bg-primary hover:bg-primary-soft text-on-primary transition disabled:opacity-50"
-                >
-                  {planSubmitting ? 'Salvando...' : 'Aplicar Plano'}
-                </button>
-              </div>
-            </form>
-          </div>
+            );
+          })}
         </div>
       )}
 
-      {/* Modal: Category to Jar Mapping */}
-      {isMapModalOpen && statusData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-sm">
-          <div className="bg-card border border-ink/8 rounded-3xl w-full max-w-lg p-6 md:p-8 shadow-2xl relative max-h-[90vh] flex flex-col">
-            <button
-              onClick={() => setIsMapModalOpen(false)}
-              className="absolute top-6 right-6 text-muted hover:text-ink p-1 rounded-full hover:bg-field transition"
-            >
-              <span className="material-symbols-outlined text-xl">close</span>
-            </button>
+      {/* Sheet de Configuração de Plano */}
+      <ConfigurePlanSheet
+        open={isPlanSheetOpen}
+        onClose={() => setIsPlanSheetOpen(false)}
+        entityId={activeEntityId}
+        entityKind={entityKind}
+        templates={templates}
+        currentPlanName={statusData?.planName}
+        planId={statusData?.planId}
+        currentTemplateSlug={statusData?.templateSlug}
+        currentBaseMode={statusData?.baseMode}
+        onSaved={() => fetchJarsStatus(true)}
+      />
 
-            <h2 className="text-xl font-extrabold text-ink mb-1">Mapear Categorias para Potes</h2>
-            <p className="text-xs text-muted mb-4">
-              Cada gasto lançado nessas categorias descontará automaticamente do pote selecionado.
-            </p>
-
-            <form onSubmit={handleSaveMappings} className="flex-1 overflow-y-auto space-y-3 pr-1">
-              {categories.map((cat) => (
-                <div
-                  key={cat.id}
-                  className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-canvas border border-ink/4"
-                >
-                  <span className="text-sm font-semibold text-ink">{cat.name}</span>
-                  <select
-                    value={categoryMappings[cat.id] || ''}
-                    onChange={(e) =>
-                      setCategoryMappings({ ...categoryMappings, [cat.id]: e.target.value })
-                    }
-                    className="bg-card-2 text-xs text-ink rounded-xl px-3 py-1.5 border border-ink/5 focus:outline-none focus:border-primary"
-                  >
-                    <option value="">Sem Pote (Não monitorado)</option>
-                    {statusData.jars.map((j) => (
-                      <option key={j.id} value={j.id}>
-                        {j.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ))}
-
-              <div className="sticky bottom-0 bg-card pt-4 border-t border-ink/5 flex items-center justify-end gap-3 mt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsMapModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-muted hover:bg-field transition"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={mapSubmitting}
-                  className="px-5 py-2.5 rounded-xl text-xs font-bold bg-primary hover:bg-primary-soft text-on-primary transition disabled:opacity-50"
-                >
-                  {mapSubmitting ? 'Salvando...' : 'Salvar Mapeamentos'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* Sheet de Mapeamento de Categorias */}
+      {statusData && (
+        <MapCategoriesSheet
+          open={isMapSheetOpen}
+          onClose={() => setIsMapSheetOpen(false)}
+          planId={statusData.planId}
+          jars={statusData.jars}
+          categories={categories}
+          initialMappings={currentMappings}
+          onSaved={() => fetchJarsStatus(true)}
+        />
       )}
     </div>
   );

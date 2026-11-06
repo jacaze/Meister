@@ -1,14 +1,32 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'motion/react';
 import api from '../api/client.js';
-import { Confetti, Lightbulb, SealCheck } from '../components/ui/icons.js';
-import MotionIcon from '../components/ui/MotionIcon.js';
+import Sheet from '../components/ui/Sheet.js';
+import RichText from '../components/ui/RichText.js';
+import BeeIcon from '../components/brand/BeeIcon.js';
+import Mel from '../components/brand/Mel.js';
+import { celebrate, haptic } from '../lib/celebrate.js';
+import { useToast } from '../components/ui/Toast.js';
+import {
+  GraduationCap,
+  ShieldCheck,
+  Question,
+  MagnifyingGlass,
+  BookOpen,
+  Clock,
+  CheckCircle,
+  XCircle,
+  SealCheck,
+  ArrowRight,
+  CircleNotch,
+  Confetti,
+  Lightbulb,
+} from '../components/ui/icons.js';
 
 export interface QuizOption {
   readonly id: string;
   readonly question: string;
   readonly options: readonly string[];
-  readonly correct: number;
-  readonly explanation: string;
 }
 
 export interface LessonProgress {
@@ -37,9 +55,10 @@ export interface QuestionBreakdown {
   readonly questionId: string;
   readonly question: string;
   readonly chosenIndex: number;
-  readonly correctIndex: number;
   readonly isCorrect: boolean;
-  readonly explanation: string;
+  /** O backend só manda quando a questão foi acertada ou o quiz foi aprovado. */
+  readonly correctIndex?: number;
+  readonly explanation?: string;
 }
 
 export interface QuizResult {
@@ -51,7 +70,8 @@ export interface QuizResult {
 }
 
 export const EducationPage: React.FC = () => {
-  const [lessons, setLessons] = useState<LessonItem[]>([]);
+  const toast = useToast();
+  const [lessons, setLessons] = useState<readonly LessonItem[]>([]);
   const [stats, setStats] = useState({
     totalLessons: 0,
     completedCount: 0,
@@ -74,28 +94,29 @@ export const EducationPage: React.FC = () => {
   const [questionText, setQuestionText] = useState('');
   const [asking, setAsking] = useState(false);
   const [askResponse, setAskResponse] = useState<{
-    answer: string;
-    citedLessonTitle?: string;
-    isDisclaimer: boolean;
+    readonly answer: string;
+    readonly citedLessonTitle?: string;
+    readonly isDisclaimer: boolean;
   } | null>(null);
 
   const fetchLessons = useCallback(async () => {
     try {
       setLoading(true);
       const res = await api.get('/education/lessons');
-      setLessons(res.data.lessons || []);
+      setLessons(res.data?.lessons || []);
       setStats({
-        totalLessons: res.data.totalLessons || 0,
-        completedCount: res.data.completedCount || 0,
-        progressPercentage: res.data.progressPercentage || 0,
-        averageQuizScore: res.data.averageQuizScore,
+        totalLessons: res.data?.totalLessons || 0,
+        completedCount: res.data?.completedCount || 0,
+        progressPercentage: res.data?.progressPercentage || 0,
+        averageQuizScore: res.data?.averageQuizScore,
       });
     } catch (err) {
       console.error('Erro ao buscar lições:', err);
+      toast.error('Não foi possível carregar as lições.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     fetchLessons();
@@ -105,11 +126,12 @@ export const EducationPage: React.FC = () => {
     try {
       setLoadingLesson(true);
       const res = await api.get(`/education/lessons/${slug}`);
-      setActiveLesson(res.data.lesson);
+      setActiveLesson(res.data?.lesson);
       setIsQuizOpen(false);
       setQuizResult(null);
     } catch (err) {
       console.error('Erro ao abrir lição:', err);
+      toast.error('Erro ao carregar o conteúdo da lição.');
     } finally {
       setLoadingLesson(false);
     }
@@ -137,11 +159,25 @@ export const EducationPage: React.FC = () => {
       const res = await api.post(`/education/lessons/${activeLesson.slug}/quiz`, {
         answers: quizAnswers,
       });
-      setQuizResult(res.data.grading);
-      // Refresh list to update progress pills
+      const grading: QuizResult = res.data?.grading;
+      setQuizResult(grading);
+
+      if (grading.passed) {
+        haptic([12, 40, 12]);
+        celebrate('big');
+        toast.success(`Parabéns! Você concluiu a lição com ${grading.score}% de aproveitamento.`);
+      } else {
+        haptic([40, 40]);
+        toast.info(`Você atingiu ${grading.score}%. Releia a lição e tente de novo.`);
+      }
+
       fetchLessons();
-    } catch (err) {
-      console.error('Erro ao enviar quiz:', err);
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && 'response' in err && (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          ? (err as { response: { data: { message: string } } }).response.data.message
+          : 'Erro ao avaliar quiz.';
+      toast.error(msg);
     } finally {
       setSubmittingQuiz(false);
     }
@@ -153,7 +189,7 @@ export const EducationPage: React.FC = () => {
 
     try {
       setAsking(true);
-      const res = await api.post('/education/ask', { question: questionText });
+      const res = await api.post('/education/ask', { question: questionText.trim() });
       setAskResponse(res.data);
     } catch (err) {
       console.error('Erro ao consultar educação:', err);
@@ -166,88 +202,186 @@ export const EducationPage: React.FC = () => {
     }
   };
 
+  // Reader Sheet Footer
+  const readerFooter = activeLesson && (
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 w-full">
+      <span className="text-xs text-muted">
+        {activeLesson.quiz.length} pergunta(s) no quiz avaliativo
+      </span>
+      <div className="flex items-center gap-3 w-full sm:w-auto">
+        <button
+          type="button"
+          onClick={() => setActiveLesson(null)}
+          className="flex-1 sm:flex-none min-h-[44px] px-4 py-2.5 rounded-2xl bg-card border border-ink/10 text-xs font-bold text-muted hover:text-ink transition"
+        >
+          Fechar
+        </button>
+        <button
+          type="button"
+          onClick={handleStartQuiz}
+          className="group flex-1 sm:flex-none min-h-[44px] px-6 py-2.5 rounded-2xl bg-primary text-on-primary text-xs font-extrabold hover:bg-primary-deep transition flex items-center justify-center gap-2 shadow-[var(--shadow-honey)]"
+        >
+          <BeeIcon size={18} weight="bold" flutter />
+          <span>Fazer Quiz</span>
+        </button>
+      </div>
+    </div>
+  );
+
+  // Quiz Sheet Footer
+  const quizFooter = activeLesson && (
+    <div className="flex items-center justify-between gap-3 w-full">
+      {quizResult ? (
+        <div className="flex items-center justify-end gap-3 w-full">
+          {!quizResult.passed && (
+            <button
+              type="button"
+              onClick={handleStartQuiz}
+              className="min-h-[44px] px-4 py-2.5 rounded-2xl bg-field hover:bg-card border border-ink/10 text-xs font-bold text-ink transition"
+            >
+              Tentar Novamente
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setIsQuizOpen(false);
+              setActiveLesson(null);
+            }}
+            className="min-h-[44px] px-6 py-2.5 rounded-2xl bg-primary text-on-primary text-xs font-extrabold hover:bg-primary-deep transition shadow-[var(--shadow-honey)]"
+          >
+            Concluir Lição
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between w-full">
+          <button
+            type="button"
+            onClick={() => setIsQuizOpen(false)}
+            className="min-h-[44px] px-4 py-2.5 rounded-2xl bg-card border border-ink/10 text-xs font-bold text-muted hover:text-ink transition"
+          >
+            Voltar ao Texto
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmitQuiz}
+            disabled={submittingQuiz || quizAnswers.some((a) => a === -1)}
+            className="min-h-[44px] px-6 py-2.5 rounded-2xl bg-primary text-on-primary text-xs font-extrabold hover:bg-primary-deep active:scale-95 disabled:opacity-50 transition flex items-center gap-2 shadow-[var(--shadow-honey)]"
+          >
+            {submittingQuiz ? (
+              <>
+                <CircleNotch size={16} className="animate-spin" />
+                <span>Corrigindo...</span>
+              </>
+            ) : (
+              <>
+                <span>Enviar Respostas</span>
+                <CheckCircle size={16} weight="bold" />
+              </>
+            )}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
   return (
-    <div className="space-y-8 animate-fade-in pb-12">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6 max-w-6xl mx-auto pb-16">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-ink tracking-tight flex items-center gap-3">
-            <span className="material-symbols-outlined text-brand text-3xl">school</span>
-            Educação Financeira & Micro-Lições
-          </h1>
-          <p className="text-sm text-muted mt-1">
-            Conhecimento fiscal, tributário e operacional em micro-doses práticas para fortalecer seu MEI.
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-ink tracking-tight">
+              Educação Financeira & Micro-Lições
+            </h1>
+          </div>
+          <p className="text-xs sm:text-sm text-muted mt-0.5">
+            Capacitação contábil, tributária e gerencial em micro-doses práticas para o seu MEI.
           </p>
         </div>
       </div>
 
-      {/* Mandatory Disclaimer Alert (RN-44 / Compliance) */}
-      <div className="bg-card border border-primary/30 rounded-2xl p-4 flex items-start gap-3.5 shadow-[0_0_20px_rgba(242,201,76,0.05)]">
-        <span className="material-symbols-outlined text-brand text-2xl shrink-0 mt-0.5">verified_user</span>
+      {/* Alerta Obrigatório de Conformidade (RN-44 / Compliance) */}
+      <div className="card-surface p-4 flex items-start gap-3.5 border-l-4 border-l-brand">
+        <ShieldCheck size={24} className="text-brand shrink-0 mt-0.5" weight="duotone" />
         <div className="text-xs text-ink-soft leading-relaxed">
-          <strong className="text-ink block mb-0.5">Conteúdo Educativo Revisado por Profissionais Contábeis</strong>
-          As micro-lições do MEIster têm finalidade exclusivamente educativa e gerencial. O MEIster não realiza recomendações de investimento, compra de ações ou aplicações financeiras, nem substitui a assessoria de um contador habilitado.
+          <strong className="text-ink block mb-0.5">Conteúdo Educativo Revisado por Especialistas Contábeis</strong>
+          As micro-lições do MEIster possuem finalidade exclusivamente didática e de organização operacional. O MEIster não realiza recomendações de investimento financeiro nem substitui a assessoria formal de um contador habilitado.
         </div>
       </div>
 
-      {/* Progress & Stats Cards */}
+      {/* Cards de Métricas e Progresso */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-card border border-ink/5 rounded-2xl p-5">
-          <p className="text-xs font-semibold text-muted uppercase tracking-wider">Total de Lições</p>
-          <p className="text-2xl font-black text-ink mt-2">{stats.totalLessons}</p>
-          <p className="text-xs text-muted mt-1">Trilha de capacitação essencial</p>
+        <div className="card-surface p-5 space-y-1">
+          <span className="text-[10px] font-bold text-muted uppercase tracking-wider block">
+            Total de Lições
+          </span>
+          <span className="text-2xl font-extrabold text-ink tabular block">
+            {stats.totalLessons}
+          </span>
+          <span className="text-xs text-muted">Trilha de capacitação essencial</span>
         </div>
 
-        <div className="bg-card border border-ink/5 rounded-2xl p-5">
-          <p className="text-xs font-semibold text-muted uppercase tracking-wider">Lições Concluídas</p>
-          <div className="flex items-baseline gap-2 mt-2">
-            <p className="text-2xl font-black text-success">{stats.completedCount}</p>
+        <div className="card-surface p-5 space-y-1">
+          <span className="text-[10px] font-bold text-muted uppercase tracking-wider block">
+            Lições Concluídas
+          </span>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-extrabold text-success tabular">
+              {stats.completedCount}
+            </span>
             <span className="text-xs text-muted">de {stats.totalLessons}</span>
           </div>
-          <p className="text-xs text-muted mt-1">{stats.progressPercentage}% da trilha concluída</p>
+          <span className="text-xs text-muted">{stats.progressPercentage}% da trilha concluída</span>
         </div>
 
-        <div className="bg-card border border-ink/5 rounded-2xl p-5">
-          <p className="text-xs font-semibold text-muted uppercase tracking-wider">Média nos Quizzes</p>
-          <p className="text-2xl font-black text-brand mt-2">
+        <div className="card-surface p-5 space-y-1">
+          <span className="text-[10px] font-bold text-muted uppercase tracking-wider block">
+            Média nos Quizzes
+          </span>
+          <span className="text-2xl font-extrabold text-brand tabular block">
             {stats.averageQuizScore !== null ? `${stats.averageQuizScore}%` : '—'}
-          </p>
-          <p className="text-xs text-muted mt-1">Aproveitamento nos testes</p>
+          </span>
+          <span className="text-xs text-muted">Aproveitamento nos testes</span>
         </div>
 
-        <div className="bg-card border border-ink/5 rounded-2xl p-5 flex flex-col justify-between">
+        <div className="card-surface p-5 flex flex-col justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold text-muted uppercase tracking-wider">Progresso Geral</p>
-            <div className="w-full bg-card-2 h-2.5 rounded-full overflow-hidden mt-3">
+            <span className="text-[10px] font-bold text-muted uppercase tracking-wider block">
+              Progresso Geral
+            </span>
+            <div className="w-full bg-field h-2.5 rounded-full overflow-hidden mt-2 p-0.5">
               <div
-                className="bg-gradient-to-r from-primary to-success h-full transition-all duration-500"
+                className="bg-primary h-full rounded-full transition-all duration-700"
                 style={{ width: `${stats.progressPercentage}%` }}
               />
             </div>
           </div>
-          <p className="text-xs text-muted mt-2 flex items-center gap-1.5">
+          <span className="text-xs text-muted flex items-center gap-1.5">
             {stats.completedCount === stats.totalLessons && stats.totalLessons > 0 ? (
               <>
-                <MotionIcon icon={Confetti} animate="bounce" size={16} weight="fill" className="text-primary-deep" />
-                Trilha completa! Parabéns!
+                <Confetti size={16} weight="fill" className="text-brand" />
+                <span className="font-bold text-ink">Trilha completa! Parabéns!</span>
               </>
             ) : (
-              'Continue aprendendo para dominar seu negócio'
+              'Complete as lições para dominar seu negócio'
             )}
-          </p>
+          </span>
         </div>
       </div>
 
-      {/* Free-form Educational Q&A ("Pergunte sobre seu MEI") */}
-      <div className="bg-card border border-ink/5 rounded-3xl p-6 md:p-8 space-y-4">
+      {/* Assistente de Dúvidas Educacionais ("Pergunte sobre seu MEI") */}
+      <div className="card-surface p-6 md:p-8 space-y-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-field flex items-center justify-center text-brand">
-            <span className="material-symbols-outlined text-2xl">help</span>
+          <div className="w-10 h-10 rounded-2xl bg-primary-soft text-brand flex items-center justify-center shrink-0">
+            <Question size={22} weight="bold" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-ink">Tire suas Dúvidas sobre Gestão do MEI</h2>
+            <h2 className="text-base sm:text-lg font-extrabold text-ink">
+              Tire Dúvidas sobre Gestão do MEI
+            </h2>
             <p className="text-xs text-muted">
-              Pergunte sobre limites de faturamento, pagamento do DAS, método dos potes ou separação de contas.
+              Pergunte sobre limites de faturamento, emissão do DAS, método dos potes ou separação de contas.
             </p>
           </div>
         </div>
@@ -255,7 +389,7 @@ export const EducationPage: React.FC = () => {
         <form onSubmit={handleAskQuestion} className="flex flex-col sm:flex-row gap-3">
           <input
             type="text"
-            className="flex-1 bg-canvas border border-ink/10 rounded-xl px-4 py-3 text-sm text-ink placeholder-faint focus:outline-none focus:border-primary transition"
+            className="flex-1 bg-canvas border border-ink/10 rounded-2xl px-4 py-3 text-sm text-ink placeholder-faint focus:outline-none focus:border-primary transition min-h-[44px]"
             placeholder="Ex: O que acontece se meu faturamento passar de 80% do limite?"
             value={questionText}
             onChange={(e) => setQuestionText(e.target.value)}
@@ -263,48 +397,51 @@ export const EducationPage: React.FC = () => {
           <button
             type="submit"
             disabled={asking || !questionText.trim()}
-            className="px-6 py-3 rounded-xl bg-primary text-on-primary font-bold text-sm hover:brightness-110 active:scale-95 disabled:opacity-50 transition flex items-center justify-center gap-2"
+            className="min-h-[44px] px-6 py-3 rounded-2xl bg-primary text-on-primary font-bold text-sm hover:bg-primary-deep active:scale-95 disabled:opacity-50 transition flex items-center justify-center gap-2 shadow-[var(--shadow-honey)]"
           >
             {asking ? (
               <>
-                <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span>
-                Consultando...
+                <CircleNotch size={16} className="animate-spin" />
+                <span>Consultando...</span>
               </>
             ) : (
               <>
-                <span className="material-symbols-outlined text-lg">search</span>
-                Perguntar
+                <MagnifyingGlass size={16} weight="bold" />
+                <span>Perguntar</span>
               </>
             )}
           </button>
         </form>
 
         {askResponse && (
-          <div className="mt-4 bg-card-2 border border-ink/5 rounded-2xl p-5 space-y-3 animate-fade-in">
+          <div className="mt-4 bg-canvas border border-ink/8 rounded-2xl p-5 space-y-3">
             {askResponse.citedLessonTitle && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-field text-brand border border-primary/20">
-                <span className="material-symbols-outlined text-sm">menu_book</span>
-                Fonte: {askResponse.citedLessonTitle}
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-primary-soft text-brand border border-primary/20">
+                <BookOpen size={14} weight="bold" />
+                <span>Fonte: {askResponse.citedLessonTitle}</span>
               </span>
             )}
-            <p className="text-sm text-ink whitespace-pre-line leading-relaxed">
-              {askResponse.answer}
-            </p>
+            <RichText text={askResponse.answer} compact />
           </div>
         )}
       </div>
 
-      {/* Lessons List Grid */}
+      {/* Grid da Trilha de Micro-Lições */}
       <div className="space-y-4">
-        <h2 className="text-lg font-bold text-ink flex items-center gap-2">
-          <span className="material-symbols-outlined text-brand">local_library</span>
-          Trilha de Micro-Lições
-        </h2>
+        <div className="flex items-center gap-2">
+          <GraduationCap size={22} className="text-brand" weight="duotone" />
+          <h2 className="text-lg font-extrabold text-ink tracking-tight">Trilha de Micro-Lições</h2>
+        </div>
 
         {loading ? (
-          <div className="text-center py-12 text-muted flex items-center justify-center gap-2">
-            <span className="material-symbols-outlined animate-spin text-2xl">progress_activity</span>
-            Carregando trilha de educação...
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4" aria-busy="true">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="card-surface p-5 space-y-3">
+                <div className="skeleton h-4 w-1/3 rounded-full" />
+                <div className="skeleton h-5 w-3/4 rounded-full" />
+                <div className="skeleton h-12 w-full rounded-xl" />
+              </div>
+            ))}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -315,33 +452,33 @@ export const EducationPage: React.FC = () => {
               return (
                 <div
                   key={lesson.slug}
-                  className="bg-card border border-ink/5 rounded-2xl p-5 flex flex-col justify-between hover:border-primary/40 transition group"
+                  className="card-surface p-5 flex flex-col justify-between gap-4 transition hover:shadow-[var(--shadow-float)] group"
                 >
                   <div className="space-y-3">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-semibold text-muted flex items-center gap-1">
-                        <span className="material-symbols-outlined text-sm">schedule</span>
-                        {lesson.estimatedMinutes} min de leitura
+                      <span className="text-xs font-semibold text-muted flex items-center gap-1.5">
+                        <Clock size={14} weight="bold" />
+                        <span>{lesson.estimatedMinutes} min de leitura</span>
                       </span>
 
                       {isCompleted ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-success/10 text-success border border-success/30">
-                          <span className="material-symbols-outlined text-xs font-bold">check_circle</span>
-                          Concluída {lesson.progress.quizScore !== null ? `(${lesson.progress.quizScore}%)` : ''}
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-success/10 text-success border border-success/30">
+                          <CheckCircle size={14} weight="bold" />
+                          <span>Concluída {lesson.progress.quizScore !== null ? `(${lesson.progress.quizScore}%)` : ''}</span>
                         </span>
                       ) : isInProgress ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-primary/10 text-brand border border-primary/30">
-                          <span className="material-symbols-outlined text-xs">pending</span>
-                          Em andamento
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-primary-soft text-brand border border-primary/30">
+                          <Clock size={14} weight="bold" />
+                          <span>Em andamento</span>
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-field text-muted">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-field text-muted">
                           Não iniciada
                         </span>
                       )}
                     </div>
 
-                    <h3 className="text-base font-bold text-ink group-hover:text-brand transition">
+                    <h3 className="text-base font-extrabold text-ink group-hover:text-brand transition leading-snug">
                       {lesson.title}
                     </h3>
                     <p className="text-xs text-muted line-clamp-2 leading-relaxed">
@@ -349,18 +486,19 @@ export const EducationPage: React.FC = () => {
                     </p>
                   </div>
 
-                  <div className="mt-5 pt-4 border-t border-ink/5 flex items-center justify-between">
-                    <span className="flex items-center gap-1 text-[11px] text-faint">
+                  <div className="pt-3 border-t border-ink/5 flex items-center justify-between">
+                    <span className="flex items-center gap-1 text-[11px] text-muted">
                       <SealCheck size={14} weight="fill" className="text-success" />
-                      {lesson.reviewedBy}
+                      <span>{lesson.reviewedBy}</span>
                     </span>
 
                     <button
+                      type="button"
                       onClick={() => handleOpenLesson(lesson.slug)}
-                      className="px-4 py-2 rounded-xl bg-field hover:bg-primary hover:text-on-primary text-xs font-bold text-ink transition flex items-center gap-1.5"
+                      className="min-h-[44px] px-4 py-2 rounded-2xl bg-card border border-ink/10 hover:bg-primary hover:text-on-primary hover:border-transparent text-xs font-bold text-ink transition flex items-center gap-1.5 shadow-sm"
                     >
                       <span>{isCompleted ? 'Revisar' : 'Abrir Lição'}</span>
-                      <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                      <ArrowRight size={14} weight="bold" />
                     </button>
                   </div>
                 </div>
@@ -370,238 +508,147 @@ export const EducationPage: React.FC = () => {
         )}
       </div>
 
-      {/* Lesson Reader Modal */}
-      {activeLesson && !isQuizOpen && (
-        <div className="fixed inset-0 z-50 bg-ink/40 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-card border border-ink/10 rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl animate-scale-up my-auto">
-            {/* Modal Header */}
-            <div className="p-6 border-b border-ink/5 flex items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-[11px] font-bold text-brand uppercase tracking-wider">
-                    Micro-Lição {activeLesson.estimatedMinutes} min
-                  </span>
-                  <span className="text-xs text-faint">•</span>
-                  <span className="text-xs text-faint">Revisada em {activeLesson.reviewedAt}</span>
-                </div>
-                <h2 className="text-xl font-extrabold text-ink">{activeLesson.title}</h2>
-              </div>
-              <button
-                onClick={() => setActiveLesson(null)}
-                className="p-2 text-muted hover:text-ink rounded-xl bg-card-2 transition"
-              >
-                <span className="material-symbols-outlined text-lg">close</span>
-              </button>
+      {/* Reader Sheet (Leitura da Lição) */}
+      <Sheet
+        open={Boolean(activeLesson && !isQuizOpen)}
+        onClose={() => setActiveLesson(null)}
+        title={activeLesson?.title || 'Micro-Lição'}
+        subtitle={`Tempo estimado: ${activeLesson?.estimatedMinutes || 3} min · Revisada em ${activeLesson?.reviewedAt || ''}`}
+        icon={<Mel size={44} mood={loadingLesson ? 'thinking' : 'idle'} />}
+        footer={readerFooter}
+      >
+        <div className="py-2 text-sm text-ink-soft leading-relaxed">
+          {loadingLesson ? (
+            <div className="text-center py-12 text-muted flex items-center justify-center gap-2">
+              <CircleNotch size={18} className="animate-spin text-brand" />
+              <span>Carregando lição...</span>
             </div>
-
-            {/* Modal Content */}
-            <div className="p-6 overflow-y-auto flex-1 space-y-4 text-sm text-ink-soft leading-relaxed">
-              {loadingLesson ? (
-                <div className="text-center py-8 text-muted">Carregando conteúdo...</div>
-              ) : (
-                <div className="prose prose-invert max-w-none space-y-4 whitespace-pre-line">
-                  {activeLesson.content}
-                </div>
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="p-6 border-t border-ink/5 bg-card rounded-b-3xl flex flex-col sm:flex-row items-center justify-between gap-3">
-              <span className="text-xs text-muted">
-                {activeLesson.quiz.length} pergunta(s) no quiz avaliativo
-              </span>
-              <div className="flex items-center gap-3 w-full sm:w-auto">
-                <button
-                  onClick={() => setActiveLesson(null)}
-                  className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-card-2 text-xs font-bold text-muted hover:text-ink transition"
-                >
-                  Fechar
-                </button>
-                <button
-                  onClick={handleStartQuiz}
-                  className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-primary text-on-primary text-xs font-bold hover:brightness-110 active:scale-95 transition flex items-center justify-center gap-2"
-                >
-                  <span className="material-symbols-outlined text-base">quiz</span>
-                  Fazer Quiz
-                </button>
-              </div>
-            </div>
-          </div>
+          ) : (
+            <RichText text={activeLesson?.content ?? ''} hideFirstH1 />
+          )}
         </div>
-      )}
+      </Sheet>
 
-      {/* Quiz Modal */}
-      {activeLesson && isQuizOpen && (
-        <div className="fixed inset-0 z-50 bg-ink/40 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-card border border-ink/10 rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl animate-scale-up my-auto">
-            {/* Modal Header */}
-            <div className="p-6 border-b border-ink/5 flex items-start justify-between gap-4">
-              <div>
-                <span className="text-[11px] font-bold text-brand uppercase tracking-wider">
-                  Quiz Avaliativo
-                </span>
-                <h2 className="text-lg font-bold text-ink mt-1">{activeLesson.title}</h2>
-              </div>
-              <button
-                onClick={() => setIsQuizOpen(false)}
-                className="p-2 text-muted hover:text-ink rounded-xl bg-card-2 transition"
+      {/* Quiz Sheet (Quiz Avaliativo Animado) */}
+      <Sheet
+        open={Boolean(activeLesson && isQuizOpen)}
+        onClose={() => setIsQuizOpen(false)}
+        title={`Quiz: ${activeLesson?.title || ''}`}
+        subtitle="Teste seus conhecimentos para validar a conclusão da lição."
+        icon={<Mel size={44} mood={quizResult ? (quizResult.passed ? 'celebrate' : 'thinking') : 'idle'} />}
+        footer={quizFooter}
+      >
+        <div className="space-y-6 py-2">
+          {quizResult ? (
+            /* Resultados Avaliados com Explicações */
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.3 }}
+              className="space-y-6"
+            >
+              <div
+                className={`p-6 rounded-3xl text-center border ${
+                  quizResult.passed
+                    ? 'bg-success/10 border-success/30'
+                    : 'bg-danger/10 border-danger/30'
+                }`}
               >
-                <span className="material-symbols-outlined text-lg">close</span>
-              </button>
-            </div>
+                <div className="flex justify-center mb-2">
+                  <Mel size={56} mood={quizResult.passed ? 'celebrate' : 'alert'} />
+                </div>
+                <h3 className="text-xl font-extrabold text-ink">
+                  {quizResult.passed ? 'Parabéns, Você Concluiu!' : 'Quase lá! Vamos revisar?'}
+                </h3>
+                <p className="text-xs sm:text-sm mt-1 text-ink-soft">
+                  Você acertou {quizResult.correctCount} de {quizResult.totalQuestions} questões ({quizResult.score}%).
+                </p>
+              </div>
 
-            {/* Quiz Questions or Results */}
-            <div className="p-6 overflow-y-auto flex-1 space-y-6">
-              {quizResult ? (
-                /* Results View */
-                <div className="space-y-6 animate-fade-in">
+              {/* Gabarito Comentado com Explicações Reveladas */}
+              <div className="space-y-4">
+                <span className="text-xs font-bold text-muted uppercase tracking-wider block">
+                  {quizResult.passed ? 'Gabarito Comentado:' : 'Seu resultado:'}
+                </span>
+                {quizResult.breakdown.map((item, idx) => (
                   <div
-                    className={`p-6 rounded-2xl text-center border ${
-                      quizResult.passed
-                        ? 'bg-success/10 border-success/30'
-                        : 'bg-danger/10 border-danger/30'
-                    }`}
+                    key={item.questionId}
+                    className="bg-canvas border border-ink/8 rounded-2xl p-4 space-y-2"
                   >
-                    <span className="material-symbols-outlined text-5xl mb-2 block">
-                      {quizResult.passed ? 'task_alt' : 'sentiment_dissatisfied'}
-                    </span>
-                    <h3 className="text-xl font-black text-ink">
-                      {quizResult.passed ? 'Parabéns, Você Passou!' : 'Quase lá! Vamos revisar?'}
-                    </h3>
-                    <p className="text-sm mt-1 text-ink-soft">
-                      Você acertou {quizResult.correctCount} de {quizResult.totalQuestions} questões ({quizResult.score}%).
-                    </p>
-                  </div>
-
-                  {/* Question Breakdown with Explanations */}
-                  <div className="space-y-4">
-                    <h4 className="text-xs font-bold text-muted uppercase tracking-wider">
-                      Gabarito Comentado:
-                    </h4>
-                    {quizResult.breakdown.map((item, idx) => (
-                      <div
-                        key={item.questionId}
-                        className="bg-card-2 border border-ink/5 rounded-2xl p-4 space-y-2"
-                      >
-                        <div className="flex items-start gap-2.5">
-                          <span
-                            className={`material-symbols-outlined text-lg shrink-0 mt-0.5 ${
-                              item.isCorrect ? 'text-success' : 'text-danger'
-                            }`}
-                          >
-                            {item.isCorrect ? 'check_circle' : 'cancel'}
-                          </span>
-                          <div>
-                            <p className="text-sm font-semibold text-ink">
-                              {idx + 1}. {item.question}
-                            </p>
-                            <p className="text-xs text-ink-soft mt-1.5 leading-relaxed bg-canvas p-3 rounded-xl border border-ink/5">
-                              <Lightbulb size={16} weight="fill" className="mr-1 inline align-[-3px] text-primary-deep" />
-                              <strong>Explicação:</strong> {item.explanation}
-                            </p>
-                          </div>
+                    <div className="flex items-start gap-2.5">
+                      {item.isCorrect ? (
+                        <CheckCircle size={20} className="text-success shrink-0 mt-0.5" weight="bold" />
+                      ) : (
+                        <XCircle size={20} className="text-danger shrink-0 mt-0.5" weight="bold" />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold text-ink">
+                          {idx + 1}. {item.question}
+                        </p>
+                        <div className="mt-2 text-xs text-ink-soft leading-relaxed bg-field p-3 rounded-xl border border-ink/5">
+                          <p className="flex items-start gap-1.5">
+                            <Lightbulb size={16} weight="fill" className="text-brand shrink-0 mt-0.5" />
+                            <span>
+                              {item.explanation ? (
+                                <>
+                                  <strong>Explicação:</strong> {item.explanation}
+                                </>
+                              ) : (
+                                'Releia a lição e tente de novo: a resposta certa aparece quando você for aprovado.'
+                              )}
+                            </span>
+                          </p>
                         </div>
                       </div>
-                    ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          ) : (
+            /* Perguntas do Quiz Interativo */
+            <div className="space-y-6">
+              {activeLesson?.quiz.map((q, qIndex) => (
+                <div key={q.id} className="space-y-3">
+                  <p className="text-sm font-extrabold text-ink flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-primary text-on-primary text-xs font-black flex items-center justify-center shrink-0">
+                      {qIndex + 1}
+                    </span>
+                    <span>{q.question}</span>
+                  </p>
+
+                  <div className="space-y-2 pl-8">
+                    {q.options.map((opt, optIndex) => {
+                      const isSelected = quizAnswers[qIndex] === optIndex;
+                      return (
+                        <button
+                          key={optIndex}
+                          type="button"
+                          onClick={() => handleAnswerSelect(qIndex, optIndex)}
+                          className={`w-full min-h-[44px] text-left p-3.5 rounded-2xl border text-xs font-semibold transition flex items-center gap-3 ${
+                            isSelected
+                              ? 'bg-card border-brand shadow-sm ring-1 ring-brand text-ink'
+                              : 'bg-card border-ink/8 text-ink-soft hover:border-ink/20'
+                          }`}
+                        >
+                          <span
+                            className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                              isSelected ? 'border-brand bg-primary' : 'border-ink/30'
+                            }`}
+                          >
+                            {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-card" />}
+                          </span>
+                          <span>{opt}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
-              ) : (
-                /* Questions Form */
-                <div className="space-y-6">
-                  {activeLesson.quiz.map((q, qIndex) => (
-                    <div key={q.id} className="space-y-3">
-                      <p className="text-sm font-bold text-ink flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-full bg-primary text-on-primary text-xs font-black flex items-center justify-center shrink-0">
-                          {qIndex + 1}
-                        </span>
-                        {q.question}
-                      </p>
-
-                      <div className="space-y-2 pl-8">
-                        {q.options.map((opt, optIndex) => {
-                          const isSelected = quizAnswers[qIndex] === optIndex;
-                          return (
-                            <button
-                              key={optIndex}
-                              type="button"
-                              onClick={() => handleAnswerSelect(qIndex, optIndex)}
-                              className={`w-full text-left p-3.5 rounded-xl border text-xs font-medium transition flex items-center gap-3 ${
-                                isSelected
-                                  ? 'bg-primary/10 border-primary text-ink'
-                                  : 'bg-card-2 border-ink/5 text-ink-soft hover:border-ink/15'
-                              }`}
-                            >
-                              <div
-                                className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
-                                  isSelected ? 'border-primary bg-primary' : 'border-faint'
-                                }`}
-                              >
-                                {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-canvas" />}
-                              </div>
-                              <span>{opt}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              ))}
             </div>
-
-            {/* Modal Footer */}
-            <div className="p-6 border-t border-ink/5 bg-card rounded-b-3xl flex items-center justify-between gap-3">
-              {quizResult ? (
-                <div className="flex items-center justify-end gap-3 w-full">
-                  {!quizResult.passed && (
-                    <button
-                      onClick={handleStartQuiz}
-                      className="px-4 py-2.5 rounded-xl bg-card-2 hover:bg-field text-xs font-bold text-ink transition"
-                    >
-                      Tentar Novamente
-                    </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      setIsQuizOpen(false);
-                      setActiveLesson(null);
-                    }}
-                    className="px-6 py-2.5 rounded-xl bg-primary text-on-primary text-xs font-bold hover:brightness-110 transition"
-                  >
-                    Concluir
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between w-full">
-                  <button
-                    onClick={() => setIsQuizOpen(false)}
-                    className="px-4 py-2.5 rounded-xl bg-card-2 text-xs font-bold text-muted hover:text-ink transition"
-                  >
-                    Voltar à Leitura
-                  </button>
-                  <button
-                    onClick={handleSubmitQuiz}
-                    disabled={submittingQuiz || quizAnswers.some((a) => a === -1)}
-                    className="px-6 py-2.5 rounded-xl bg-primary text-on-primary text-xs font-bold hover:brightness-110 active:scale-95 disabled:opacity-50 transition flex items-center gap-2"
-                  >
-                    {submittingQuiz ? (
-                      <>
-                        <span className="material-symbols-outlined animate-spin text-base">progress_activity</span>
-                        Corrigindo...
-                      </>
-                    ) : (
-                      <>
-                        <span>Enviar Respostas</span>
-                        <span className="material-symbols-outlined text-base">check</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
+          )}
         </div>
-      )}
+      </Sheet>
     </div>
   );
 };

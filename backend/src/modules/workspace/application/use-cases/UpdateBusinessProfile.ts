@@ -15,6 +15,7 @@ export interface UpdateBusinessProfileInput {
   readonly entityId: string;
   readonly cnpj: string;
   readonly legalName?: string | null;
+  readonly tradeName?: string | null;
   readonly openedOn: string; // YYYY-MM-DD
   readonly activity: 'comercio' | 'servicos' | 'misto';
 }
@@ -84,6 +85,10 @@ export async function updateBusinessProfile(
     data: {
       cnpj: cleanCnpj,
       legalName: input.legalName?.trim() || null,
+      // Ausente mantém o valor atual; string vazia ou null limpa.
+      ...(input.tradeName !== undefined
+        ? { tradeName: typeof input.tradeName === 'string' ? input.tradeName.trim().slice(0, 120) || null : null }
+        : {}),
       openedOn: new Date(`${openedDate.toIsoDate()}T00:00:00.000Z`),
       activity: input.activity,
       isMei: true,

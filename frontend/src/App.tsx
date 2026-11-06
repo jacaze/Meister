@@ -1,6 +1,7 @@
 import React, { lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext.js';
+import ToastProvider from './components/ui/Toast.js';
 import ErrorBoundary from './components/common/ErrorBoundary.js';
 import AppLayout from './components/layout/AppLayout.js';
 import Mel from './components/brand/Mel.js';
@@ -53,7 +54,8 @@ export const App: React.FC = () => {
     <ErrorBoundary>
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
+          <ToastProvider>
+            <Routes>
             {/* Public Auth Route */}
             <Route
               path="/login"
@@ -90,7 +92,8 @@ export const App: React.FC = () => {
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
-        </AuthProvider>
+        </ToastProvider>
+      </AuthProvider>
       </BrowserRouter>
     </ErrorBoundary>
   );

@@ -4,8 +4,18 @@ import { LessonRegistry } from '../../domain/LessonRegistry.js';
 import type { Lesson } from '../../domain/Lesson.js';
 import type { LessonProgressDto } from './ListLessons.js';
 
+export interface PublicQuizQuestion {
+  readonly id: string;
+  readonly question: string;
+  readonly options: readonly string[];
+}
+
+export interface PublicLesson extends Omit<Lesson, 'quiz'> {
+  readonly quiz: readonly PublicQuizQuestion[];
+}
+
 export interface GetLessonResult {
-  readonly lesson: Lesson;
+  readonly lesson: PublicLesson;
   readonly progress: LessonProgressDto;
 }
 
@@ -46,8 +56,20 @@ export async function getLesson(scope: WorkspaceScope, slug: string): Promise<Ge
     completedAt: progressRecord.completedAt ? progressRecord.completedAt.toISOString() : null,
   };
 
+  // Sanitiza o quiz removendo o gabarito ('correct') e 'explanation'
+  const publicQuiz: readonly PublicQuizQuestion[] = lesson.quiz.map((q) => ({
+    id: q.id,
+    question: q.question,
+    options: q.options,
+  }));
+
+  const publicLesson: PublicLesson = {
+    ...lesson,
+    quiz: publicQuiz,
+  };
+
   return {
-    lesson,
+    lesson: publicLesson,
     progress,
   };
 }

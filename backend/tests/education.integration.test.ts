@@ -51,6 +51,19 @@ describe('Financial Education Integration Suite (PostgreSQL 16)', () => {
     expect(listData.completedCount).toBe(0);
     expect(listData.progressPercentage).toBe(0);
 
+    // Verify quiz questions in list do not leak correct answer or explanation
+    const lessonsWithQuiz = listData.lessons.filter(
+      (l: { quiz?: unknown[] }) => Array.isArray(l.quiz) && l.quiz.length > 0
+    );
+    expect(lessonsWithQuiz.length).toBeGreaterThan(0);
+
+    for (const lesson of lessonsWithQuiz) {
+      for (const q of lesson.quiz) {
+        expect(q).not.toHaveProperty('correct');
+        expect(q).not.toHaveProperty('explanation');
+      }
+    }
+
     // 2. Get specific lesson (should transition to 'iniciada')
     const getRes = await app.inject({
       method: 'GET',
@@ -62,6 +75,13 @@ describe('Financial Education Integration Suite (PostgreSQL 16)', () => {
     const getData = getRes.json();
     expect(getData.lesson.slug).toBe('separar-pf-pj');
     expect(getData.progress.status).toBe('iniciada');
+
+    // Verify quiz questions in getLesson do not leak correct answer or explanation
+    expect(getData.lesson.quiz.length).toBeGreaterThan(0);
+    for (const q of getData.lesson.quiz) {
+      expect(q).not.toHaveProperty('correct');
+      expect(q).not.toHaveProperty('explanation');
+    }
 
     // 3. Submit quiz with incorrect answers (e.g. [0, 1] instead of [1, 0])
     const failQuizRes = await app.inject({
@@ -76,6 +96,22 @@ describe('Financial Education Integration Suite (PostgreSQL 16)', () => {
     expect(failQuizData.grading.passed).toBe(false);
     expect(failQuizData.progress.status).toBe('iniciada');
     expect(failQuizData.grading.breakdown.length).toBe(2);
+    for (const item of failQuizData.grading.breakdown) {
+      if (!item.isCorrect) {
+        expect(item).not.toHaveProperty('correctIndex');
+        expect(item).not.toHaveProperty('explanation');
+      }
+    }
+
+    // 3b. Enviar respostas vazias não revela o gabarito: 400
+    const emptyQuizRes = await app.inject({
+      method: 'POST',
+      url: '/api/education/lessons/separar-pf-pj/quiz',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { answers: [] },
+    });
+    expect(emptyQuizRes.statusCode).toBe(400);
+    expect(JSON.stringify(emptyQuizRes.json())).not.toContain('correctIndex');
 
     // 4. Submit quiz with correct answers [1, 0]
     const passQuizRes = await app.inject({

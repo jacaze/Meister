@@ -33,6 +33,11 @@ enum TransactionOrigin {
   importacao
 }
 
+enum TransferType {
+  transfer
+  pro_labore
+}
+
 model User {
   id             String      @id @default(uuid())
   name           String
@@ -145,6 +150,7 @@ model Entity {
   name        String
   cnpj        String?   @unique
   legalName   String?   @map("legal_name")
+  tradeName   String?   @map("trade_name")
   openedOn    DateTime? @map("opened_on") @db.Date
   activity    String?   // comercio | servicos | misto
   isMei       Boolean   @default(false) @map("is_mei")
@@ -241,6 +247,7 @@ model Transaction {
   externalProvider   String?            @map("external_provider")
   externalId         String?            @map("external_id")
   transferGroupId    String?            @map("transfer_group_id")
+  transferType       TransferType?      @map("transfer_type")
   counterparty       String?
   notes              String?
   sourceRef          String?            @map("source_ref")

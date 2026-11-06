@@ -1,4 +1,6 @@
 import React, { Component, type ErrorInfo, type ReactNode } from 'react';
+import Mel from '../brand/Mel.js';
+import { ArrowsClockwise } from '../ui/icons.js';
 
 interface Props {
   children: ReactNode;
@@ -27,23 +29,33 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-canvas text-ink flex items-center justify-center p-6">
-          <div className="max-w-md w-full bg-card border border-danger/30 rounded-3xl p-6 text-center space-y-4 shadow-2xl">
-            <div className="w-12 h-12 rounded-2xl bg-danger/15 border border-danger/30 flex items-center justify-center text-danger mx-auto">
-              <span className="material-symbols-outlined text-2xl">warning</span>
+          <div className="max-w-md w-full card-surface p-8 text-center space-y-5 shadow-[var(--shadow-card)]">
+            <div className="flex justify-center">
+              <Mel mood="alert" size={110} />
             </div>
-            <h3 className="text-lg font-bold text-ink">Ops, algo deu errado nesta tela</h3>
-            <p className="text-xs text-muted">
-              {this.state.error?.message || 'Ocorreu um erro inesperado ao carregar os dados.'}
-            </p>
-            <button
-              onClick={() => {
-                this.setState({ hasError: false, error: null });
-                window.location.reload();
-              }}
-              className="px-5 py-2.5 rounded-xl bg-primary text-on-primary text-xs font-bold hover:scale-[1.02] transition"
-            >
-              Recarregar Página
-            </button>
+
+            <div className="space-y-2">
+              <h2 className="text-xl font-extrabold text-ink tracking-tight">
+                Tivemos um imprevisto técnico
+              </h2>
+              <p className="text-xs sm:text-sm text-muted leading-relaxed">
+                Não se preocupe: suas transações e dados financeiros continuam seguros. Um erro temporário impediu a exibição desta tela.
+              </p>
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  this.setState({ hasError: false, error: null });
+                  window.location.reload();
+                }}
+                className="min-h-[44px] px-6 py-2.5 rounded-2xl bg-primary text-on-primary font-bold text-xs hover:bg-primary-deep transition flex items-center justify-center gap-2 mx-auto shadow-[var(--shadow-honey)]"
+              >
+                <ArrowsClockwise size={18} weight="bold" />
+                <span>Recarregar Página</span>
+              </button>
+            </div>
           </div>
         </div>
       );

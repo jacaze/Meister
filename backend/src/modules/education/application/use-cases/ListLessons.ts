@@ -2,6 +2,7 @@ import prisma from '../../../../config/prisma.js';
 import type { WorkspaceScope } from '../../../../shared/index.js';
 import { LessonRegistry } from '../../domain/LessonRegistry.js';
 import type { Lesson } from '../../domain/Lesson.js';
+import type { PublicQuizQuestion } from './GetLesson.js';
 
 export interface LessonProgressDto {
   readonly status: 'nao_iniciada' | 'iniciada' | 'concluida';
@@ -10,7 +11,8 @@ export interface LessonProgressDto {
   readonly completedAt: string | null;
 }
 
-export interface LessonListItemDto extends Omit<Lesson, 'content'> {
+export interface LessonListItemDto extends Omit<Lesson, 'content' | 'quiz'> {
+  readonly quiz?: readonly PublicQuizQuestion[];
   readonly progress: LessonProgressDto;
 }
 
@@ -55,10 +57,17 @@ export async function listLessons(scope: WorkspaceScope): Promise<ListLessonsRes
       scoredCount += 1;
     }
 
-    // Return without full markdown content to keep list lightweight
-    const { content: _content, ...rest } = l;
+    // Return without full markdown content to keep list lightweight and sanitize quiz
+    const { content: _content, quiz, ...rest } = l;
+    const publicQuiz: readonly PublicQuizQuestion[] = (quiz || []).map((q) => ({
+      id: q.id,
+      question: q.question,
+      options: q.options,
+    }));
+
     return {
       ...rest,
+      quiz: publicQuiz,
       progress: {
         status,
         quizScore,
@@ -68,7 +77,7 @@ export async function listLessons(scope: WorkspaceScope): Promise<ListLessonsRes
     };
   });
 
-  const totalLessons = lessons.length;
+  const totalLessons = allLessons.length;
   const progressPercentage = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
   const averageQuizScore = scoredCount > 0 ? Math.round(totalScoreSum / scoredCount) : null;
 

@@ -253,6 +253,23 @@ Resposta do dashboard:
 
 ---
 
+## Deploy e Cabeçalhos HTTP do Frontend (PWA)
+
+Para garantir o funcionamento pleno do Service Worker, precache offline e atualização entre deploys:
+
+- **Service Worker (`/sw.js`):** Deve ser servido com o cabeçalho:
+  ```http
+  Cache-Control: no-cache
+  ```
+  Isso assegura que o navegador consulte o servidor byte-a-byte para detectar novos builds imediatamente, sem ficar preso a caches HTTP intermediários.
+- **Assets versionados (`/assets/*`):** Como contêm hash de conteúdo nos seus nomes de arquivo (gerados pelo bundler Vite), devem ser servidos como imutáveis com cache de longa duração:
+  ```http
+  Cache-Control: public, max-age=31536000, immutable
+  ```
+- **Manifesto e Ícones raiz (`/manifest.webmanifest`, `/favicon.svg`, `/icon-*.png`):** Servidos com revalidação padrão (`Cache-Control: no-cache` ou `max-age=3600`).
+
+---
+
 ## Segurança
 
 - Senhas armazenadas apenas como hash (bcrypt)

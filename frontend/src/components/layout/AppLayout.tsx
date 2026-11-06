@@ -106,7 +106,7 @@ export const AppLayout: React.FC = () => {
       <HoneyBackground />
 
       {/* ===== Desktop: barra lateral ===== */}
-      <aside className="hidden md:flex sticky top-0 h-dvh w-72 shrink-0 flex-col justify-between border-r border-ink/5 bg-card/70 backdrop-blur-xl p-5">
+      <aside className="hidden md:flex sticky top-0 h-dvh w-72 shrink-0 flex-col justify-between glass-bar p-5">
         <div className="space-y-7">
           <button onClick={() => navigate('/')} className="block text-left" aria-label="Ir para o início">
             <Logo size="md" animated tagline />
@@ -118,7 +118,7 @@ export const AppLayout: React.FC = () => {
             whileHover={reduce ? undefined : { y: -2 }}
             whileTap={{ scale: 0.97 }}
             onClick={openNewTransaction}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 font-extrabold text-on-primary shadow-[var(--shadow-honey)]"
+            className="flex w-full items-center justify-center gap-2 glass-btn-honey rounded-2xl py-3.5 font-extrabold text-on-primary"
           >
             <Plus size={20} weight="bold" /> Novo lançamento
           </motion.button>
@@ -166,7 +166,7 @@ export const AppLayout: React.FC = () => {
           <button
             onClick={logout}
             aria-label="Sair"
-            className="grid h-10 w-10 place-items-center rounded-full text-muted transition hover:bg-danger/10 hover:text-danger"
+            className="glass-btn grid h-10 w-10 place-items-center rounded-full text-muted transition hover:text-danger"
           >
             <SignOut size={20} />
           </button>
@@ -176,7 +176,7 @@ export const AppLayout: React.FC = () => {
       {/* ===== Conteúdo ===== */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Celular: cabeçalho */}
-        <header className="md:hidden sticky top-0 z-30 pt-safe glass-panel border-x-0 border-t-0">
+        <header className="md:hidden sticky top-0 z-30 pt-safe glass-bar">
           <div className="flex h-14 items-center justify-between gap-3 px-4">
             <Logo size="sm" animated />
             <div className="flex items-center gap-2">
@@ -184,7 +184,7 @@ export const AppLayout: React.FC = () => {
               <button
                 onClick={() => navigate('/perfil')}
                 aria-label="Perfil"
-                className="grid h-10 w-10 place-items-center rounded-full bg-primary-soft font-extrabold text-brand ring-2 ring-primary/40"
+                className="glass-btn grid h-10 w-10 place-items-center rounded-full font-extrabold text-brand"
               >
                 {user?.name?.charAt(0).toUpperCase()}
               </button>
@@ -210,7 +210,7 @@ export const AppLayout: React.FC = () => {
       {/* ===== Celular: barra inferior ===== */}
       <nav
         aria-label="Navegação principal"
-        className="md:hidden fixed inset-x-0 bottom-0 z-40 glass-panel border-x-0 border-b-0 pb-safe"
+        className="md:hidden fixed inset-x-0 bottom-0 z-40 glass-bar pb-safe"
       >
         <LayoutGroup id="tabs">
           <div className="grid h-[68px] grid-cols-5 items-end px-2">
@@ -224,7 +224,7 @@ export const AppLayout: React.FC = () => {
                 aria-label="Novo lançamento"
                 whileTap={{ scale: 0.9, rotate: 90 }}
                 transition={spring}
-                className="absolute -top-9 grid h-16 w-16 place-items-center rounded-[22px] bg-primary text-on-primary shadow-[var(--shadow-honey)] ring-4 ring-canvas"
+                className="absolute -top-9 grid h-16 w-16 place-items-center glass-btn-honey rounded-[22px] text-on-primary"
               >
                 <Plus size={30} weight="bold" />
               </motion.button>

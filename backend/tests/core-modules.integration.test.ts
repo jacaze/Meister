@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app.js';
@@ -92,6 +94,7 @@ describe('Core Modules Integration Suite (PostgreSQL 16)', () => {
       payload: {
         cnpj: validCnpj,
         legalName: 'Carlos Silva Instalacoes MEI',
+        tradeName: '  Carlão Instalações  ',
         openedOn: '2026-02-15',
         activity: 'servicos',
       },
@@ -100,6 +103,14 @@ describe('Core Modules Integration Suite (PostgreSQL 16)', () => {
     const updatedEntity = updateProfileRes.json();
     expect(updatedEntity.cnpj).toBe(validCnpj);
     expect(updatedEntity.activity).toBe('servicos');
+    expect(updatedEntity.tradeName).toBe('Carlão Instalações');
+
+    // O nome fantasia volta no overview (é de lá que o Perfil carrega o formulário)
+    const overviewAfter = (
+      await app.inject({ method: 'GET', url: '/api/workspace', headers: { authorization: `Bearer ${token}` } })
+    ).json();
+    const pjAfter = overviewAfter.entities.find((e: { id: string }) => e.id === pjEntity.id);
+    expect(pjAfter.tradeName).toBe('Carlão Instalações');
 
     // 3. Proportional MEI limit check for opening in Feb 2026
     // Months = 12 - (2 - 1) = 11 months -> 11 * 6750 = 74,250.00
@@ -230,6 +241,221 @@ describe('Core Modules Integration Suite (PostgreSQL 16)', () => {
     const necessidades = jarsStatus.jars.find((j: { slug: string }) => j.slug === 'necessidades');
     expect(necessidades.alocado).toBe('2750.00');
     expect(necessidades.status).toBe('ok');
+
+    // 4. Test category mapping & unmapping
+    const catDesp = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/categories',
+        headers: { authorization: `Bearer ${token}` },
+        payload: { name: 'Aluguel', type: 'despesa' },
+      })
+    ).json();
+
+    // Map 2 categories
+    const mapRes1 = await app.inject({
+      method: 'PUT',
+      url: '/api/jars/categories',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planId: jarsStatus.planId,
+        jarId: necessidades.id,
+        categoryIds: [catRec.id, catDesp.id],
+      },
+    });
+    expect(mapRes1.statusCode).toBe(200);
+
+    let mappedCount = await prisma.jarCategory.count({
+      where: { jarId: necessidades.id },
+    });
+    expect(mappedCount).toBe(2);
+
+    // Unmap one category by sending only [catRec.id]
+    const mapRes2 = await app.inject({
+      method: 'PUT',
+      url: '/api/jars/categories',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planId: jarsStatus.planId,
+        jarId: necessidades.id,
+        categoryIds: [catRec.id],
+      },
+    });
+    expect(mapRes2.statusCode).toBe(200);
+
+    mappedCount = await prisma.jarCategory.count({
+      where: { jarId: necessidades.id },
+    });
+    expect(mappedCount).toBe(1);
+
+    // Unmap all by sending empty array []
+    const mapRes3 = await app.inject({
+      method: 'PUT',
+      url: '/api/jars/categories',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planId: jarsStatus.planId,
+        jarId: necessidades.id,
+        categoryIds: [],
+      },
+    });
+    expect(mapRes3.statusCode).toBe(200);
+
+    mappedCount = await prisma.jarCategory.count({
+      where: { jarId: necessidades.id },
+    });
+    expect(mappedCount).toBe(0);
+
+    // Test batch mapping & foreign category rejection (IDOR protection)
+    const fakeCategoryId = 'cat_fake_123456789';
+    const rejectRes = await app.inject({
+      method: 'PUT',
+      url: '/api/jars/categories/batch',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planId: jarsStatus.planId,
+        mappings: [{ jarId: necessidades.id, categoryIds: [fakeCategoryId] }],
+      },
+    });
+    expect(rejectRes.statusCode).toBe(400);
+
+    // Test malformed payload validation (Zod schema protection)
+    const malformedRes = await app.inject({
+      method: 'PUT',
+      url: '/api/jars/categories/batch',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planId: '',
+        mappings: 'invalid',
+      },
+    });
+    expect(malformedRes.statusCode).toBe(400);
+
+    // Test duplicate category across different jars rejection
+    const outroPote = jarsStatus.jars.find((j: { slug: string }) => j.slug === 'liberdade') || jarsStatus.jars[1];
+    const duplicateCrossJarRes = await app.inject({
+      method: 'PUT',
+      url: '/api/jars/categories/batch',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planId: jarsStatus.planId,
+        mappings: [
+          { jarId: necessidades.id, categoryIds: [catRec.id] },
+          { jarId: outroPote.id, categoryIds: [catRec.id] },
+        ],
+      },
+    });
+    expect(duplicateCrossJarRes.statusCode).toBe(400);
+    expect(duplicateCrossJarRes.json().message).toContain('múltiplos potes');
+
+    // Test repeated IDs in single mapping (deduplication without false rejection)
+    const dedupeRes = await app.inject({
+      method: 'PUT',
+      url: '/api/jars/categories',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planId: jarsStatus.planId,
+        jarId: necessidades.id,
+        categoryIds: [catRec.id, catRec.id],
+      },
+    });
+    expect(dedupeRes.statusCode).toBe(200);
+
+    // Valid batch mapping
+    const batchRes = await app.inject({
+      method: 'PUT',
+      url: '/api/jars/categories/batch',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planId: jarsStatus.planId,
+        mappings: [
+          { jarId: necessidades.id, categoryIds: [catRec.id] },
+        ],
+      },
+    });
+    expect(batchRes.statusCode).toBe(200);
+    const batchCount = await prisma.jarCategory.count({
+      where: { jarId: necessidades.id },
+    });
+    expect(batchCount).toBe(1);
+  });
+
+  it('applies the plan baseMode to the jars base and updates it without recreating the plan', async () => {
+    const email = `jars_base_${Date.now()}@test.com`;
+    await app.inject({
+      method: 'POST',
+      url: '/api/register',
+      payload: { name: 'Base Potes', email, password: 'Password123!', accountType: 'pessoa_fisica' },
+    });
+    const token = (
+      await app.inject({ method: 'POST', url: '/api/login', payload: { email, password: 'Password123!' } })
+    ).json().token as string;
+    const auth = { authorization: `Bearer ${token}` };
+
+    const cat = (
+      await app.inject({ method: 'POST', url: '/api/categories', headers: auth, payload: { name: 'Vendas', type: 'receita' } })
+    ).json();
+    const revenues: Array<[string, string]> = [
+      ['2026-08-10', '1500.00'],
+      ['2026-09-10', '1500.00'],
+      ['2026-10-10', '3000.00'],
+      ['2026-11-10', '5000.00'],
+    ];
+    for (const [date, amount] of revenues) {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/transactions',
+        headers: auth,
+        payload: { categoryId: cat.id, type: 'receita', description: 'Venda', amount, paymentMethod: 'pix', transactionDate: date },
+      });
+      expect(res.statusCode).toBe(201);
+    }
+
+    const status = async () =>
+      (await app.inject({ method: 'GET', url: '/api/jars?month=2026-11', headers: auth })).json();
+
+    const initial = await status();
+    expect(initial.baseMode).toBe('mes_atual');
+    expect(initial.templateSlug).toBe('seis-potes');
+    expect(initial.base).toBe('5000.00');
+
+    // Vincula uma categoria para provar que a troca de base não apaga a configuração
+    const jar = initial.jars[0];
+    await app.inject({
+      method: 'PUT',
+      url: '/api/jars/categories',
+      headers: auth,
+      payload: { planId: initial.planId, jarId: jar.id, categoryIds: [cat.id] },
+    });
+
+    const toPrevious = await app.inject({
+      method: 'PATCH',
+      url: `/api/jars/plan/${initial.planId}`,
+      headers: auth,
+      payload: { baseMode: 'mes_anterior' },
+    });
+    expect(toPrevious.statusCode).toBe(200);
+    const previous = await status();
+    expect(previous.planId).toBe(initial.planId);
+    expect(previous.baseMode).toBe('mes_anterior');
+    expect(previous.base).toBe('3000.00');
+    expect(previous.jars[0].categoryIds).toEqual([cat.id]);
+
+    await app.inject({
+      method: 'PATCH',
+      url: `/api/jars/plan/${initial.planId}`,
+      headers: auth,
+      payload: { baseMode: 'media_3_meses' },
+    });
+    expect((await status()).base).toBe('2000.00');
+
+    const invalid = await app.inject({
+      method: 'PATCH',
+      url: `/api/jars/plan/${initial.planId}`,
+      headers: auth,
+      payload: { baseMode: 'anual' },
+    });
+    expect(invalid.statusCode).toBe(400);
   });
 
   it('creates transfers between accounts and records pró-labore owner withdrawals', async () => {
@@ -258,7 +484,7 @@ describe('Core Modules Integration Suite (PostgreSQL 16)', () => {
     const pfEntity = wsOverview.entities.find((e: { kind: string }) => e.kind === 'pf');
     const pjEntity = wsOverview.entities.find((e: { kind: string }) => e.kind === 'pj');
 
-    // Create 2 accounts in the database for transfer testing
+    // Create 3 accounts in the database for transfer testing (2 PJ, 1 PF)
     const accFrom = await prisma.financialAccount.create({
       data: {
         workspaceId: wsOverview.workspace.id,
@@ -267,7 +493,15 @@ describe('Core Modules Integration Suite (PostgreSQL 16)', () => {
         name: 'Conta PJ Nubank',
       },
     });
-    const accTo = await prisma.financialAccount.create({
+    const accToSameEntity = await prisma.financialAccount.create({
+      data: {
+        workspaceId: wsOverview.workspace.id,
+        entityId: pjEntity.id,
+        kind: 'banco',
+        name: 'Conta PJ Caixa',
+      },
+    });
+    const accToPf = await prisma.financialAccount.create({
       data: {
         workspaceId: wsOverview.workspace.id,
         entityId: pfEntity.id,
@@ -276,17 +510,33 @@ describe('Core Modules Integration Suite (PostgreSQL 16)', () => {
       },
     });
 
-    // Execute transfer
+    // Test rejection: Transfer from PJ to PF must be blocked and guided to owner withdrawals
+    const rejectedTransferRes = await app.inject({
+      method: 'POST',
+      url: '/api/transfers',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        fromAccountId: accFrom.id,
+        toAccountId: accToPf.id,
+        amount: '1500.00',
+        occurredOn: '2026-11-02',
+        description: 'Transferência direta PJ para PF inválida',
+      },
+    });
+    expect(rejectedTransferRes.statusCode).toBe(400);
+    expect(rejectedTransferRes.json().message).toContain('Pró-labore');
+
+    // Execute valid transfer between accounts of the same entity or PF->PF / PF->PJ
     const transferRes = await app.inject({
       method: 'POST',
       url: '/api/transfers',
       headers: { authorization: `Bearer ${token}` },
       payload: {
         fromAccountId: accFrom.id,
-        toAccountId: accTo.id,
+        toAccountId: accToSameEntity.id,
         amount: '1500.00',
         occurredOn: '2026-11-02',
-        description: 'Transferência de caixa',
+        description: 'Transferência de caixa PJ',
       },
     });
     expect(transferRes.statusCode).toBe(201);
@@ -310,5 +560,149 @@ describe('Core Modules Integration Suite (PostgreSQL 16)', () => {
     const withdrawalData = withdrawalRes.json();
     expect(withdrawalData.legPj.entityId).toBe(pjEntity.id);
     expect(withdrawalData.legPf.entityId).toBe(pfEntity.id);
+
+    // Verify transferType distinction in database and listing
+    const txListRes = await app.inject({
+      method: 'GET',
+      url: '/api/transactions',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(txListRes.statusCode).toBe(200);
+    const txItems = txListRes.json().items;
+
+    const transferLegOut = txItems.find((t: { id: string }) => t.id === transferData.legOut.id);
+    const proLaboreLegPj = txItems.find((t: { id: string }) => t.id === withdrawalData.legPj.id);
+
+    expect(transferLegOut.transferType).toBe('transfer');
+    expect(proLaboreLegPj.transferType).toBe('pro_labore');
+
+    // Simulate legacy records with NULL transfer_type and test backfill logic
+    const legacyTransferGroupId = `legacy_group_${Date.now()}`;
+    await prisma.transaction.createMany({
+      data: [
+        {
+          workspaceId: wsOverview.workspace.id,
+          entityId: pjEntity.id,
+          type: 'despesa',
+          direction: 'out',
+          amount: 500,
+          description: 'Retirada legada de pró-labore PJ',
+          transactionDate: new Date('2026-10-01'),
+          transferGroupId: legacyTransferGroupId,
+          transferType: null,
+          status: 'confirmado',
+        },
+        {
+          workspaceId: wsOverview.workspace.id,
+          entityId: pfEntity.id,
+          type: 'receita',
+          direction: 'in',
+          amount: 500,
+          description: 'Entrada legada de pró-labore PF',
+          transactionDate: new Date('2026-10-01'),
+          transferGroupId: legacyTransferGroupId,
+          transferType: null,
+          status: 'confirmado',
+        },
+      ],
+    });
+
+    const legacyAccountTransferGroupId = `legacy_acc_transfer_${Date.now()}`;
+    await prisma.transaction.createMany({
+      data: [
+        {
+          workspaceId: wsOverview.workspace.id,
+          entityId: pjEntity.id,
+          type: 'despesa',
+          direction: 'out',
+          amount: 300,
+          description: 'Transferência de conta legada OUT',
+          transactionDate: new Date('2026-10-02'),
+          transferGroupId: legacyAccountTransferGroupId,
+          transferType: null,
+          status: 'confirmado',
+        },
+        {
+          workspaceId: wsOverview.workspace.id,
+          entityId: pjEntity.id,
+          type: 'receita',
+          direction: 'in',
+          amount: 300,
+          description: 'Transferência de conta legada IN',
+          transactionDate: new Date('2026-10-02'),
+          transferGroupId: legacyAccountTransferGroupId,
+          transferType: null,
+          status: 'confirmado',
+        },
+      ],
+    });
+
+    // Caso 1 do backfill: Categoria com slug 'pro-labore' vinculada mesmo sem padrão estrito PJ->PF
+    const proLaboreCategory = await prisma.category.findFirst({
+      where: { workspaceId: wsOverview.workspace.id, slug: 'pro-labore' },
+    });
+    const legacyCategoryTransferGroupId = `legacy_cat_pro_labore_${Date.now()}`;
+    await prisma.transaction.createMany({
+      data: [
+        {
+          workspaceId: wsOverview.workspace.id,
+          entityId: pfEntity.id,
+          type: 'despesa',
+          direction: 'out',
+          amount: 250,
+          description: 'Transferência legada PF com categoria pro-labore OUT',
+          transactionDate: new Date('2026-10-03'),
+          transferGroupId: legacyCategoryTransferGroupId,
+          transferType: null,
+          status: 'confirmado',
+        },
+        {
+          workspaceId: wsOverview.workspace.id,
+          entityId: pfEntity.id,
+          categoryId: proLaboreCategory?.id ?? null,
+          type: 'receita',
+          direction: 'in',
+          amount: 250,
+          description: 'Transferência legada PF com categoria pro-labore IN',
+          transactionDate: new Date('2026-10-03'),
+          transferGroupId: legacyCategoryTransferGroupId,
+          transferType: null,
+          status: 'confirmado',
+        },
+      ],
+    });
+
+    // Execute the real migration SQL file, extracting ONLY the UPDATE statements
+    const migrationFilePath = path.resolve(
+      __dirname,
+      '../prisma/migrations/20261106001135_add_transfer_type_to_transactions/migration.sql'
+    );
+    const migrationSql = fs.readFileSync(migrationFilePath, 'utf8');
+
+    // Split statements by semicolon, strip comments, filter only UPDATE statements
+    const updateStatements = migrationSql
+      .split(';')
+      .map((stmt) => stmt.replace(/--.*$/gm, '').trim())
+      .filter((stmt) => stmt.toUpperCase().startsWith('UPDATE'));
+
+    expect(updateStatements.length).toBeGreaterThanOrEqual(3);
+
+    for (const stmt of updateStatements) {
+      await prisma.$executeRawUnsafe(stmt);
+    }
+
+    const backfilledProLabore = await prisma.transaction.findFirst({
+      where: { transferGroupId: legacyTransferGroupId, direction: 'out' },
+    });
+    const backfilledAccountTransfer = await prisma.transaction.findFirst({
+      where: { transferGroupId: legacyAccountTransferGroupId, direction: 'out' },
+    });
+    const backfilledCategoryProLabore = await prisma.transaction.findFirst({
+      where: { transferGroupId: legacyCategoryTransferGroupId, direction: 'out' },
+    });
+
+    expect(backfilledProLabore?.transferType).toBe('pro_labore');
+    expect(backfilledAccountTransfer?.transferType).toBe('transfer');
+    expect(backfilledCategoryProLabore?.transferType).toBe('pro_labore');
   });
 });

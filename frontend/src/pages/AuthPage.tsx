@@ -273,7 +273,7 @@ export const AuthPage: React.FC = () => {
                   setPassword('senha123');
                   setError(null);
                 }}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-ink/15 py-3 text-sm font-bold text-muted transition hover:border-primary hover:text-brand"
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-card-2 py-3 text-sm font-bold text-muted ring-1 ring-ink/5 transition hover:bg-primary-soft/40 hover:text-brand hover:ring-primary/50"
               >
                 <Lightning size={18} weight="fill" className="text-primary-deep" />
                 Preencher conta de demonstração (só em desenvolvimento)

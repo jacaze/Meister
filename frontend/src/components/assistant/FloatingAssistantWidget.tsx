@@ -1,9 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { ArrowDownRight, ArrowUpRight, Gear, Paperclip, PaperPlaneRight, X, Storefront, User } from '../ui/icons.js';
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Gear,
+  Paperclip,
+  PaperPlaneRight,
+  X,
+  Storefront,
+  User,
+  Check,
+  CheckCircle,
+  XCircle,
+  CircleNotch,
+  Scan,
+  Key,
+} from '../ui/icons.js';
 import api from '../../api/client.js';
 import Mel from '../brand/Mel.js';
 import { celebrate, haptic } from '../../lib/celebrate.js';
+import { useToast } from '../ui/Toast.js';
 
 interface ProposalData {
   id: string;
@@ -34,6 +50,7 @@ interface AssistantConfig {
 }
 
 export const FloatingAssistantWidget: React.FC = () => {
+  const toast = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
   const [config, setConfig] = useState<AssistantConfig>({
@@ -196,9 +213,10 @@ export const FloatingAssistantWidget: React.FC = () => {
       );
       haptic([12, 40, 12]);
       celebrate('small');
+      toast.success('Lançamento registrado com sucesso no livro-caixa!');
       window.dispatchEvent(new CustomEvent('transaction-saved'));
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Falha ao confirmar lançamento.');
+      toast.error(err.response?.data?.message || 'Falha ao confirmar lançamento.');
     }
   };
 
@@ -217,8 +235,9 @@ export const FloatingAssistantWidget: React.FC = () => {
             : m
         )
       );
+      toast.info('Proposta de lançamento cancelada.');
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Falha ao cancelar proposta.');
+      toast.error(err.response?.data?.message || 'Falha ao cancelar proposta.');
     }
   };
 
@@ -341,7 +360,7 @@ export const FloatingAssistantWidget: React.FC = () => {
                   initial={{ opacity: 0, x: 12, scale: 0.9 }}
                   animate={{ opacity: 1, x: 0, scale: 1 }}
                   exit={{ opacity: 0, x: 8, scale: 0.9 }}
-                  className="mb-3 max-w-[180px] rounded-2xl rounded-br-md bg-card px-3.5 py-2.5 text-left text-sm font-semibold text-ink shadow-[var(--shadow-float)] ring-1 ring-ink/5"
+                  className="mb-3 max-w-[180px] glass-btn rounded-2xl rounded-br-md px-3.5 py-2.5 text-left text-sm font-semibold text-ink"
                 >
                   Oi! Posso anotar um gasto pra você?
                 </motion.button>
@@ -356,7 +375,7 @@ export const FloatingAssistantWidget: React.FC = () => {
               whileHover={reduceMotion ? undefined : { scale: 1.06, rotate: -4 }}
               whileTap={{ scale: 0.9 }}
               aria-label="Abrir assistente Mel"
-              className="relative grid h-16 w-16 place-items-center rounded-full bg-gradient-to-b from-primary-soft to-primary shadow-[var(--shadow-honey)] ring-4 ring-card"
+              className="relative grid h-16 w-16 place-items-center glass-btn-honey rounded-full"
             >
               <Mel size={52} mood={showGreeting ? 'wave' : 'idle'} />
               <span
@@ -431,7 +450,7 @@ export const FloatingAssistantWidget: React.FC = () => {
             <div className="p-5 flex-1 overflow-y-auto space-y-4 bg-card border-b border-ink/5">
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-bold text-ink flex items-center gap-2">
-                  <span className="material-symbols-outlined text-brand text-lg">key</span>
+                  <Key size={18} className="text-brand" weight="duotone" />
                   Conexão Google Gemini API
                 </h4>
                 <button
@@ -484,7 +503,7 @@ export const FloatingAssistantWidget: React.FC = () => {
           ) : (
             <>
               {/* Messages Thread */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="flex-1 overflow-y-auto p-4 space-y-4" aria-live="polite" aria-label="Mensagens do assistente">
                 {messages.map((msg) => {
                   const isUser = msg.role === 'user';
 
@@ -494,7 +513,7 @@ export const FloatingAssistantWidget: React.FC = () => {
                       className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} space-y-1`}
                     >
                       <div
-                        className={`max-w-[88%] p-3.5 rounded-2xl text-xs leading-relaxed ${
+                        className={`max-w-[88%] p-3.5 rounded-2xl text-sm leading-relaxed ${
                           isUser
                             ? 'bg-field text-ink rounded-br-none border border-ink/5'
                             : 'bg-card text-ink rounded-bl-none border border-ink/8 shadow-md'
@@ -531,40 +550,40 @@ export const FloatingAssistantWidget: React.FC = () => {
                               </span>
                             </div>
 
-                            <p className="text-[11px] text-ink-soft">{msg.proposal.description}</p>
+                            <p className="text-xs text-ink-soft">{msg.proposal.description}</p>
 
-                            {/* Buttons */}
+                            {/* Buttons with minimum 44px tap target */}
                             {msg.proposalStatus === 'pending' && (
-                              <div className="flex gap-2 pt-1 border-t border-ink/5">
+                              <div className="flex gap-2 pt-2 border-t border-ink/5">
                                 <button
                                   type="button"
                                   onClick={() => handleConfirmProposal(msg.id, msg.proposal!.id)}
-                                  className="flex-1 py-1.5 px-2 rounded-lg bg-success hover:bg-success text-ink text-[11px] font-bold transition flex items-center justify-center gap-1 shadow-sm"
+                                  className="flex-1 min-h-[44px] py-2 px-3 rounded-xl bg-primary text-on-primary text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-[var(--shadow-honey)] hover:bg-primary-deep"
                                 >
-                                  <span className="material-symbols-outlined text-sm">check</span>
-                                  Confirmar
+                                  <Check size={16} weight="bold" />
+                                  <span>Confirmar</span>
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => handleCancelProposal(msg.id, msg.proposal!.id)}
-                                  className="py-1.5 px-2.5 rounded-lg bg-field hover:bg-raised text-muted hover:text-ink text-[11px] font-semibold transition"
+                                  className="min-h-[44px] py-2 px-3.5 rounded-xl bg-field hover:bg-raised text-muted hover:text-ink text-xs font-semibold transition flex items-center justify-center"
                                 >
-                                  Cancelar
+                                  <span>Cancelar</span>
                                 </button>
                               </div>
                             )}
 
                             {msg.proposalStatus === 'confirmed' && (
-                              <div className="pt-1 text-[11px] font-bold text-success flex items-center gap-1">
-                                <span className="material-symbols-outlined text-sm">check_circle</span>
-                                Lançado no Livro-Caixa
+                              <div className="pt-1 text-xs font-bold text-success flex items-center gap-1.5">
+                                <CheckCircle size={16} weight="bold" />
+                                <span>Lançado no Livro-Caixa</span>
                               </div>
                             )}
 
                             {msg.proposalStatus === 'cancelled' && (
-                              <div className="pt-1 text-[11px] font-semibold text-muted flex items-center gap-1">
-                                <span className="material-symbols-outlined text-sm">cancel</span>
-                                Proposta descartada
+                              <div className="pt-1 text-xs font-semibold text-muted flex items-center gap-1.5">
+                                <XCircle size={16} weight="bold" />
+                                <span>Proposta descartada</span>
                               </div>
                             )}
                           </div>
@@ -581,18 +600,14 @@ export const FloatingAssistantWidget: React.FC = () => {
 
                 {loading && (
                   <div className="flex items-center gap-2 p-3 max-w-[70%] rounded-2xl bg-card border border-ink/8 text-xs text-muted">
-                    <span className="material-symbols-outlined text-sm animate-spin text-brand">
-                      sync
-                    </span>
+                    <CircleNotch size={16} className="animate-spin text-brand" />
                     <span>Analisando...</span>
                   </div>
                 )}
 
                 {uploadingReceipt && (
                   <div className="flex items-center gap-2 p-3 max-w-[70%] rounded-2xl bg-card border border-ink/8 text-xs text-muted">
-                    <span className="material-symbols-outlined text-sm animate-spin text-brand">
-                      document_scanner
-                    </span>
+                    <Scan size={16} className="animate-pulse text-brand" />
                     <span>Processando visão de comprovante...</span>
                   </div>
                 )}
@@ -601,7 +616,7 @@ export const FloatingAssistantWidget: React.FC = () => {
               </div>
 
               {/* Quick Prompt Suggestions */}
-              <div className="px-3 py-1.5 bg-card border-t border-ink/4 flex items-center gap-1.5 overflow-x-auto scrollbar-none shrink-0">
+              <div className="px-3 py-2 bg-card border-t border-ink/4 flex items-center gap-2 overflow-x-auto scrollbar-none shrink-0">
                 {[
                   'Qual meu saldo?',
                   'Gastei 45 no almoço',
@@ -613,7 +628,7 @@ export const FloatingAssistantWidget: React.FC = () => {
                     key={idx}
                     type="button"
                     onClick={() => handleSendMessage(chip)}
-                    className="text-[10px] whitespace-nowrap px-2.5 py-1 rounded-lg bg-card-2 hover:bg-field border border-ink/5 text-ink-soft hover:text-ink transition"
+                    className="min-h-[44px] text-xs font-semibold whitespace-nowrap px-3.5 py-2 rounded-xl bg-card-2 hover:bg-field border border-ink/8 text-ink-soft hover:text-ink transition flex items-center shrink-0 active:scale-95"
                   >
                     {chip}
                   </button>

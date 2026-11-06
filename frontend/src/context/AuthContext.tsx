@@ -15,6 +15,7 @@ export interface Entity {
   name: string;
   cnpj?: string | null;
   legalName?: string | null;
+  tradeName?: string | null;
   openedOn?: string | null;
   activity?: 'comercio' | 'servicos' | 'misto' | null;
   isMei: boolean;

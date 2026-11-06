@@ -35,6 +35,7 @@ export interface JarsStatusResponseDto {
   readonly entityId: string;
   readonly month: string;
   readonly baseMode: string;
+  readonly templateSlug: string;
   readonly base: string;
   readonly baseInsuficiente: boolean;
   readonly jars: readonly JarStatusItemDto[];
@@ -91,29 +92,10 @@ export async function getJarsStatus(
     throw new Error('Falha ao inicializar plano de potes');
   }
 
-  // 1. Calculate Base according to baseMode
+  // 1. Base de cálculo conforme o baseMode do plano
   const startOfMonth = new Date(`${currentYm.startDate.toIsoDate()}T00:00:00.000Z`);
   const endOfMonth = new Date(`${currentYm.endDate.toIsoDate()}T23:59:59.999Z`);
-
-  const revenueTxs = await prisma.transaction.findMany({
-    where: {
-      workspaceId: scope.workspaceId,
-      entityId,
-      type: 'receita',
-      status: 'confirmado',
-      deletedAt: null,
-      transactionDate: {
-        gte: startOfMonth,
-        lte: endOfMonth,
-      },
-    },
-    select: { amount: true },
-  });
-
-  let base = Money.zero();
-  for (const tx of revenueTxs) {
-    base = base.add(Money.fromDecimalString(tx.amount.toString()));
-  }
+  const base = await computeJarBase(scope.workspaceId, entityId, currentYm, plan.baseMode);
 
   // 2. Map categories to Jars
   const categoryToJarMap = new Map<string, string>();
@@ -227,9 +209,53 @@ export async function getJarsStatus(
     entityId,
     month: monthStr,
     baseMode: plan.baseMode,
+    templateSlug: plan.template,
     base: result.base.toDecimalString(),
     baseInsuficiente: result.baseInsuficiente,
     jars: jarsDto,
     semPoteUsado: semPoteUsado.toDecimalString(),
   };
+}
+
+/** Receita confirmada de um mês, sem contar transferências entre contas próprias. */
+async function monthRevenue(workspaceId: string, entityId: string, ym: YearMonth): Promise<Money> {
+  const rows = await prisma.transaction.findMany({
+    where: {
+      workspaceId,
+      entityId,
+      type: 'receita',
+      status: 'confirmado',
+      deletedAt: null,
+      // transfer_type é nulo nas receitas comuns: NOT sozinho descartaria essas linhas no SQL.
+      OR: [{ transferType: null }, { transferType: { not: 'transfer' } }],
+      transactionDate: {
+        gte: new Date(`${ym.startDate.toIsoDate()}T00:00:00.000Z`),
+        lte: new Date(`${ym.endDate.toIsoDate()}T23:59:59.999Z`),
+      },
+    },
+    select: { amount: true },
+  });
+  return Money.sum(rows.map((tx) => Money.fromDecimalString(tx.amount.toString())));
+}
+
+/**
+ * mes_atual: receita do mês consultado; mes_anterior: do mês anterior;
+ * media_3_meses: média dos 3 meses anteriores ao consultado.
+ */
+export async function computeJarBase(
+  workspaceId: string,
+  entityId: string,
+  month: YearMonth,
+  baseMode: string
+): Promise<Money> {
+  if (baseMode === 'mes_anterior') {
+    return monthRevenue(workspaceId, entityId, month.addMonths(-1));
+  }
+  if (baseMode === 'media_3_meses') {
+    const months = await Promise.all(
+      [1, 2, 3].map((delta) => monthRevenue(workspaceId, entityId, month.addMonths(-delta)))
+    );
+    return Money.sum(months).mulRatio(1, 3);
+  }
+  return monthRevenue(workspaceId, entityId, month);
 }

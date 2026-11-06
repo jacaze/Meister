@@ -67,13 +67,13 @@ const limitTone = {
   ok: { label: 'Dentro do limite', chip: 'bg-success/10 text-success', bar: 'bg-success' },
   atencao: { label: 'Atenção: acima de 80%', chip: 'bg-primary/25 text-brand', bar: 'bg-primary-deep' },
   excedido: { label: 'Limite excedido', chip: 'bg-danger/10 text-danger', bar: 'bg-danger' },
-  desenquadramento: { label: 'Risco de desenquadramento', chip: 'bg-danger/15 text-danger', bar: 'bg-danger' },
+  desenquadramento: { label: 'Risco de desenquadramento', chip: 'bg-danger/10 text-danger', bar: 'bg-danger' },
 } as const;
 
 const jarTone = {
   ok: { fill: '#f6b51e', label: 'tranquilo', text: 'text-success' },
   atencao: { fill: '#e0a91b', label: 'atenção', text: 'text-brand' },
-  estourado: { fill: '#d23f3f', label: 'estourou', text: 'text-danger' },
+  estourado: { fill: '#a8492f', label: 'estourou', text: 'text-danger' },
 } as const;
 
 /** Data de coluna @db.Date (meia-noite UTC) → dd/mm sem deslocar o dia pelo fuso. */
@@ -173,7 +173,7 @@ export const DashboardPage: React.FC = () => {
 
       {/* Cartão de saldo (mel) */}
       <motion.div variants={rise}>
-        <TiltCard className="overflow-hidden rounded-[28px] bg-gradient-to-br from-[#ffe27a] via-primary to-[#f0a81a] p-6 text-on-primary shadow-[var(--shadow-honey)] md:p-8">
+        <TiltCard className="overflow-hidden rounded-[28px] bg-gradient-to-br from-primary-soft via-primary to-primary-deep p-6 text-on-primary shadow-[var(--shadow-honey)] md:p-8">
           <HoneycombDecoration />
           <div className="relative flex items-start justify-between gap-4">
             <div>
