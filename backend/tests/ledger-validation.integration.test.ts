@@ -37,7 +37,7 @@ describe('Ledger Validation Hardening (Integration)', () => {
     const accA = await prisma.financialAccount.create({
       data: {
         workspaceId,
-        entityId: prov.pjEntityId,
+        entityId: prov.pjEntityId!,
         name: 'Conta PJ 1',
         kind: 'checking',
       },
@@ -45,7 +45,7 @@ describe('Ledger Validation Hardening (Integration)', () => {
     const accB = await prisma.financialAccount.create({
       data: {
         workspaceId,
-        entityId: prov.pjEntityId,
+        entityId: prov.pjEntityId!,
         name: 'Conta PJ 2',
         kind: 'checking',
       },

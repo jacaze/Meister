@@ -31,7 +31,7 @@ describe('Catalog, Fiscal & Workspace Validation Hardening (Integration)', () =>
       workspaceName: 'Workspace CFW Val',
     });
     workspaceId = prov.workspaceId;
-    entityId = prov.pjEntityId;
+    entityId = prov.pjEntityId!;
 
     token = app.jwt.sign(
       { sub: user.id, userId: user.id, email: user.email, wid: workspaceId },

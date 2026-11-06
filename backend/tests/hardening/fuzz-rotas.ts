@@ -221,8 +221,8 @@ export const TARGET_ROUTES: RouteFuzzTarget[] = [
 ];
 
 // Montador de aninhamento profundo
-function makeDeepNestedObject(depth: number): unknown {
-  let obj: any = { leaf: 'deep_val' };
+function makeDeepNestedObject(depth: number): Record<string, unknown> {
+  let obj: Record<string, unknown> = { leaf: 'deep_val' };
   for (let i = 0; i < depth; i++) {
     obj = { level: obj };
   }
@@ -245,7 +245,7 @@ export async function runFuzzProbe() {
     });
   }
 
-  let scopeA = await prisma.workspaceMember.findFirst({
+  const scopeA = await prisma.workspaceMember.findFirst({
     where: { userId: userA.id },
     include: { workspace: true },
   });
@@ -271,7 +271,7 @@ export async function runFuzzProbe() {
       },
     });
   }
-  let scopeB = await prisma.workspaceMember.findFirst({
+  const scopeB = await prisma.workspaceMember.findFirst({
     where: { userId: userB.id },
     include: { workspace: true },
   });
@@ -286,8 +286,8 @@ export async function runFuzzProbe() {
   }
 
   // Obter ou criar uma transação no Workspace B
-  let entityB = await prisma.entity.findFirst({ where: { workspaceId: workspaceIdB } });
-  let categoryB = await prisma.category.findFirst({ where: { workspaceId: workspaceIdB } });
+  const entityB = await prisma.entity.findFirst({ where: { workspaceId: workspaceIdB } });
+  const categoryB = await prisma.category.findFirst({ where: { workspaceId: workspaceIdB } });
   let txInWorkspaceB = await prisma.transaction.findFirst({ where: { workspaceId: workspaceIdB } });
   if (!txInWorkspaceB && entityB && categoryB) {
     txInWorkspaceB = await prisma.transaction.create({
@@ -298,7 +298,7 @@ export async function runFuzzProbe() {
         amount: 50.0,
         type: 'despesa',
         description: 'Transação do Workspace B',
-        date: new Date(),
+        transactionDate: new Date(),
       },
     });
   }
@@ -376,14 +376,16 @@ export async function runFuzzProbe() {
           method: target.method,
           url: finalUrl,
           headers: reqHeaders,
-          payload: testCase.payloadOverride as any,
+          payload: testCase.payloadOverride as Record<string, unknown>,
         });
 
         const status = res.statusCode;
-        let responseBody: any = {};
+        let responseBody: Record<string, unknown> = {};
         try {
-          responseBody = res.json();
-        } catch {}
+          responseBody = res.json() as Record<string, unknown>;
+        } catch {
+          // ignore non-json
+        }
 
         results.push({
           group: target.group,
@@ -391,10 +393,11 @@ export async function runFuzzProbe() {
           desc: testCase.desc,
           status,
           is500: status >= 500,
-          code: responseBody?.code,
-          message: responseBody?.message,
+          code: typeof responseBody?.code === 'string' ? responseBody.code : undefined,
+          message: typeof responseBody?.message === 'string' ? responseBody.message : undefined,
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const error = err as Error;
         results.push({
           group: target.group,
           name: target.name,
@@ -402,7 +405,7 @@ export async function runFuzzProbe() {
           status: 500,
           is500: true,
           code: 'UNCAUGHT_EXCEPTION',
-          message: err?.message,
+          message: error?.message,
         });
       }
     }
@@ -419,7 +422,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     console.log('========================================================================\n');
 
     let total500 = 0;
-    let totalTested = results.length;
+    const totalTested = results.length;
 
     console.log('| Grupo | Rota | Cenário Adversarial | Status | Código de Erro |');
     console.log('|---|---|---|:---:|---|');

@@ -32,7 +32,7 @@ export async function jarsRoutes(fastify: FastifyInstance) {
 
   fastify.post<{ Body: CreateJarPlanInput }>('/jars/plan', async (request, reply) => {
     const body = createJarPlanSchema.parse(request.body ?? {});
-    const plan = await createJarPlan(request.scope!, body as any);
+    const plan = await createJarPlan(request.scope!, body as unknown as CreateJarPlanInput);
     return reply.status(201).send(plan);
   });
 

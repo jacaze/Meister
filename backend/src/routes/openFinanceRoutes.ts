@@ -12,7 +12,6 @@ import {
   listBankConnections,
   deleteBankConnection,
 } from '../modules/openfinance/public.js';
-import { ValidationError } from '../shared/index.js';
 import {
   connectPluggyItemSchema,
   importStatementSchema,

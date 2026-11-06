@@ -22,7 +22,7 @@ export async function workspaceRoutes(fastify: FastifyInstance) {
       const updated = await updateBusinessProfile(request.scope!, {
         ...body,
         entityId: request.params.id,
-      });
+      } as unknown as UpdateBusinessProfileInput);
       return reply.send(updated);
     }
   );

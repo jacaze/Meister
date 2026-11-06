@@ -59,7 +59,7 @@ export async function receiptRoutes(fastify: FastifyInstance) {
           accessKey: body.accessKey,
           issuerCnpj: body.issuerCnpj,
           issuedOn: body.date,
-          total: body.total,
+          total: String(body.total),
           source: 'ia',
         });
       } catch {
