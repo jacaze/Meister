@@ -17,6 +17,7 @@ import {
   Tag,
   Wallet,
   ArrowSquareOut,
+  Info,
 } from '../components/ui/icons.js';
 
 interface MonthComparison {
@@ -90,6 +91,7 @@ export const ReportsPage: React.FC = () => {
   // Trends & breakdown
   const [monthlyTrends, setMonthlyTrends] = useState<readonly MonthComparison[]>([]);
   const [topExpenses, setTopExpenses] = useState<readonly CategoryBreakdown[]>([]);
+  const [isTruncated, setIsTruncated] = useState(false);
 
   // Pró-labore modal
   const [isWithdrawalSheetOpen, setIsWithdrawalSheetOpen] = useState(false);
@@ -186,6 +188,7 @@ export const ReportsPage: React.FC = () => {
       // 4. Fetch all transactions respecting the selected period to compute category breakdown & pró-labore without truncation
       let txPage = 1;
       let hasMore = true;
+      let reachedLimit = false;
       const allTxItems: ReportTransactionItem[] = [];
       const MAX_PAGES = 50;
 
@@ -213,8 +216,13 @@ export const ReportsPage: React.FC = () => {
           hasMore = false;
         } else {
           txPage++;
+          if (txPage > MAX_PAGES) {
+            reachedLimit = true;
+          }
         }
       }
+
+      setIsTruncated(reachedLimit);
 
       const catTotals: Record<string, number> = {};
       let totalExpenseSum = 0;
@@ -586,6 +594,15 @@ export const ReportsPage: React.FC = () => {
                 </p>
               </div>
             </div>
+
+            {isTruncated && (
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-primary-soft text-brand text-xs font-medium">
+                <Info size={16} weight="bold" className="shrink-0" />
+                <span>
+                  Mostrando as primeiras 5.000 despesas do período selecionado para o cálculo das categorias.
+                </span>
+              </div>
+            )}
 
             {topExpenses.length === 0 ? (
               <p className="text-xs text-muted py-4 italic">
