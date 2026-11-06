@@ -140,11 +140,12 @@ export const MarkDasPaidSheet: React.FC<MarkDasPaidSheetProps> = ({
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-ink uppercase tracking-wider mb-1.5">
+          <label htmlFor="das-paid-on" className="block text-xs font-bold text-ink uppercase tracking-wider mb-1.5">
             Data do Pagamento
           </label>
           <div className="relative">
             <input
+              id="das-paid-on"
               type="date"
               value={paidOn}
               max={todayLocalIso()}
@@ -156,10 +157,12 @@ export const MarkDasPaidSheet: React.FC<MarkDasPaidSheetProps> = ({
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-ink uppercase tracking-wider mb-1.5">
+          <label htmlFor="das-paid-amount" className="block text-xs font-bold text-ink uppercase tracking-wider mb-1.5">
             Valor Efetivamente Pago (R$)
           </label>
           <input
+            id="das-paid-amount"
+            aria-describedby="das-paid-amount-hint"
             type="text"
             inputMode="decimal"
             value={paidAmount}
@@ -168,7 +171,7 @@ export const MarkDasPaidSheet: React.FC<MarkDasPaidSheetProps> = ({
             placeholder="0,00"
             className="w-full min-h-[44px] px-3.5 py-2.5 bg-canvas border border-ink/10 rounded-2xl text-base font-extrabold tabular text-ink focus:outline-none focus:border-primary transition"
           />
-          <p className="text-[11px] text-muted mt-1">
+          <p id="das-paid-amount-hint" className="text-[11px] text-muted mt-1">
             Se houve pagamento de juros ou multa por atraso, informe o valor final pago no comprovante.
           </p>
         </div>

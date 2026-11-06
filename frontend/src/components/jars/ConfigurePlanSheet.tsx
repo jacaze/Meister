@@ -86,6 +86,14 @@ export const ConfigurePlanSheet: React.FC<ConfigurePlanSheetProps> = ({
     onClose();
   };
 
+  // Opções de rádio feitas com div: Enter e espaço também selecionam.
+  const selectOnKey = (e: React.KeyboardEvent, select: () => void) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      select();
+    }
+  };
+
   // Mesmo template: só troca a base, preservando categorias e saldo acumulado.
   const keepsTemplate = Boolean(planId && currentTemplateSlug && selectedTemplate === currentTemplateSlug);
 
@@ -183,10 +191,10 @@ export const ConfigurePlanSheet: React.FC<ConfigurePlanSheetProps> = ({
 
         {/* Escolha do Template */}
         <div>
-          <label className="block text-xs font-bold text-ink uppercase tracking-wider mb-2">
+          <span id="plan-template-label" className="block text-xs font-bold text-ink uppercase tracking-wider mb-2">
             Modelo Financeiro Recomendado
-          </label>
-          <div className="space-y-2.5">
+          </span>
+          <div role="radiogroup" aria-labelledby="plan-template-label" className="space-y-2.5">
             {templates
               .filter((t) => t.slug !== 'personalizado')
               .map((tmpl) => {
@@ -198,8 +206,12 @@ export const ConfigurePlanSheet: React.FC<ConfigurePlanSheetProps> = ({
                 return (
                   <div
                     key={tmpl.slug}
+                    role="radio"
+                    aria-checked={isSelected}
+                    tabIndex={0}
                     onClick={() => setSelectedTemplate(tmpl.slug)}
-                    className={`p-3.5 rounded-2xl border cursor-pointer transition flex flex-col gap-2 ${
+                    onKeyDown={(e) => selectOnKey(e, () => setSelectedTemplate(tmpl.slug))}
+                    className={`p-3.5 rounded-2xl border cursor-pointer transition flex flex-col gap-2 focus-visible:outline-2 focus-visible:outline-primary-deep ${
                       isSelected
                         ? 'bg-card border-brand shadow-sm ring-1 ring-brand'
                         : 'bg-card border-ink/10 hover:border-ink/20'
@@ -238,14 +250,14 @@ export const ConfigurePlanSheet: React.FC<ConfigurePlanSheetProps> = ({
 
         {/* Base de Cálculo do Mês */}
         <div>
-          <label className="block text-xs font-bold text-ink uppercase tracking-wider mb-2">
+          <span id="plan-base-label" className="block text-xs font-bold text-ink uppercase tracking-wider mb-2">
             Base de Distribuição Mensal
-          </label>
+          </span>
           <p className="text-xs text-muted mb-2.5">
             Define como o MEIster calcula o valor total disponível para abastecer os potes a cada mês.
           </p>
-          <div className="grid grid-cols-1 gap-2">
-            {[
+          <div role="radiogroup" aria-labelledby="plan-base-label" className="grid grid-cols-1 gap-2">
+            {([
               {
                 id: 'mes_anterior',
                 title: 'Faturamento do Mês Anterior (Mais Recomendado)',
@@ -261,13 +273,17 @@ export const ConfigurePlanSheet: React.FC<ConfigurePlanSheetProps> = ({
                 title: 'Média Móvel dos Últimos 3 Meses',
                 desc: 'Ideal para negócios com faturamento sazonal ou que oscilam muito de mês a mês.',
               },
-            ].map((mode) => {
+            ] as const).map((mode) => {
               const isSelected = selectedBaseMode === mode.id;
               return (
                 <div
                   key={mode.id}
-                  onClick={() => setSelectedBaseMode(mode.id as any)}
-                  className={`p-3 rounded-2xl border cursor-pointer transition ${
+                  role="radio"
+                  aria-checked={isSelected}
+                  tabIndex={0}
+                  onClick={() => setSelectedBaseMode(mode.id)}
+                  onKeyDown={(e) => selectOnKey(e, () => setSelectedBaseMode(mode.id))}
+                  className={`p-3 rounded-2xl border cursor-pointer transition focus-visible:outline-2 focus-visible:outline-primary-deep ${
                     isSelected
                       ? 'bg-card border-brand shadow-sm ring-1 ring-brand'
                       : 'bg-card border-ink/10 hover:border-ink/20'

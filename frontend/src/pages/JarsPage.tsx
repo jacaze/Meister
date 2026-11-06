@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import api from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
-import { formatBRL } from '../lib/money.js';
+import { formatBRL, parseDecimal } from '../lib/money.js';
 import { useToast } from '../components/ui/Toast.js';
 import Mel from '../components/brand/Mel.js';
 import HoneyJarGraphic from '../components/jars/HoneyJarGraphic.js';
@@ -430,6 +430,9 @@ export const JarsPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {statusData.jars.map((jar) => {
             const level = Math.round(jar.percentUsado || 0);
+            // Pote sem orçamento no mês: o backend devolve 999.99% como marcador de estouro.
+            const semOrcamento = parseDecimal(jar.totalDisponivelParaGasto) <= 0;
+            const usadoNum = parseDecimal(jar.usado);
             const isEstourado = jar.status === 'estourado';
             const isAtencao = jar.status === 'atencao';
 
@@ -498,7 +501,7 @@ export const JarsPage: React.FC = () => {
                     <div className="flex items-center justify-between text-xs font-bold">
                       <span className="text-muted">Utilizado</span>
                       <span className={isEstourado ? 'text-danger font-extrabold' : 'text-ink'}>
-                        {level}%
+                        {semOrcamento ? (usadoNum > 0 ? 'Sem orçamento' : '—') : `${level}%`}
                       </span>
                     </div>
                     <div className="w-full h-2.5 bg-field rounded-full overflow-hidden">
@@ -517,7 +520,7 @@ export const JarsPage: React.FC = () => {
                       </span>
                       <span
                         className={`text-sm font-extrabold tabular ${
-                          parseFloat(jar.disponivel) < 0 ? 'text-danger' : 'text-ink'
+                          isEstourado ? 'text-danger' : 'text-ink'
                         }`}
                       >
                         {formatBRL(jar.disponivel)}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Sheet from '../ui/Sheet.js';
 import Mel from '../brand/Mel.js';
 import { CircleNotch, Check, Tag } from '../ui/icons.js';
@@ -43,11 +43,15 @@ export const MapCategoriesSheet: React.FC<MapCategoriesSheetProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Copia o mapeamento só ao abrir: um refetch em segundo plano recria initialMappings e
+  // não pode apagar o que a pessoa já mudou no formulário.
+  const wasOpenRef = useRef(false);
   useEffect(() => {
-    if (open) {
+    if (open && !wasOpenRef.current) {
       setMappings({ ...initialMappings });
       setError(null);
     }
+    wasOpenRef.current = open;
   }, [open, initialMappings]);
 
   const handleJarChange = (categoryId: string, jarId: string) => {
@@ -163,6 +167,7 @@ export const MapCategoriesSheet: React.FC<MapCategoriesSheetProps> = ({
 
                 <div className="w-full sm:w-60 shrink-0">
                   <select
+                    aria-label={`Pote da categoria ${cat.name}`}
                     value={currentJarId}
                     onChange={(e) => handleJarChange(cat.id, e.target.value)}
                     className="w-full min-h-[44px] px-3 py-2 bg-canvas border border-ink/10 rounded-xl text-xs font-bold text-ink focus:outline-none focus:border-primary transition"
