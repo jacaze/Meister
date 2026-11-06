@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main, develop]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
@@ -84,7 +88,7 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
 
   frontend:
-    name: Frontend (Lint & Build)
+    name: Frontend (Lint, Typecheck, Tests, Build)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -104,6 +108,15 @@ jobs:
       - name: Lint Frontend
         working-directory: frontend
         run: npm run lint
+
+      - name: Typecheck
+        working-directory: frontend
+        run: npm run typecheck
+
+      # Node >= 22.18 executa testes em TypeScript nativamente via type stripping sem flags adicionais
+      - name: Unit Tests
+        working-directory: frontend
+        run: npm test
 
       - name: Build Frontend
         working-directory: frontend
