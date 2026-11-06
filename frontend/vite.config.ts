@@ -6,11 +6,15 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 
 function assetManifestPlugin(): Plugin {
+  // Respeita --outDir / build.outDir em vez de assumir "dist".
+  let distDir = path.resolve(import.meta.dirname, 'dist');
   return {
     name: 'asset-manifest-generator',
     apply: 'build',
+    configResolved(config) {
+      distDir = path.resolve(config.root, config.build.outDir);
+    },
     closeBundle() {
-      const distDir = path.resolve(import.meta.dirname, 'dist');
       const assetsDir = path.join(distDir, 'assets');
       const templatePath = path.resolve(import.meta.dirname, 'src/sw.template.js');
 
@@ -41,9 +45,11 @@ function assetManifestPlugin(): Plugin {
 
       // Injeta versão do build e lista de assets diretamente no Service Worker gerado em dist/sw.js
       let swTemplate = fs.readFileSync(templatePath, 'utf8');
+      // Substituição por função: com string, "$&", "$'" etc. num nome de arquivo corromperiam o sw.js.
+      const precacheJson = JSON.stringify(manifestList, null, 2);
       swTemplate = swTemplate
-        .replace('__BUILD_VERSION__', buildVersion)
-        .replace('__PRECACHE_ASSETS__', JSON.stringify(manifestList, null, 2));
+        .replace('__BUILD_VERSION__', () => buildVersion)
+        .replace('__PRECACHE_ASSETS__', () => precacheJson);
 
       fs.writeFileSync(path.join(distDir, 'sw.js'), swTemplate, 'utf8');
 

@@ -46,12 +46,9 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Regra crítica: NUNCA interceptar ou cachear chamadas de API ou métodos não-GET
-  if (
-    event.request.method !== 'GET' ||
-    url.pathname.startsWith('/api') ||
-    url.pathname.startsWith('/openfinance')
-  ) {
+  // Regra crítica: NUNCA interceptar ou cachear chamadas de API ou métodos não-GET.
+  // (/openfinance é rota da SPA; toda a API fica sob /api.)
+  if (event.request.method !== 'GET' || url.pathname.startsWith('/api')) {
     return;
   }
 
@@ -68,10 +65,14 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(event.request)
         .then((networkResponse) => {
+          // Só HTML da SPA vira fallback offline: um JSON ou texto servido na mesma origem
+          // (ex.: /health) não pode substituir o /index.html salvo.
+          const isHtml = (networkResponse?.headers.get('content-type') || '').includes('text/html');
           if (
             networkResponse &&
             networkResponse.status === 200 &&
-            networkResponse.type === 'basic'
+            networkResponse.type === 'basic' &&
+            isHtml
           ) {
             const forCache = networkResponse.clone();
             const forIndexHtmlCache = networkResponse.clone();
