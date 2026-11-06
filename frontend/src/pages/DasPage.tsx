@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import api from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
-import { formatBRL } from '../lib/money.js';
+import { formatBRL, parseDecimal } from '../lib/money.js';
 import { useToast } from '../components/ui/Toast.js';
 import Mel from '../components/brand/Mel.js';
 import ConfirmDialog from '../components/ui/ConfirmDialog.js';
@@ -90,6 +90,7 @@ export const DasPage: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
   const [limitData, setLimitData] = useState<MeiLimitData | null>(null);
   const [dasData, setDasData] = useState<DasResponse | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -117,16 +118,25 @@ export const DasPage: React.FC = () => {
         year: selectedYear,
       };
 
-      const [limitRes, dasRes] = await Promise.all([
-        api.get('/mei/limit', { params }).catch(() => ({ data: null })),
-        api.get('/das', { params }).catch(() => ({ data: null })),
+      const [limitRes, dasRes] = await Promise.allSettled([
+        api.get('/mei/limit', { params }),
+        api.get('/das', { params }),
       ]);
 
-      setLimitData(limitRes.data);
-      setDasData(dasRes.data);
-    } catch (err) {
-      console.error('Erro ao buscar dados fiscais:', err);
-      toast.error('Não foi possível carregar os dados de impostos.');
+      // Um 4xx do limite (perfil MEI incompleto) só esconde o termômetro; falha de rede ou
+      // erro do servidor em qualquer chamada vira estado de erro, não "nenhuma guia".
+      const isClientError = (r: PromiseSettledResult<unknown>) => {
+        if (r.status !== 'rejected') return false;
+        const status = (r.reason as { response?: { status?: number } })?.response?.status;
+        return typeof status === 'number' && status >= 400 && status < 500;
+      };
+      const failed =
+        dasRes.status === 'rejected' || (limitRes.status === 'rejected' && !isClientError(limitRes));
+
+      setLimitData(limitRes.status === 'fulfilled' ? limitRes.value.data : null);
+      setDasData(dasRes.status === 'fulfilled' ? dasRes.value.data : null);
+      setLoadError(failed);
+      if (failed) toast.error('Não foi possível carregar os dados de impostos.');
     } finally {
       setLoading(false);
       setIsRefreshing(false);
@@ -446,7 +456,7 @@ export const DasPage: React.FC = () => {
             Linha do Tempo das Guias ({selectedYear})
           </h2>
           <span className="text-xs text-muted">
-            {dasData?.items.filter((i) => i.status === 'pago').length || 0} de 12 quitadas
+            {dasData?.items.filter((i) => i.status === 'pago').length || 0} de {dasData?.items.length || 0} quitadas
           </span>
         </div>
 
@@ -459,6 +469,20 @@ export const DasPage: React.FC = () => {
                 <div className="skeleton h-9 w-full rounded-xl" />
               </div>
             ))}
+          </div>
+        ) : loadError ? (
+          <div role="alert" className="text-center py-12 px-4 bg-card rounded-3xl ring-1 ring-ink/8 space-y-3">
+            <Mel size={64} mood="alert" />
+            <p className="text-sm font-bold text-ink">Não deu para carregar as guias DAS</p>
+            <p className="text-xs text-muted">Verifique sua conexão e tente de novo.</p>
+            <button
+              type="button"
+              onClick={() => fetchData()}
+              className="min-h-[44px] px-5 py-2.5 rounded-2xl bg-primary text-on-primary font-bold text-sm hover:bg-primary-deep transition inline-flex items-center gap-2"
+            >
+              <ArrowsClockwise size={18} weight="bold" />
+              Tentar de novo
+            </button>
           </div>
         ) : !dasData || dasData.items.length === 0 ? (
           <div className="text-center py-12 px-4 bg-card rounded-3xl border border-ink/8">
@@ -518,13 +542,16 @@ export const DasPage: React.FC = () => {
                     <div className="pt-2 border-t border-ink/5 flex items-baseline justify-between">
                       <span className="text-xs text-muted">Valor da Guia:</span>
                       <span className="text-base font-extrabold tabular text-ink">
-                        {formatBRL(item.paidAmount || item.amount)}
+                        {formatBRL(item.amount)}
                       </span>
                     </div>
 
                     {isPago && item.paidOn && (
                       <p className="text-[11px] text-success font-medium">
                         Pago em {formatDateBR(item.paidOn)}
+                        {item.paidAmount && parseDecimal(item.paidAmount) !== parseDecimal(item.amount)
+                          ? ` · ${formatBRL(item.paidAmount)} com encargos`
+                          : ''}
                       </p>
                     )}
                   </div>
