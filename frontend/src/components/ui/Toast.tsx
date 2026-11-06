@@ -93,7 +93,7 @@ export const ToastProvider: React.FC<{ readonly children: React.ReactNode }> = (
       <Portal>
         <div
           aria-live="polite"
-          aria-atomic="true"
+          aria-relevant="additions"
           className="fixed bottom-0 left-0 right-0 z-[70] pointer-events-none p-4 pb-[max(16px,env(safe-area-inset-bottom))] flex flex-col items-center gap-2"
         >
           <AnimatePresence mode="popLayout">
@@ -110,7 +110,6 @@ export const ToastProvider: React.FC<{ readonly children: React.ReactNode }> = (
                   exit={reduce ? { opacity: 0 } : { opacity: 0, y: 12, scale: 0.95 }}
                   transition={{ duration: 0.2 }}
                   className={`pointer-events-auto flex items-center gap-3 w-full max-w-sm p-3.5 rounded-2xl bg-card border ${styles.border} shadow-[var(--shadow-float)]`}
-                  role="status"
                 >
                   <div className={`shrink-0 w-9 h-9 rounded-xl ${styles.bgSoft} flex items-center justify-center ${styles.iconColor}`}>
                     <IconComponent size={20} weight="fill" />
