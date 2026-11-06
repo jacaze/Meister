@@ -1,5 +1,4 @@
 import type { FastifyInstance } from 'fastify';
-import { z } from 'zod';
 import authMiddleware from '../middlewares/authMiddleware.js';
 import {
   recordConsent,
@@ -9,16 +8,10 @@ import {
   listAuditLogs,
   type ConsentKind,
 } from '../modules/compliance/public.js';
-
-const recordConsentSchema = z.object({
-  kind: z.enum(['terms', 'privacy', 'ai_processing', 'open_finance']),
-  version: z.string().optional(),
-  accepted: z.boolean(),
-});
-
-const eraseAccountSchema = z.object({
-  password: z.string().min(1),
-});
+import {
+  recordConsentSchema,
+  eraseAccountSchema,
+} from '../modules/compliance/application/schemas/compliance-schemas.js';
 
 export async function complianceRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', authMiddleware);
@@ -26,16 +19,13 @@ export async function complianceRoutes(fastify: FastifyInstance) {
   // 1. Record Consent
   fastify.post('/consents', async (request, reply) => {
     const scope = request.scope!;
-    const parsed = recordConsentSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reply.status(400).send({ error: 'Dados de consentimento inválidos', details: parsed.error.issues });
-    }
+    const body = recordConsentSchema.parse(request.body);
 
     const ip = (request.headers['x-forwarded-for'] as string) || request.ip;
     const result = await recordConsent(scope, {
-      kind: parsed.data.kind as ConsentKind,
-      version: parsed.data.version,
-      accepted: parsed.data.accepted,
+      kind: body.kind as ConsentKind,
+      version: body.version,
+      accepted: body.accepted,
       ipAddress: ip,
     });
 
@@ -59,12 +49,9 @@ export async function complianceRoutes(fastify: FastifyInstance) {
   // 4. Erase User Account (Right to Erasure / Revocation)
   fastify.delete('/me', async (request, reply) => {
     const scope = request.scope!;
-    const parsed = eraseAccountSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reply.status(400).send({ error: 'A confirmação de senha é obrigatória para excluir a conta.' });
-    }
+    const body = eraseAccountSchema.parse(request.body);
 
-    const result = await eraseUserAccount(scope, parsed.data.password);
+    const result = await eraseUserAccount(scope, body.password);
     return reply.status(200).send(result);
   });
 

@@ -1,6 +1,7 @@
 import type { AccountType } from '@prisma/client';
 import prisma from '../config/prisma.js';
-import { NotFoundError, ValidationError, assertAuthenticated } from '../shared/index.js';
+import { NotFoundError, assertAuthenticated } from '../shared/index.js';
+import { updateProfileSchema } from '../modules/workspace/application/schemas/auth-user-schemas.js';
 
 export const ACCOUNT_TYPES: readonly AccountType[] = ['mei', 'pessoa_fisica'] as const;
 
@@ -32,31 +33,18 @@ export async function getProfile(userId: string | undefined) {
 
 export async function update(
   userId: string | undefined,
-  data: { accountType?: unknown; name?: unknown } = {}
+  rawData: { accountType?: unknown; name?: unknown } = {}
 ) {
   assertAuthenticated(userId);
 
-  const { accountType, name } = data;
-
-  if (accountType === undefined && name === undefined) {
-    throw new ValidationError('Informe o tipo de conta');
-  }
+  const { accountType, name } = updateProfileSchema.parse(rawData);
 
   const updateData: { accountType?: AccountType; name?: string } = {};
-
   if (accountType !== undefined) {
-    if (!isValidAccountType(accountType)) {
-      throw new ValidationError('Tipo de conta inválido. Use "mei" ou "pessoa_fisica"');
-    }
     updateData.accountType = accountType;
   }
-
   if (name !== undefined) {
-    const trimmedName = typeof name === 'string' ? name.trim() : '';
-    if (!trimmedName || trimmedName.length > 120) {
-      throw new ValidationError('Nome inválido');
-    }
-    updateData.name = trimmedName;
+    updateData.name = name;
   }
 
   const existing = await prisma.user.findUnique({

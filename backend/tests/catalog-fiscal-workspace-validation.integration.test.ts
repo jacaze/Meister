@@ -81,4 +81,67 @@ describe('Catalog, Fiscal & Workspace Validation Hardening (Integration)', () =>
     const body = res.json();
     expect(body.code).toBe('VALIDATION_ERROR');
   });
+
+  it('valida rotas de Auth, User, Insights, Education e Compliance contra payloads malformados com 400 VALIDATION_ERROR', async () => {
+    const badLogin = await app.inject({
+      method: 'POST',
+      url: '/api/login',
+      payload: [],
+    });
+    expect(badLogin.statusCode).toBe(400);
+    expect(badLogin.json().code).toBe('VALIDATION_ERROR');
+
+    const badRegister = await app.inject({
+      method: 'POST',
+      url: '/api/register',
+      payload: { name: '', email: 'invalido', password: '' },
+    });
+    expect(badRegister.statusCode).toBe(400);
+    expect(badRegister.json().code).toBe('VALIDATION_ERROR');
+
+    const badPatchMe = await app.inject({
+      method: 'PATCH',
+      url: '/api/me',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { accountType: 'empresa_sa' },
+    });
+    expect(badPatchMe.statusCode).toBe(400);
+    expect(badPatchMe.json().code).toBe('VALIDATION_ERROR');
+
+    const badInsightsAsk = await app.inject({
+      method: 'POST',
+      url: '/api/insights/ask',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { question: '   ' },
+    });
+    expect(badInsightsAsk.statusCode).toBe(400);
+    expect(badInsightsAsk.json().code).toBe('VALIDATION_ERROR');
+
+    const badInsightsFeedback = await app.inject({
+      method: 'POST',
+      url: '/api/insights/00000000-0000-4000-8000-000000000000/feedback',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { value: 'talvez' },
+    });
+    expect(badInsightsFeedback.statusCode).toBe(400);
+    expect(badInsightsFeedback.json().code).toBe('VALIDATION_ERROR');
+
+    const badEduQuiz = await app.inject({
+      method: 'POST',
+      url: '/api/education/lessons/separar-pf-pj/quiz',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { answers: ['a'] },
+    });
+    expect(badEduQuiz.statusCode).toBe(400);
+    expect(badEduQuiz.json().code).toBe('VALIDATION_ERROR');
+
+    const badConsent = await app.inject({
+      method: 'POST',
+      url: '/api/consents',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { kind: 'invalido', accepted: 'sim' },
+    });
+    expect(badConsent.statusCode).toBe(400);
+    expect(badConsent.json().code).toBe('VALIDATION_ERROR');
+  });
 });

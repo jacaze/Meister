@@ -32,7 +32,7 @@ export async function fiscalRoutes(fastify: FastifyInstance) {
   fastify.post<{ Params: { id: string }; Body: { paidOn: string; paidAmount?: string } }>(
     '/das/:id/pay',
     async (request, reply) => {
-      const body = markDasPaidSchema.parse(request.body ?? {});
+      const body = markDasPaidSchema.parse(request.body);
       const updated = await markDasPaid(request.scope!, {
         dasId: request.params.id,
         paidOn: body.paidOn,

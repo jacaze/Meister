@@ -18,7 +18,7 @@ export async function workspaceRoutes(fastify: FastifyInstance) {
   fastify.put<{ Params: { id: string }; Body: UpdateBusinessProfileInput }>(
     '/entities/:id/business-profile',
     async (request, reply) => {
-      const body = updateBusinessProfileSchema.parse(request.body ?? {});
+      const body = updateBusinessProfileSchema.parse(request.body);
       const updated = await updateBusinessProfile(request.scope!, {
         ...body,
         entityId: request.params.id,

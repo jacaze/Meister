@@ -1,5 +1,5 @@
 import prisma from '../../../../config/prisma.js';
-import type { WorkspaceScope } from '../../../../shared/index.js';
+import { NotFoundError, type WorkspaceScope } from '../../../../shared/index.js';
 import { LessonRegistry } from '../../domain/LessonRegistry.js';
 
 export interface EducationalNudge {
@@ -187,6 +187,13 @@ export async function recordNudgeFeedback(
   nudgeId: string,
   feedback: 'util' | 'inutil'
 ): Promise<void> {
+  const existing = await prisma.nudgeLog.findUnique({
+    where: { id: nudgeId },
+    select: { id: true },
+  });
+  if (!existing) {
+    throw new NotFoundError('Nudge educacional não encontrado.');
+  }
   await prisma.nudgeLog.update({
     where: { id: nudgeId },
     data: { feedback },

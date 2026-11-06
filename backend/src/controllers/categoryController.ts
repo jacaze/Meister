@@ -11,7 +11,7 @@ export async function list(request: FastifyRequest, reply: FastifyReply) {
 }
 
 export async function create(request: FastifyRequest, reply: FastifyReply) {
-  const body = createCategorySchema.parse(request.body ?? {});
+  const body = createCategorySchema.parse(request.body);
   const category = await categoryService.create(request.userId, body, request.scope);
   return reply.status(201).send(category);
 }
@@ -20,7 +20,7 @@ export async function update(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply
 ) {
-  const body = updateCategorySchema.parse(request.body ?? {});
+  const body = updateCategorySchema.parse(request.body);
   const category = await categoryService.update(request.userId, request.params.id, body, request.scope);
   return reply.send(category);
 }
