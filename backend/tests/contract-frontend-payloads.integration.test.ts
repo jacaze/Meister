@@ -361,11 +361,10 @@ describe('Frontend & Telegram Real Payloads Contract Suite (PostgreSQL 16)', () 
       method: 'POST',
       url: '/api/imports/approve',
       headers: { authorization: `Bearer ${token}` },
+      // ReviewInboxPage.tsx:190 envia só { bankTransactionId, categoryId }
       payload: {
         bankTransactionId: bankTx!.id,
         categoryId: revenueCategoryId,
-        entityId: pjEntityId,
-        viaPersonalAccount: false,
       },
     });
     expect(approveRes.statusCode).toBe(200);
@@ -641,5 +640,100 @@ describe('Frontend & Telegram Real Payloads Contract Suite (PostgreSQL 16)', () 
       where: { id: prop.id },
     });
     expect(confirmed?.status).toBe('confirmada');
+  });
+
+  it('16. Chamadas que faltavam: proposta confirmada, fila de revisão (lote/ignorar), dispensar insight e desvincular Telegram', async () => {
+    const auth = { authorization: `Bearer ${token}` };
+
+    // FloatingAssistantWidget.tsx:202 — POST /api/assistant/proposals/:id/confirm (sem corpo)
+    const propRes = await app.inject({
+      method: 'POST',
+      url: '/api/assistant/proposals',
+      headers: auth,
+      payload: { text: 'Gastei 35 reais de gasolina' },
+    });
+    expect(propRes.statusCode).toBe(200);
+    const proposalId = propRes.json().proposalId as string;
+    expect(proposalId).toBeTruthy();
+    const confirmRes = await app.inject({
+      method: 'POST',
+      url: `/api/assistant/proposals/${proposalId}/confirm`,
+      headers: auth,
+    });
+    expect(confirmRes.statusCode).toBe(200);
+    expect((await prisma.proposal.findUnique({ where: { id: proposalId } }))?.status).toBe('confirmada');
+
+    // ReviewInboxPage.tsx:207 e :231-236 — ignorar e aprovar em lote, com o corpo montado a partir
+    // do GET /api/imports como a tela faz: categoryId = selecionada || suggestedCategoryId (pode ser null)
+    const stamp = Date.now();
+    const memos = ['PIX RECEBIDO CLIENTE CONTRATO', `ZXQW ${stamp} KJHGF A`, `ZXQW ${stamp} KJHGF B`];
+    const ofx = `OFXHEADER:100\n<OFX>${memos
+      .map(
+        (memo, i) =>
+          `<STMTTRN><TRNTYPE>CREDIT</TRNTYPE><DTPOSTED>2026030${i + 2}120000</DTPOSTED><TRNAMT>${100 + i}.00</TRNAMT><FITID>LOTE_${stamp}_${i}</FITID><MEMO>${memo}</MEMO></STMTTRN>`
+      )
+      .join('')}</OFX>`;
+    const imp = await app.inject({
+      method: 'POST',
+      url: '/api/imports/statement',
+      headers: auth,
+      payload: { content: ofx, provider: 'ofx', institution: 'lote.ofx' },
+    });
+    expect(imp.statusCode).toBe(201);
+
+    const inbox = (await app.inject({ method: 'GET', url: '/api/imports', headers: auth })).json().items as Array<{
+      id: string;
+      description: string;
+      suggestedCategoryId: string | null;
+    }>;
+    const doLote = inbox.filter((it) => it.description.includes(String(stamp)) || it.description === memos[0]);
+    const semSugestao = doLote.filter((it) => it.suggestedCategoryId === null);
+    expect(semSugestao.length).toBeGreaterThanOrEqual(2);
+
+    const [paraIgnorar, ...paraAprovar] = semSugestao;
+    const ignoreRes = await app.inject({
+      method: 'POST',
+      url: '/api/imports/ignore',
+      headers: auth,
+      payload: { bankTransactionId: paraIgnorar!.id },
+    });
+    expect(ignoreRes.statusCode).toBe(200);
+
+    const selectedCategories: Record<string, string> = {};
+    const loteRes = await app.inject({
+      method: 'POST',
+      url: '/api/imports/batch-approve',
+      headers: auth,
+      payload: {
+        items: paraAprovar.map((it) => ({
+          bankTransactionId: it.id,
+          categoryId: selectedCategories[it.id] || it.suggestedCategoryId,
+        })),
+      },
+    });
+    expect(loteRes.statusCode).toBe(200);
+    expect(loteRes.json().approvedCount).toBe(paraAprovar.length);
+
+    // InsightsPage.tsx:140 — POST /api/insights/:id/dismiss (sem corpo)
+    const insight = await prisma.insight.create({
+      data: {
+        workspaceId,
+        userId,
+        detectorId: 'contrato-teste',
+        period: '2026-11',
+        severity: 'info',
+        metrics: {},
+        narrationText: 'Insight criado pelo teste de contrato.',
+        dedupeKey: `contrato-${stamp}`,
+      },
+    });
+    const dismissRes = await app.inject({ method: 'POST', url: `/api/insights/${insight.id}/dismiss`, headers: auth });
+    expect(dismissRes.statusCode).toBe(200);
+    expect((await prisma.insight.findUnique({ where: { id: insight.id } }))?.status).toBe('dispensada');
+
+    // ProfilePage.tsx:188 — POST /api/telegram/unlink (sem corpo). Fica por último: desfaz o vínculo do setup.
+    const unlinkRes = await app.inject({ method: 'POST', url: '/api/telegram/unlink', headers: auth });
+    expect(unlinkRes.statusCode).toBe(200);
+    expect(await prisma.telegramLink.findFirst({ where: { userId, status: 'ativo' } })).toBeNull();
   });
 });
