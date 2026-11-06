@@ -84,7 +84,19 @@ describe('Financial Education Module Unit Tests', () => {
     expect(halfResult.score).toBe(50);
     expect(halfResult.passed).toBe(false);
     expect(halfResult.breakdown[1]!.isCorrect).toBe(false);
-    expect(halfResult.breakdown[1]!.explanation).toBe('X é a correta');
+    // Reprovado: a questão errada não revela resposta certa nem explicação; a acertada sim.
+    expect(halfResult.breakdown[1]!.explanation).toBeUndefined();
+    expect(halfResult.breakdown[1]!.correctIndex).toBeUndefined();
+    expect(halfResult.breakdown[0]!.explanation).toBe('B é a correta porque sim');
+
+    // Aprovado: gabarito completo.
+    expect(perfectResult.breakdown[1]!.explanation).toBe('X é a correta');
+    expect(perfectResult.breakdown[1]!.correctIndex).toBe(0);
+
+    // Respostas faltando ou fora das opções são recusadas (antes [] devolvia o gabarito inteiro).
+    expect(() => QuizGrader.grade(sampleLesson, [])).toThrow(/Responda as 2 questões/);
+    expect(() => QuizGrader.grade(sampleLesson, [1])).toThrow();
+    expect(() => QuizGrader.grade(sampleLesson, [1, 5])).toThrow(/questão 2/);
   });
 
   it('enforces RN-44 policy guard rejecting speculative investment questions', () => {

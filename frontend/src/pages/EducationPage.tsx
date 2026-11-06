@@ -55,9 +55,10 @@ export interface QuestionBreakdown {
   readonly questionId: string;
   readonly question: string;
   readonly chosenIndex: number;
-  readonly correctIndex: number;
   readonly isCorrect: boolean;
-  readonly explanation: string;
+  /** O backend só manda quando a questão foi acertada ou o quiz foi aprovado. */
+  readonly correctIndex?: number;
+  readonly explanation?: string;
 }
 
 export interface QuizResult {
@@ -167,7 +168,7 @@ export const EducationPage: React.FC = () => {
         toast.success(`Parabéns! Você concluiu a lição com ${grading.score}% de aproveitamento.`);
       } else {
         haptic([40, 40]);
-        toast.info(`Você atingiu ${grading.score}%. Revise o gabarito comentado abaixo.`);
+        toast.info(`Você atingiu ${grading.score}%. Releia a lição e tente de novo.`);
       }
 
       fetchLessons();
@@ -567,7 +568,7 @@ export const EducationPage: React.FC = () => {
               {/* Gabarito Comentado com Explicações Reveladas */}
               <div className="space-y-4">
                 <span className="text-xs font-bold text-muted uppercase tracking-wider block">
-                  Gabarito Comentado:
+                  {quizResult.passed ? 'Gabarito Comentado:' : 'Seu resultado:'}
                 </span>
                 {quizResult.breakdown.map((item, idx) => (
                   <div
@@ -588,7 +589,13 @@ export const EducationPage: React.FC = () => {
                           <p className="flex items-start gap-1.5">
                             <Lightbulb size={16} weight="fill" className="text-brand shrink-0 mt-0.5" />
                             <span>
-                              <strong>Explicação:</strong> {item.explanation}
+                              {item.explanation ? (
+                                <>
+                                  <strong>Explicação:</strong> {item.explanation}
+                                </>
+                              ) : (
+                                'Releia a lição e tente de novo: a resposta certa aparece quando você for aprovado.'
+                              )}
                             </span>
                           </p>
                         </div>
