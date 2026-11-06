@@ -4,6 +4,7 @@ import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
+import { z } from 'zod';
 import prisma from './config/prisma.js';
 import { type AppEnv, parseEnv, registerCorrelationAndErrorHandler } from './shared/index.js';
 import authRoutes from './routes/authRoutes.js';
@@ -29,6 +30,11 @@ export interface BuildAppOptions {
 }
 
 export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
+  // Configuração global de locale do Zod em português (Zod 4)
+  if (typeof (z as any).locales?.pt === 'function') {
+    (z as any).config((z as any).locales.pt());
+  }
+
   const env = options.env ?? parseEnv(process.env);
   const fastify = Fastify({
     logger: options.logger ?? env.NODE_ENV !== 'test',
