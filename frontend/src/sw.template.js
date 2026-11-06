@@ -88,9 +88,9 @@ self.addEventListener('fetch', (event) => {
           return networkResponse;
         })
         .catch(async () => {
-          const cached = await caches.match(event.request);
+          const cached = await caches.match(event.request, { ignoreSearch: true, ignoreVary: true });
           if (cached) return cached;
-          const indexFallback = await caches.match('/index.html');
+          const indexFallback = await caches.match('/index.html', { ignoreSearch: true, ignoreVary: true });
           if (indexFallback) return indexFallback;
           return new Response('Rede indisponível no momento.', {
             status: 503,
@@ -108,10 +108,11 @@ self.addEventListener('fetch', (event) => {
   if (isStaticAsset) {
     const isImmutableAsset = url.pathname.startsWith('/assets/');
 
-    // Para /assets/* (com hash gerado pelo Vite): Cache-first puro. Não refaz download na rede se já está em cache.
+    // Para /assets/* (com hash gerado pelo Vite): Cache-first puro ignorando Vary e search params.
+    // Garante que import() de módulos com Origin header encontre o precache gerado por cache.add() sem Origin.
     if (isImmutableAsset) {
       event.respondWith(
-        caches.match(event.request).then(async (cachedResponse) => {
+        caches.match(event.request, { ignoreVary: true, ignoreSearch: true }).then(async (cachedResponse) => {
           if (cachedResponse) {
             return cachedResponse;
           }
@@ -159,7 +160,7 @@ self.addEventListener('fetch', (event) => {
     event.waitUntil(updatePromise);
 
     event.respondWith(
-      caches.match(event.request).then(async (cachedResponse) => {
+      caches.match(event.request, { ignoreVary: true, ignoreSearch: true }).then(async (cachedResponse) => {
         if (cachedResponse) {
           return cachedResponse;
         }
