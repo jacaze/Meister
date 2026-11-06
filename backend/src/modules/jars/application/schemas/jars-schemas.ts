@@ -21,15 +21,17 @@ export const createJarPlanSchema = z.object({
 });
 
 export const mapCategoriesSchema = z.object({
-  categoryId: z.string().uuid('ID da categoria deve ser um UUID válido'),
-  jarId: z.string().uuid('ID do pote deve ser um UUID válido'),
+  planId: z.string().min(1, 'ID do plano é obrigatório'),
+  jarId: z.string().min(1, 'ID do pote é obrigatório'),
+  categoryIds: z.array(z.string()).default([]),
 });
 
 export const batchMapCategoriesSchema = z.object({
+  planId: z.string().min(1, 'ID do plano é obrigatório'),
   mappings: z.array(
     z.object({
-      categoryId: z.string().uuid('ID da categoria deve ser um UUID válido'),
-      jarId: z.string().uuid('ID do pote deve ser um UUID válido'),
+      jarId: z.string().min(1, 'ID do pote é obrigatório'),
+      categoryIds: z.array(z.string()).default([]),
     })
-  ),
+  ).min(1, 'Lista de mapeamentos não pode ser vazia'),
 });
