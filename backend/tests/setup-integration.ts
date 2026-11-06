@@ -16,8 +16,8 @@ export function maskDatabaseUrl(rawUrl: string): string {
     }
     return parsed.toString();
   } catch {
-    // Se a URL não for parseável por URL(), mascara qualquer padrão :senha@ com regex
-    return rawUrl.replace(/(:)([^:@/]+)(@)/, '$1***$3');
+    // Se a URL não for parseável por URL(), mascara do primeiro ':' após '://user' até o último '@'
+    return rawUrl.replace(/(\/\/[^:/@]*:).*(@[^@]*)$/, '$1***$2');
   }
 }
 
