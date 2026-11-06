@@ -7,6 +7,20 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const backendDir = path.resolve(__dirname, '..');
 
+// Helper para mascarar senhas em URLs de conexão antes de imprimir em logs ou erros
+export function maskDatabaseUrl(rawUrl: string): string {
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.password) {
+      parsed.password = '***';
+    }
+    return parsed.toString();
+  } catch {
+    // Se a URL não for parseável por URL(), mascara qualquer padrão :senha@ com regex
+    return rawUrl.replace(/(:)([^:@/]+)(@)/, '$1***$3');
+  }
+}
+
 // 1. Carregar variáveis de teste:
 // Se DATABASE_URL já foi fornecida pelo ambiente (ex: CI), ela tem prioridade.
 // Caso contrário, carrega backend/.env.test se existir, ou fallback para backend/.env.test.example.
@@ -53,5 +67,6 @@ try {
   if (err instanceof Error && err.message.includes('[Trava de Segurança de Testes]')) {
     throw err;
   }
-  throw new Error(`❌ [Segurança de Testes] Formato inválido de DATABASE_URL: ${dbUrl}`);
+  const masked = maskDatabaseUrl(dbUrl);
+  throw new Error(`❌ [Segurança de Testes] Formato inválido de DATABASE_URL: ${masked}`);
 }
