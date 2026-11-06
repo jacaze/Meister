@@ -7,7 +7,8 @@ export const createSplitSchema = z.object({
 });
 
 export const createTransactionSchema = z.object({
-  entityId: z.string().optional(),
+  // Chamadores internos (assistente, Telegram, Open Finance) podem repassar entidade nula do rascunho.
+  entityId: z.string().nullish().transform((v) => v ?? undefined),
   type: z.enum(['receita', 'despesa', 'transferencia', 'aporte', 'retirada']),
   amount: z.union([z.string(), z.number()]),
   description: z.string().min(1).max(1000),

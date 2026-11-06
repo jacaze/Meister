@@ -701,4 +701,20 @@ describe('Validation Schemas Unit & Boundary Tests (Etapa 3)', () => {
     expect(eraseAccountSchema.safeParse({ password: '' }).success).toBe(false);
     expect(eraseAccountSchema.safeParse({ password: 'x'.repeat(256) }).success).toBe(false);
   });
+
+  it('aceita null nos ids opcionais da aprovação de extrato e trata como ausente (categoria padrão)', () => {
+    const id = '3f6c2b1e-8a4d-4c2f-9b7e-1d2a3b4c5d6e';
+    const single = approveImportedTransactionSchema.parse({ bankTransactionId: id, categoryId: null, entityId: null });
+    expect(single.categoryId).toBeUndefined();
+    expect(single.entityId).toBeUndefined();
+    const batch = batchApproveImportedTransactionsSchema.parse({ items: [{ bankTransactionId: id, categoryId: null }] });
+    expect(batch.items[0]!.categoryId).toBeUndefined();
+    // id preenchido continua exigindo UUID
+    expect(approveImportedTransactionSchema.safeParse({ bankTransactionId: id, categoryId: 'x' }).success).toBe(false);
+  });
+
+  it('createTransactionSchema aceita entityId nulo vindo de rascunho interno e o trata como ausente', () => {
+    const parsed = createTransactionSchema.parse({ type: 'despesa', amount: '10.00', description: 'Café', entityId: null });
+    expect(parsed.entityId).toBeUndefined();
+  });
 });
