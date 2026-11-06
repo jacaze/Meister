@@ -15,14 +15,15 @@ export async function workspaceRoutes(fastify: FastifyInstance) {
     return reply.send(overview);
   });
 
-  fastify.put<{ Params: { id: string }; Body: UpdateBusinessProfileInput }>(
+  fastify.put<{ Params: { id: string }; Body: unknown }>(
     '/entities/:id/business-profile',
     async (request, reply) => {
       const body = updateBusinessProfileSchema.parse(request.body);
-      const updated = await updateBusinessProfile(request.scope!, {
+      const input: UpdateBusinessProfileInput = {
         ...body,
         entityId: request.params.id,
-      } as unknown as UpdateBusinessProfileInput);
+      };
+      const updated = await updateBusinessProfile(request.scope!, input);
       return reply.send(updated);
     }
   );

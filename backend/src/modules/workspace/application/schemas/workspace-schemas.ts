@@ -1,14 +1,11 @@
 import { z } from 'zod';
 
 export const updateBusinessProfileSchema = z.object({
-  cnpj: z.string().optional(),
-  legalName: z.string().max(255).optional(),
-  tradeName: z.string().max(255).optional(),
-  openedOn: z.string().optional(),
-  activity: z.string().optional(),
-  taxId: z.string().max(20).optional(),
-  meiCategory: z.string().max(100).optional(),
-  cnae: z.string().max(20).optional(),
-  city: z.string().max(100).optional(),
-  state: z.string().max(2).optional(),
+  cnpj: z.string().min(1),
+  legalName: z.string().max(255).nullable().optional(),
+  tradeName: z.string().max(255).nullable().optional(),
+  openedOn: z.string().min(1),
+  activity: z.enum(['comercio', 'servicos', 'misto']),
 });
+
+export type UpdateBusinessProfileBody = z.infer<typeof updateBusinessProfileSchema>;
