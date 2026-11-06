@@ -14,32 +14,37 @@ const STATIC_EXTENSIONS = [
   '.ttf',
 ];
 
-// Conjunto de assets referenciados diretamente pelo HTML do deploy ativo
-const activeHtmlChunks = new Set();
+async function getProtectedPathsFromCache() {
+  const protectedSet = new Set(PROTECTED_PATHS);
 
-/**
- * Analisa o HTML do deploy atual para extrair caminhos de assets gerados pelo bundler (/assets/*)
- * e impedir que o descarte de cache (trimCache) remova pedaços essenciais da SPA em execução.
- */
-function recordActiveChunksFromHtml(htmlText) {
-  if (!htmlText || typeof htmlText !== 'string') return;
-  const chunkRegex = /(?:\/assets\/[a-zA-Z0-9_\-\.]+\.(?:js|css))/g;
-  let match;
-  while ((match = chunkRegex.exec(htmlText)) !== null) {
-    activeHtmlChunks.add(match[0]);
+  // Recupera e analisa o index.html salvo em cache para descobrir chunks do deploy ativo
+  try {
+    const cachedHtmlResponse = await caches.match('/index.html');
+    if (cachedHtmlResponse) {
+      const htmlText = await cachedHtmlResponse.text();
+      const chunkRegex = /(?:\/assets\/[a-zA-Z0-9_\-.]+\.(?:js|css))/g;
+      let match;
+      while ((match = chunkRegex.exec(htmlText)) !== null) {
+        protectedSet.add(match[0]);
+      }
+    }
+  } catch {
+    // Falha silenciosa: usa lista base de caminhos protegidos
   }
+
+  return protectedSet;
 }
 
 async function trimCache(cacheName, maxItems) {
   const cache = await caches.open(cacheName);
   const requests = await cache.keys();
   if (requests.length > maxItems) {
-    // Procura a primeira entrada descartável que NÃO seja protegida nem pertença ao deploy atual
+    const protectedPaths = await getProtectedPathsFromCache();
+
+    // Procura a primeira entrada descartável que NÃO seja protegida nem referenciada no HTML ativo
     const candidate = requests.find((req) => {
       const path = new URL(req.url).pathname;
-      if (PROTECTED_PATHS.includes(path)) return false;
-      if (activeHtmlChunks.has(path)) return false;
-      return true;
+      return !protectedPaths.has(path);
     });
 
     if (candidate) {
@@ -97,26 +102,25 @@ self.addEventListener('fetch', (event) => {
             networkResponse.status === 200 &&
             networkResponse.type === 'basic'
           ) {
-            const clone = networkResponse.clone();
-            clone.text().then((text) => {
-              recordActiveChunksFromHtml(text);
-            }).catch(() => {});
+            const forCache = networkResponse.clone();
+            const forIndexHtmlCache = networkResponse.clone();
 
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse.clone()));
+            event.waitUntil(
+              caches.open(CACHE_NAME).then((cache) =>
+                Promise.all([
+                  cache.put(event.request, forCache),
+                  cache.put('/index.html', forIndexHtmlCache),
+                ])
+              )
+            );
           }
           return networkResponse;
         })
         .catch(async () => {
           const cached = await caches.match(event.request);
-          if (cached) {
-            cached.clone().text().then((text) => recordActiveChunksFromHtml(text)).catch(() => {});
-            return cached;
-          }
+          if (cached) return cached;
           const indexFallback = await caches.match('/index.html');
-          if (indexFallback) {
-            indexFallback.clone().text().then((text) => recordActiveChunksFromHtml(text)).catch(() => {});
-            return indexFallback;
-          }
+          if (indexFallback) return indexFallback;
           return new Response('Rede indisponível no momento.', {
             status: 503,
             statusText: 'Service Unavailable',
@@ -140,8 +144,13 @@ self.addEventListener('fetch', (event) => {
               networkResponse.status === 200 &&
               networkResponse.type === 'basic'
             ) {
-              cache.put(event.request, networkResponse.clone());
-              trimCache(CACHE_NAME, MAX_STATIC_ENTRIES).catch(() => {});
+              const forCache = networkResponse.clone();
+              event.waitUntil(
+                caches
+                  .open(CACHE_NAME)
+                  .then((c) => c.put(event.request, forCache))
+                  .then(() => trimCache(CACHE_NAME, MAX_STATIC_ENTRIES))
+              );
             }
             return networkResponse;
           })
