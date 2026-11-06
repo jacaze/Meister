@@ -5,6 +5,7 @@ import {
   updateBusinessProfile,
   type UpdateBusinessProfileInput,
 } from '../modules/workspace/public.js';
+import { updateBusinessProfileSchema } from '../modules/workspace/application/schemas/workspace-schemas.js';
 
 export async function workspaceRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', authMiddleware);
@@ -17,8 +18,9 @@ export async function workspaceRoutes(fastify: FastifyInstance) {
   fastify.put<{ Params: { id: string }; Body: UpdateBusinessProfileInput }>(
     '/entities/:id/business-profile',
     async (request, reply) => {
+      const body = updateBusinessProfileSchema.parse(request.body ?? {});
       const updated = await updateBusinessProfile(request.scope!, {
-        ...request.body,
+        ...body,
         entityId: request.params.id,
       });
       return reply.send(updated);
