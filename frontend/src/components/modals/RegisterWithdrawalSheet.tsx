@@ -39,7 +39,7 @@ export const RegisterWithdrawalSheet: React.FC<RegisterWithdrawalSheetProps> = (
     setError(null);
 
     const numAmount = parseBRL(amount);
-    if (numAmount <= 0) {
+    if (!(numAmount > 0)) {
       setError('Informe um valor de retirada válido e positivo.');
       return;
     }

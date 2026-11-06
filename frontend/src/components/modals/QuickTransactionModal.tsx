@@ -7,6 +7,7 @@ import Sheet from '../ui/Sheet.js';
 import CheckRow from '../ui/CheckRow.js';
 import Mel from '../brand/Mel.js';
 import { celebrate, haptic } from '../../lib/celebrate.js';
+import { parseBRL } from '../../lib/money.js';
 
 interface QuickTransactionModalProps {
   readonly onClose: () => void;
@@ -131,8 +132,8 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
     e.preventDefault();
     setError(null);
 
-    const cleanAmount = amount.replace(',', '.').trim();
-    if (!cleanAmount || isNaN(Number(cleanAmount)) || Number(cleanAmount) <= 0) {
+    const numAmount = parseBRL(amount);
+    if (!(numAmount > 0)) {
       setError('Informe um valor válido e positivo.');
       return;
     }
@@ -151,7 +152,7 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
     try {
       if (useSplits && splits && splits.length > 1) {
         await api.post('/receipts/confirm', {
-          total: Number(cleanAmount).toFixed(2),
+          total: numAmount.toFixed(2),
           description: description.trim(),
           date: transactionDate,
           entityId: entityId || undefined,
@@ -167,7 +168,7 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
       } else {
         await api.post('/transactions', {
           type,
-          amount: Number(cleanAmount).toFixed(2),
+          amount: numAmount.toFixed(2),
           description: description.trim(),
           categoryId,
           paymentMethod,

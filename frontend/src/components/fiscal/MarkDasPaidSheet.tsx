@@ -64,7 +64,7 @@ export const MarkDasPaidSheet: React.FC<MarkDasPaidSheetProps> = ({
     }
 
     const numAmount = parseBRL(paidAmount);
-    if (numAmount <= 0) {
+    if (!(numAmount > 0)) {
       setError('Informe um valor pago válido.');
       return;
     }

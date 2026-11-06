@@ -86,7 +86,7 @@ export const EditTransactionSheet: React.FC<EditTransactionSheetProps> = ({
     let numAmount = 0;
     if (!isTransfer) {
       numAmount = parseBRL(amount);
-      if (numAmount <= 0) {
+      if (!(numAmount > 0)) {
         setError('Informe um valor válido e positivo.');
         return;
       }

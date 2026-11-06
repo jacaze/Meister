@@ -5,7 +5,7 @@ import QuickTransactionModal from '../components/modals/QuickTransactionModal.js
 import EditTransactionSheet from '../components/modals/EditTransactionSheet.js';
 import ConfirmDialog from '../components/ui/ConfirmDialog.js';
 import AnimatedNumber from '../components/ui/AnimatedNumber.js';
-import { formatBRL, parseBRL } from '../lib/money.js';
+import { formatBRL, parseDecimal } from '../lib/money.js';
 import { useToast } from '../components/ui/Toast.js';
 import Mel from '../components/brand/Mel.js';
 import {
@@ -204,9 +204,9 @@ export const TransactionsPage: React.FC = () => {
       }
       if (res.data.resumo) {
         setSummary({
-          totalEntradas: parseBRL(res.data.resumo.totalEntradas),
-          totalDespesas: parseBRL(res.data.resumo.totalDespesas),
-          resultado: parseBRL(res.data.resumo.resultado),
+          totalEntradas: parseDecimal(res.data.resumo.totalEntradas),
+          totalDespesas: parseDecimal(res.data.resumo.totalDespesas),
+          resultado: parseDecimal(res.data.resumo.resultado),
         });
       }
     } catch (err: unknown) {
@@ -274,7 +274,7 @@ export const TransactionsPage: React.FC = () => {
       const key = (tx.transactionDate || '').slice(0, 10);
       const existing = map.get(key) || { items: [], totalReceitas: 0, totalDespesas: 0 };
       existing.items.push(tx);
-      const numAmount = parseBRL(tx.amount);
+      const numAmount = parseDecimal(tx.amount);
       if (tx.type === 'receita') {
         existing.totalReceitas += numAmount;
       } else {
@@ -637,7 +637,7 @@ export const TransactionsPage: React.FC = () => {
                 <div className="space-y-2">
                   {group.items.map((tx) => {
                     const isReceita = tx.type === 'receita';
-                    const numAmount = parseBRL(tx.amount);
+                    const numAmount = parseDecimal(tx.amount);
 
                     return (
                       <div
