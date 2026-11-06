@@ -9,6 +9,7 @@ import {
   defaultEventBus,
   type WorkspaceScope,
 } from '../../../../shared/index.js';
+import { createTransactionSchema } from '../schemas/ledger-schemas.js';
 
 export interface CreateSplitInput {
   readonly categoryId: string;
@@ -38,6 +39,8 @@ export async function createTransaction(
   input: CreateTransactionInput
 ) {
   assertCanWrite(scope);
+
+  createTransactionSchema.parse(input);
 
   // 1. Idempotency by sourceRef
   let existingDeletedId: string | null = null;

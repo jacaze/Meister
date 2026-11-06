@@ -8,6 +8,10 @@ import {
   newId,
   type WorkspaceScope,
 } from '../../../../shared/index.js';
+import {
+  createTransferSchema,
+  registerOwnerWithdrawalSchema,
+} from '../schemas/ledger-schemas.js';
 
 export interface CreateTransferInput {
   readonly fromAccountId: string;
@@ -19,26 +23,28 @@ export interface CreateTransferInput {
 
 export async function createTransfer(
   scope: WorkspaceScope,
-  input: CreateTransferInput
+  input: unknown
 ) {
   assertCanWrite(scope);
 
-  if (input.fromAccountId === input.toAccountId) {
+  const parsed = createTransferSchema.parse(input);
+
+  if (parsed.fromAccountId === parsed.toAccountId) {
     throw new ValidationError('As contas de origem e destino devem ser diferentes');
   }
 
-  const amt = Money.fromDecimalString(String(input.amount).trim());
+  const amt = Money.fromDecimalString(String(parsed.amount).trim());
   if (!amt.isPositive()) {
     throw new ValidationError('O valor da transferência deve ser maior que zero');
   }
 
   const [fromAccount, toAccount] = await Promise.all([
     prisma.financialAccount.findFirst({
-      where: { id: input.fromAccountId, workspaceId: scope.workspaceId },
+      where: { id: parsed.fromAccountId, workspaceId: scope.workspaceId },
       include: { entity: true },
     }),
     prisma.financialAccount.findFirst({
-      where: { id: input.toAccountId, workspaceId: scope.workspaceId },
+      where: { id: parsed.toAccountId, workspaceId: scope.workspaceId },
       include: { entity: true },
     }),
   ]);
@@ -56,14 +62,14 @@ export async function createTransfer(
 
   let localDate: LocalDate;
   try {
-    localDate = LocalDate.fromIsoDate(input.occurredOn);
+    localDate = LocalDate.fromIsoDate(parsed.occurredOn);
   } catch {
     throw new ValidationError('Data inválida');
   }
 
   const transferGroupId = newId();
   const txDateDb = new Date(`${localDate.toIsoDate()}T00:00:00.000Z`);
-  const desc = input.description?.trim() || `Transferência de ${fromAccount.name} para ${toAccount.name}`;
+  const desc = parsed.description?.trim() || `Transferência de ${fromAccount.name} para ${toAccount.name}`;
 
   return prisma.$transaction(async (tx) => {
     const legOut = await tx.transaction.create({
@@ -110,9 +116,11 @@ export interface RegisterOwnerWithdrawalInput {
 
 export async function registerOwnerWithdrawal(
   scope: WorkspaceScope,
-  input: RegisterOwnerWithdrawalInput
+  input: unknown
 ) {
   assertCanWrite(scope);
+
+  const parsed = registerOwnerWithdrawalSchema.parse(input);
 
   const pjEntityId = scope.defaultEntityIds.pj;
   const pfEntityId = scope.defaultEntityIds.pf;
@@ -121,15 +129,15 @@ export async function registerOwnerWithdrawal(
     throw new ValidationError('Para registrar pró-labore é necessário ter uma entidade PJ configurada');
   }
 
-  const amt = Money.fromDecimalString(String(input.amount).trim());
+  const amt = Money.fromDecimalString(String(parsed.amount).trim());
   if (!amt.isPositive()) {
     throw new ValidationError('O valor do pró-labore deve ser maior que zero');
   }
 
-  const localDate = LocalDate.fromIsoDate(input.occurredOn);
+  const localDate = LocalDate.fromIsoDate(parsed.occurredOn);
   const txDateDb = new Date(`${localDate.toIsoDate()}T00:00:00.000Z`);
   const transferGroupId = newId();
-  const desc = input.description?.trim() || 'Retirada de Pró-labore';
+  const desc = parsed.description?.trim() || 'Retirada de Pró-labore';
 
   // Find or create 'pro-labore' category in PF
   const proLaboreCat = await prisma.category.findFirst({
