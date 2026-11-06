@@ -92,10 +92,10 @@ describe('Telegram Callback Query Webhook Integration (Reprodução de Falha)', 
       },
     });
 
-    // 2. Dispara webhook do Telegram pela rota /api/telegram/webhook com callback_query contendo message real
+    // 2. Dispara webhook do Telegram pela rota pública /telegram/webhook com callback_query contendo message real
     const webhookRes = await app.inject({
       method: 'POST',
-      url: '/api/telegram/webhook',
+      url: '/telegram/webhook',
       headers: { 'x-telegram-bot-api-secret-token': webhookSecret },
       payload: {
         update_id: Math.floor(Math.random() * 1000000),

@@ -82,6 +82,11 @@ describe('Assistant & Telegram Validation Hardening (Integration)', () => {
     expect(body.code).toBe('VALIDATION_ERROR');
   });
 
+  it('expõe o webhook público só em /telegram/webhook (sem segunda entrada sob /api)', async () => {
+    expect(app.hasRoute({ method: 'POST', url: '/telegram/webhook' })).toBe(true);
+    expect(app.hasRoute({ method: 'POST', url: '/api/telegram/webhook' })).toBe(false);
+  });
+
   it('rejeita POST /telegram/webhook com payload malformado e secret válido', async () => {
     const prevSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
     process.env.TELEGRAM_WEBHOOK_SECRET = 'test_secret_123';

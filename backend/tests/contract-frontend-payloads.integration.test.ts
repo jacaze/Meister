@@ -582,7 +582,7 @@ describe('Frontend & Telegram Real Payloads Contract Suite (PostgreSQL 16)', () 
     // 15a. Mensagem de texto com metadados reais do Telegram
     const textUpdateRes = await app.inject({
       method: 'POST',
-      url: '/api/telegram/webhook',
+      url: '/telegram/webhook',
       headers: { 'x-telegram-bot-api-secret-token': webhookSecret },
       payload: {
         update_id: Math.floor(Math.random() * 1000000000),
@@ -617,7 +617,7 @@ describe('Frontend & Telegram Real Payloads Contract Suite (PostgreSQL 16)', () 
 
     const cbUpdateRes = await app.inject({
       method: 'POST',
-      url: '/api/telegram/webhook',
+      url: '/telegram/webhook',
       headers: { 'x-telegram-bot-api-secret-token': webhookSecret },
       payload: {
         update_id: Math.floor(Math.random() * 1000000000),
