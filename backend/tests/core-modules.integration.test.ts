@@ -371,6 +371,84 @@ describe('Core Modules Integration Suite (PostgreSQL 16)', () => {
     expect(batchCount).toBe(1);
   });
 
+  it('applies the plan baseMode to the jars base and updates it without recreating the plan', async () => {
+    const email = `jars_base_${Date.now()}@test.com`;
+    await app.inject({
+      method: 'POST',
+      url: '/api/register',
+      payload: { name: 'Base Potes', email, password: 'Password123!', accountType: 'pessoa_fisica' },
+    });
+    const token = (
+      await app.inject({ method: 'POST', url: '/api/login', payload: { email, password: 'Password123!' } })
+    ).json().token as string;
+    const auth = { authorization: `Bearer ${token}` };
+
+    const cat = (
+      await app.inject({ method: 'POST', url: '/api/categories', headers: auth, payload: { name: 'Vendas', type: 'receita' } })
+    ).json();
+    const revenues: Array<[string, string]> = [
+      ['2026-08-10', '1500.00'],
+      ['2026-09-10', '1500.00'],
+      ['2026-10-10', '3000.00'],
+      ['2026-11-10', '5000.00'],
+    ];
+    for (const [date, amount] of revenues) {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/transactions',
+        headers: auth,
+        payload: { categoryId: cat.id, type: 'receita', description: 'Venda', amount, paymentMethod: 'pix', transactionDate: date },
+      });
+      expect(res.statusCode).toBe(201);
+    }
+
+    const status = async () =>
+      (await app.inject({ method: 'GET', url: '/api/jars?month=2026-11', headers: auth })).json();
+
+    const initial = await status();
+    expect(initial.baseMode).toBe('mes_atual');
+    expect(initial.templateSlug).toBe('seis-potes');
+    expect(initial.base).toBe('5000.00');
+
+    // Vincula uma categoria para provar que a troca de base não apaga a configuração
+    const jar = initial.jars[0];
+    await app.inject({
+      method: 'PUT',
+      url: '/api/jars/categories',
+      headers: auth,
+      payload: { planId: initial.planId, jarId: jar.id, categoryIds: [cat.id] },
+    });
+
+    const toPrevious = await app.inject({
+      method: 'PATCH',
+      url: `/api/jars/plan/${initial.planId}`,
+      headers: auth,
+      payload: { baseMode: 'mes_anterior' },
+    });
+    expect(toPrevious.statusCode).toBe(200);
+    const previous = await status();
+    expect(previous.planId).toBe(initial.planId);
+    expect(previous.baseMode).toBe('mes_anterior');
+    expect(previous.base).toBe('3000.00');
+    expect(previous.jars[0].categoryIds).toEqual([cat.id]);
+
+    await app.inject({
+      method: 'PATCH',
+      url: `/api/jars/plan/${initial.planId}`,
+      headers: auth,
+      payload: { baseMode: 'media_3_meses' },
+    });
+    expect((await status()).base).toBe('2000.00');
+
+    const invalid = await app.inject({
+      method: 'PATCH',
+      url: `/api/jars/plan/${initial.planId}`,
+      headers: auth,
+      payload: { baseMode: 'anual' },
+    });
+    expect(invalid.statusCode).toBe(400);
+  });
+
   it('creates transfers between accounts and records pró-labore owner withdrawals', async () => {
     const email = `transfer_user_${Date.now()}@test.com`;
     await app.inject({

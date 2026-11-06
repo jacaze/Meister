@@ -42,9 +42,9 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         type="button"
         onClick={onConfirm}
         disabled={loading}
-        className={`flex-1 min-h-[44px] px-4 py-2.5 rounded-2xl font-bold text-sm text-white flex items-center justify-center gap-2 transition disabled:opacity-50 active:scale-95 ${
+        className={`flex-1 min-h-[44px] px-4 py-2.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-50 active:scale-95 ${
           isDanger
-            ? 'bg-danger hover:brightness-110 shadow-sm'
+            ? 'bg-danger text-white hover:brightness-110 shadow-sm'
             : 'bg-primary text-on-primary hover:bg-primary-deep'
         }`}
       >

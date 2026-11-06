@@ -41,6 +41,7 @@ interface JarsStatusData {
   readonly entityId: string;
   readonly month: string;
   readonly baseMode: string;
+  readonly templateSlug?: string;
   readonly base: string;
   readonly baseInsuficiente: boolean;
   readonly jars: readonly JarItem[];
@@ -563,6 +564,8 @@ export const JarsPage: React.FC = () => {
         entityKind={entityKind}
         templates={templates}
         currentPlanName={statusData?.planName}
+        planId={statusData?.planId}
+        currentTemplateSlug={statusData?.templateSlug}
         currentBaseMode={statusData?.baseMode}
         onSaved={() => fetchJarsStatus(true)}
       />

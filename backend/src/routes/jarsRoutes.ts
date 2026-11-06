@@ -6,6 +6,7 @@ import {
   getJarsStatus,
   mapCategories,
   batchMapCategories,
+  updateJarPlanBaseMode,
   type CreateJarPlanInput,
   type MapCategoriesInput,
   type BatchMapCategoriesInput,
@@ -27,6 +28,11 @@ export async function jarsRoutes(fastify: FastifyInstance) {
   fastify.post<{ Body: CreateJarPlanInput }>('/jars/plan', async (request, reply) => {
     const plan = await createJarPlan(request.scope!, request.body ?? {});
     return reply.status(201).send(plan);
+  });
+
+  fastify.patch<{ Params: { planId: string } }>('/jars/plan/:planId', async (request, reply) => {
+    const plan = await updateJarPlanBaseMode(request.scope!, request.params.planId, request.body);
+    return reply.send(plan);
   });
 
   fastify.put<{ Body: MapCategoriesInput }>('/jars/categories', async (request, reply) => {

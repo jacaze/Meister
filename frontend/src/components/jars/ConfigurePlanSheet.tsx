@@ -5,6 +5,7 @@ import { CircleNotch } from '../ui/icons.js';
 import BeeIcon from '../brand/BeeIcon.js';
 import api from '../../api/client.js';
 import { useToast } from '../ui/Toast.js';
+import ConfirmDialog from '../ui/ConfirmDialog.js';
 import { celebrate, haptic } from '../../lib/celebrate.js';
 
 export interface JarTemplateItem {
@@ -29,6 +30,7 @@ interface ConfigurePlanSheetProps {
   readonly entityKind?: 'pj' | 'pf';
   readonly templates: readonly JarTemplate[];
   readonly currentPlanName?: string;
+  readonly planId?: string;
   readonly currentTemplateSlug?: string;
   readonly currentBaseMode?: string;
   readonly onSaved: () => void;
@@ -40,6 +42,7 @@ export const ConfigurePlanSheet: React.FC<ConfigurePlanSheetProps> = ({
   entityId,
   entityKind = 'pj',
   templates,
+  planId,
   currentTemplateSlug,
   currentBaseMode,
   onSaved,
@@ -49,6 +52,7 @@ export const ConfigurePlanSheet: React.FC<ConfigurePlanSheetProps> = ({
   const [selectedBaseMode, setSelectedBaseMode] = useState<'mes_atual' | 'mes_anterior' | 'media_3_meses'>('mes_anterior');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmReset, setConfirmReset] = useState(false);
 
   // Define template inicial inteligente baseado no tipo de entidade (PJ vs PF)
   useEffect(() => {
@@ -69,33 +73,68 @@ export const ConfigurePlanSheet: React.FC<ConfigurePlanSheetProps> = ({
     }
   }, [open, currentTemplateSlug, currentBaseMode, entityKind]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const errorMessage = (err: unknown) =>
+    err && typeof err === 'object' && 'response' in err && (err as { response?: { data?: { message?: string } } }).response?.data?.message
+      ? (err as { response: { data: { message: string } } }).response.data.message
+      : 'Falha ao configurar plano de potes.';
+
+  const finish = (message: string, big: boolean) => {
+    haptic([12, 40, 12]);
+    if (big) celebrate('big');
+    toast.success(message);
+    onSaved();
+    onClose();
+  };
+
+  // Mesmo template: só troca a base, preservando categorias e saldo acumulado.
+  const keepsTemplate = Boolean(planId && currentTemplateSlug && selectedTemplate === currentTemplateSlug);
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!selectedTemplate) {
       setError('Selecione um método de distribuição de potes.');
       return;
     }
+    if (keepsTemplate) {
+      if (selectedBaseMode === currentBaseMode) {
+        onClose();
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      try {
+        await api.patch(`/jars/plan/${planId}`, { baseMode: selectedBaseMode });
+        finish('Base de cálculo atualizada. Seus potes e categorias continuam iguais.', false);
+      } catch (err: unknown) {
+        const msg = errorMessage(err);
+        setError(msg);
+        toast.error(msg);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+    // Trocar de método recria o plano: avisa antes de apagar vínculos e saldo acumulado.
+    if (planId) {
+      setConfirmReset(true);
+      return;
+    }
+    await createPlan();
+  };
 
+  const createPlan = async () => {
     setLoading(true);
     setError(null);
-
     try {
       await api.post('/jars/plan', {
         templateSlug: selectedTemplate,
         baseMode: selectedBaseMode,
         entityId: entityId || undefined,
       });
-
-      haptic([12, 40, 12]);
-      celebrate('big');
-      toast.success('Plano de potes ativado com sucesso!');
-      onSaved();
-      onClose();
+      setConfirmReset(false);
+      finish('Plano de potes ativado com sucesso!', true);
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'response' in err && (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          ? (err as { response: { data: { message: string } } }).response.data.message
-          : 'Falha ao configurar plano de potes.';
+      const msg = errorMessage(err);
       setError(msg);
       toast.error(msg);
     } finally {
@@ -120,12 +159,13 @@ export const ConfigurePlanSheet: React.FC<ConfigurePlanSheetProps> = ({
         className="group flex-1 min-h-[44px] px-4 py-2.5 rounded-2xl bg-primary text-on-primary font-bold text-sm hover:bg-primary-deep flex items-center justify-center gap-2 transition disabled:opacity-50 active:scale-95 shadow-[var(--shadow-honey)]"
       >
         {loading ? <CircleNotch size={18} className="animate-spin" /> : <BeeIcon size={20} weight="bold" flutter />}
-        Aplicar Plano
+        {keepsTemplate ? 'Salvar' : 'Aplicar Plano'}
       </button>
     </div>
   );
 
   return (
+    <>
     <Sheet
       open={open}
       onClose={onClose}
@@ -247,6 +287,18 @@ export const ConfigurePlanSheet: React.FC<ConfigurePlanSheetProps> = ({
         </div>
       </form>
     </Sheet>
+    <ConfirmDialog
+      open={confirmReset}
+      onClose={() => setConfirmReset(false)}
+      onConfirm={createPlan}
+      loading={loading}
+      title="Trocar o método de potes?"
+      description="Um plano novo será criado com os potes desse método. As categorias vinculadas e o saldo acumulado do plano atual não passam para ele."
+      confirmLabel="Trocar método"
+      cancelLabel="Manter o atual"
+      confirmVariant="primary"
+    />
+    </>
   );
 };
 
