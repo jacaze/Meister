@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import api from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
 import { formatBRL } from '../lib/money.js';
@@ -109,7 +109,12 @@ export const JarsPage: React.FC = () => {
     return map;
   }, [categories]);
 
+  // Só a requisição mais recente pode escrever na tela (troca rápida de mês ou de entidade).
+  const latestRequestRef = useRef(0);
+  const [loadError, setLoadError] = useState(false);
+
   const fetchJarsStatus = useCallback(async (quiet = false) => {
+    const requestId = ++latestRequestRef.current;
     if (!quiet) setLoading(true);
     else setIsRefreshing(true);
 
@@ -117,13 +122,23 @@ export const JarsPage: React.FC = () => {
       const params: Record<string, string> = { month: currentMonth };
       if (activeEntityId) params.entityId = activeEntityId;
       const res = await api.get('/jars', { params });
-      setStatusData(res.data);
-    } catch (err) {
-      console.error('Erro ao buscar status dos potes:', err);
+      if (requestId === latestRequestRef.current) {
+        setStatusData(res.data);
+        setLoadError(false);
+      }
+    } catch {
+      if (requestId !== latestRequestRef.current) return;
+      // Não deixa os dados do mês anterior na tela com o rótulo do mês novo.
+      if (!quiet) {
+        setStatusData(null);
+        setLoadError(true);
+      }
       toast.error('Não foi possível carregar os potes deste mês.');
     } finally {
-      setLoading(false);
-      setIsRefreshing(false);
+      if (requestId === latestRequestRef.current) {
+        setLoading(false);
+        setIsRefreshing(false);
+      }
     }
   }, [activeEntityId, currentMonth, toast]);
 
@@ -154,13 +169,18 @@ export const JarsPage: React.FC = () => {
     setCurrentMonth(getCurrentIsoMonth());
   };
 
+  // Enquanto uma remoção não volta do servidor, os chips do pote ficam travados: a próxima
+  // remoção precisa partir da lista já atualizada, senão desfaz a anterior.
+  const [busyJarId, setBusyJarId] = useState<string | null>(null);
+
   const handleRemoveCategory = async (jarId: string, categoryIdToRemove: string) => {
-    if (!statusData) return;
+    if (!statusData || busyJarId) return;
     const targetJar = statusData.jars.find((j) => j.id === jarId);
     if (!targetJar) return;
 
     const remainingCategoryIds = targetJar.categoryIds.filter((id) => id !== categoryIdToRemove);
 
+    setBusyJarId(jarId);
     try {
       await api.put('/jars/categories', {
         planId: statusData.planId,
@@ -168,13 +188,15 @@ export const JarsPage: React.FC = () => {
         categoryIds: remainingCategoryIds,
       });
       toast.success('Categoria desvinculada do pote.');
-      fetchJarsStatus(true);
+      await fetchJarsStatus(true);
     } catch (err: unknown) {
       const msg =
         err && typeof err === 'object' && 'response' in err && (err as { response?: { data?: { message?: string } } }).response?.data?.message
           ? (err as { response: { data: { message: string } } }).response.data.message
           : 'Erro ao desvincular categoria.';
       toast.error(msg);
+    } finally {
+      setBusyJarId(null);
     }
   };
 
@@ -364,6 +386,24 @@ export const JarsPage: React.FC = () => {
             </div>
           ))}
         </div>
+      ) : loadError ? (
+        <div role="alert" className="text-center py-14 px-4 bg-card rounded-3xl ring-1 ring-ink/8 shadow-sm space-y-4">
+          <div className="flex justify-center">
+            <Mel size={72} mood="alert" />
+          </div>
+          <div className="max-w-sm mx-auto space-y-1.5">
+            <h2 className="text-lg font-extrabold text-ink">Não deu para carregar os potes</h2>
+            <p className="text-xs text-muted leading-relaxed">Verifique sua conexão e tente de novo.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => fetchJarsStatus()}
+            className="min-h-[44px] px-5 py-2.5 rounded-2xl bg-primary text-on-primary font-bold text-sm hover:bg-primary-deep transition inline-flex items-center gap-2"
+          >
+            <ArrowsClockwise size={18} weight="bold" />
+            Tentar de novo
+          </button>
+        </div>
       ) : !statusData || statusData.jars.length === 0 ? (
         /* Empty State */
         <div className="text-center py-16 px-4 bg-card rounded-3xl border border-ink/8 shadow-sm space-y-5">
@@ -539,8 +579,9 @@ export const JarsPage: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => handleRemoveCategory(jar.id, catId)}
+                              disabled={busyJarId !== null}
                               aria-label={`Desvincular categoria ${catName}`}
-                              className="text-muted hover:text-danger p-0.5 rounded transition"
+                              className="text-muted hover:text-danger p-0.5 rounded transition disabled:opacity-40 disabled:cursor-wait"
                             >
                               <X size={12} weight="bold" />
                             </button>
