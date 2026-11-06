@@ -5,8 +5,10 @@ import {
   createJarPlan,
   getJarsStatus,
   mapCategories,
+  batchMapCategories,
   type CreateJarPlanInput,
   type MapCategoriesInput,
+  type BatchMapCategoriesInput,
 } from '../modules/jars/public.js';
 
 export async function jarsRoutes(fastify: FastifyInstance) {
@@ -29,6 +31,11 @@ export async function jarsRoutes(fastify: FastifyInstance) {
 
   fastify.put<{ Body: MapCategoriesInput }>('/jars/categories', async (request, reply) => {
     const result = await mapCategories(request.scope!, request.body);
+    return reply.send(result);
+  });
+
+  fastify.put<{ Body: BatchMapCategoriesInput }>('/jars/categories/batch', async (request, reply) => {
+    const result = await batchMapCategories(request.scope!, request.body);
     return reply.send(result);
   });
 }

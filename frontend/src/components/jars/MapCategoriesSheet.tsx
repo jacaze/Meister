@@ -65,8 +65,8 @@ export const MapCategoriesSheet: React.FC<MapCategoriesSheetProps> = ({
     setError(null);
 
     try {
-      // Agrupa as categorias por jarId conforme o contrato do backend:
-      // PUT /jars/categories { planId, jarId, categoryIds }
+      // Agrupa as categorias por jarId para envio em lote atômico:
+      // PUT /jars/categories/batch { planId, mappings: [{ jarId, categoryIds }] }
       const jarToCategoryIds: Record<string, string[]> = {};
       for (const jar of jars) {
         jarToCategoryIds[jar.id] = [];
@@ -78,16 +78,15 @@ export const MapCategoriesSheet: React.FC<MapCategoriesSheetProps> = ({
         }
       }
 
-      // Dispara as chamadas em paralelo para cada pote do plano
-      await Promise.all(
-        jars.map((jar) =>
-          api.put('/jars/categories', {
-            planId,
-            jarId: jar.id,
-            categoryIds: jarToCategoryIds[jar.id] || [],
-          })
-        )
-      );
+      const batchMappings = jars.map((jar) => ({
+        jarId: jar.id,
+        categoryIds: jarToCategoryIds[jar.id] || [],
+      }));
+
+      await api.put('/jars/categories/batch', {
+        planId,
+        mappings: batchMappings,
+      });
 
       haptic([12, 40, 12]);
       celebrate('small');

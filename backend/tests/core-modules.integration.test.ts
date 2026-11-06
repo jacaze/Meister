@@ -294,6 +294,37 @@ describe('Core Modules Integration Suite (PostgreSQL 16)', () => {
       where: { jarId: necessidades.id },
     });
     expect(mappedCount).toBe(0);
+
+    // Test batch mapping & foreign category rejection (IDOR protection)
+    const fakeCategoryId = 'cat_fake_123456789';
+    const rejectRes = await app.inject({
+      method: 'PUT',
+      url: '/api/jars/categories/batch',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planId: jarsStatus.planId,
+        mappings: [{ jarId: necessidades.id, categoryIds: [fakeCategoryId] }],
+      },
+    });
+    expect(rejectRes.statusCode).toBe(400);
+
+    // Valid batch mapping
+    const batchRes = await app.inject({
+      method: 'PUT',
+      url: '/api/jars/categories/batch',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planId: jarsStatus.planId,
+        mappings: [
+          { jarId: necessidades.id, categoryIds: [catRec.id] },
+        ],
+      },
+    });
+    expect(batchRes.statusCode).toBe(200);
+    const batchCount = await prisma.jarCategory.count({
+      where: { jarId: necessidades.id },
+    });
+    expect(batchCount).toBe(1);
   });
 
   it('creates transfers between accounts and records pró-labore owner withdrawals', async () => {
