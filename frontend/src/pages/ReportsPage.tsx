@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { motion } from 'motion/react';
 import api from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
@@ -103,7 +103,13 @@ export const ReportsPage: React.FC = () => {
 
   const isPj = currentEntity?.kind === 'pj';
 
+  // Só a carga mais recente escreve na tela: trocar de período no meio de uma busca longa
+  // (até 50 páginas no "Ano") não pode deixar números de outro filtro.
+  const reportsRequestRef = useRef(0);
+
   const fetchReports = useCallback(async (quiet = false) => {
+    const requestId = ++reportsRequestRef.current;
+    const isStale = () => requestId !== reportsRequestRef.current;
     if (!quiet) setLoading(true);
     else setIsRefreshing(true);
 
@@ -119,6 +125,7 @@ export const ReportsPage: React.FC = () => {
         },
       });
 
+      if (isStale()) return;
       const dashData = summaryRes.data || {};
       const periodo = dashData.periodo || {};
       const rec = Number(periodo.totalEntradas ?? 0);
@@ -132,9 +139,14 @@ export const ReportsPage: React.FC = () => {
       // 2. Fetch DAS totals if PJ/MEI
       if (isPj) {
         try {
+          // O card é "quitado no ano corrente": sem year, o backend soma todos os anos.
           const dasRes = await api.get('/das', {
-            params: activeEntityId ? { entityId: activeEntityId } : undefined,
+            params: {
+              year: new Date().getFullYear(),
+              ...(activeEntityId ? { entityId: activeEntityId } : {}),
+            },
           });
+          if (isStale()) return;
           setDasPago(parseFloat(dasRes.data?.totais?.pago || '0'));
         } catch {
           setDasPago(0);
@@ -184,6 +196,7 @@ export const ReportsPage: React.FC = () => {
       }
 
       const trendResults = await Promise.all(monthPromises);
+      if (isStale()) return;
       setMonthlyTrends(trendResults);
 
       // 4. Fetch all transactions respecting the selected period to compute category breakdown & pró-labore without truncation
@@ -204,6 +217,7 @@ export const ReportsPage: React.FC = () => {
             ...(activeEntityId ? { entityId: activeEntityId } : {}),
           },
         });
+        if (isStale()) return;
 
         const items: readonly ReportTransactionItem[] = txRes.data?.items || [];
         allTxItems.push(...items);
@@ -267,8 +281,10 @@ export const ReportsPage: React.FC = () => {
     } catch (err) {
       console.error('Erro ao buscar dados dos relatórios:', err);
     } finally {
-      setLoading(false);
-      setIsRefreshing(false);
+      if (!isStale()) {
+        setLoading(false);
+        setIsRefreshing(false);
+      }
     }
   }, [activeEntityId, isPj, selectedPeriod]);
 

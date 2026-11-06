@@ -221,7 +221,8 @@ export const TransactionsPage: React.FC = () => {
       setFetchError(msg);
       setTransactions([]);
     } finally {
-      setLoading(false);
+      // Uma requisição abortada não pode tirar o skeleton enquanto a nova ainda está carregando.
+      if (abortControllerRef.current === controller) setLoading(false);
     }
   }, [activeEntityId, typeFilter, debouncedSearch, selectedCategory, selectedPaymentMethod, startDate, endDate]);
 
