@@ -42,6 +42,7 @@ interface Transaction {
   readonly entityId?: string | null;
   readonly viaPersonalAccount?: boolean;
   readonly transferGroupId?: string | null;
+  readonly transferType?: string | null;
   readonly category?: {
     readonly id: string;
     readonly name: string;

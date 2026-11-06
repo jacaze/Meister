@@ -189,11 +189,15 @@ export const ReportsPage: React.FC = () => {
 
       for (const tx of txItems) {
         const amt = parseFloat(tx.amount) || 0;
+        const isTransfer = tx.transferType === 'transfer';
         const isProLabore =
-          tx.category?.slug === 'pro-labore' ||
-          Boolean(tx.transferGroupId) ||
-          tx.description?.toLowerCase().includes('pró-labore') ||
-          tx.description?.toLowerCase().includes('retirada');
+          tx.transferType === 'pro_labore' ||
+          tx.category?.slug === 'pro-labore';
+
+        if (isTransfer) {
+          // Transferências entre contas próprias não são despesas operacionais nem pró-labore
+          continue;
+        }
 
         if (isProLabore) {
           ownerWithdrawals += amt;
