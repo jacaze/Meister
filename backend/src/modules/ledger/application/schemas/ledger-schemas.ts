@@ -7,15 +7,15 @@ export const createSplitSchema = z.object({
 });
 
 export const createTransactionSchema = z.object({
-  entityId: z.string().uuid().optional(),
+  entityId: z.string().optional(),
   type: z.enum(['receita', 'despesa', 'transferencia', 'aporte', 'retirada']),
   amount: z.union([z.string(), z.number()]),
   description: z.string().min(1, 'A descrição da transação é obrigatória').max(255, 'A descrição pode ter no máximo 255 caracteres'),
   occurredOn: z.string().optional(),
   transactionDate: z.string().optional(),
-  categoryId: z.string().uuid().nullable().optional(),
+  categoryId: z.string().nullable().optional(),
   splits: z.array(createSplitSchema).optional(),
-  financialAccountId: z.string().uuid().nullable().optional(),
+  financialAccountId: z.string().nullable().optional(),
   paymentMethod: z.enum(['dinheiro', 'pix', 'cartao_credito', 'cartao_debito', 'boleto', 'outro']).nullable().optional(),
   origin: z.enum(['manual', 'open_finance', 'importacao', 'telegram']).optional(),
   status: z.enum(['confirmado', 'pendente_revisao']).optional(),
@@ -27,7 +27,7 @@ export const updateTransactionSchema = z.object({
   description: z.string().min(1).max(255).optional(),
   amount: z.union([z.string(), z.number()]).optional(),
   type: z.enum(['receita', 'despesa']).optional(),
-  categoryId: z.string().uuid().nullable().optional(),
+  categoryId: z.string().nullable().optional(),
   paymentMethod: z.enum(['dinheiro', 'pix', 'cartao_credito', 'cartao_debito', 'boleto', 'outro']).nullable().optional(),
   transactionDate: z.string().optional(),
   status: z.enum(['confirmado', 'pendente_revisao']).optional(),
