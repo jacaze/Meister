@@ -397,7 +397,7 @@ describe('Core Modules Integration Suite (PostgreSQL 16)', () => {
     const pfEntity = wsOverview.entities.find((e: { kind: string }) => e.kind === 'pf');
     const pjEntity = wsOverview.entities.find((e: { kind: string }) => e.kind === 'pj');
 
-    // Create 2 accounts in the database for transfer testing
+    // Create 3 accounts in the database for transfer testing (2 PJ, 1 PF)
     const accFrom = await prisma.financialAccount.create({
       data: {
         workspaceId: wsOverview.workspace.id,
@@ -406,7 +406,15 @@ describe('Core Modules Integration Suite (PostgreSQL 16)', () => {
         name: 'Conta PJ Nubank',
       },
     });
-    const accTo = await prisma.financialAccount.create({
+    const accToSameEntity = await prisma.financialAccount.create({
+      data: {
+        workspaceId: wsOverview.workspace.id,
+        entityId: pjEntity.id,
+        kind: 'banco',
+        name: 'Conta PJ Caixa',
+      },
+    });
+    const accToPf = await prisma.financialAccount.create({
       data: {
         workspaceId: wsOverview.workspace.id,
         entityId: pfEntity.id,
@@ -415,17 +423,33 @@ describe('Core Modules Integration Suite (PostgreSQL 16)', () => {
       },
     });
 
-    // Execute transfer
+    // Test rejection: Transfer from PJ to PF must be blocked and guided to owner withdrawals
+    const rejectedTransferRes = await app.inject({
+      method: 'POST',
+      url: '/api/transfers',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        fromAccountId: accFrom.id,
+        toAccountId: accToPf.id,
+        amount: '1500.00',
+        occurredOn: '2026-11-02',
+        description: 'Transferência direta PJ para PF inválida',
+      },
+    });
+    expect(rejectedTransferRes.statusCode).toBe(400);
+    expect(rejectedTransferRes.json().message).toContain('Pró-labore');
+
+    // Execute valid transfer between accounts of the same entity or PF->PF / PF->PJ
     const transferRes = await app.inject({
       method: 'POST',
       url: '/api/transfers',
       headers: { authorization: `Bearer ${token}` },
       payload: {
         fromAccountId: accFrom.id,
-        toAccountId: accTo.id,
+        toAccountId: accToSameEntity.id,
         amount: '1500.00',
         occurredOn: '2026-11-02',
-        description: 'Transferência de caixa',
+        description: 'Transferência de caixa PJ',
       },
     });
     expect(transferRes.statusCode).toBe(201);

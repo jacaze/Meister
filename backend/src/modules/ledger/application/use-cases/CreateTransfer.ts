@@ -35,14 +35,23 @@ export async function createTransfer(
   const [fromAccount, toAccount] = await Promise.all([
     prisma.financialAccount.findFirst({
       where: { id: input.fromAccountId, workspaceId: scope.workspaceId },
+      include: { entity: true },
     }),
     prisma.financialAccount.findFirst({
       where: { id: input.toAccountId, workspaceId: scope.workspaceId },
+      include: { entity: true },
     }),
   ]);
 
   if (!fromAccount || !toAccount) {
     throw new NotFoundError('Conta de origem ou destino não encontrada no workspace');
+  }
+
+  // Regra unificada de pró-labore: Transferências de PJ para PF devem ser registradas como Pró-labore
+  if (fromAccount.entity?.kind === 'pj' && toAccount.entity?.kind === 'pf') {
+    throw new ValidationError(
+      'Transferências da conta PJ para a conta PF devem ser registradas como Pró-labore na rota de retiradas de titular'
+    );
   }
 
   let localDate: LocalDate;
