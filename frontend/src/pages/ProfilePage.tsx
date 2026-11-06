@@ -374,24 +374,34 @@ export const ProfilePage: React.FC = () => {
 
             {/* Atividade Principal */}
             <div>
-              <label className="block text-xs font-bold text-ink uppercase tracking-wider mb-2">
+              <span id="activity-label" className="block text-xs font-bold text-ink uppercase tracking-wider mb-2">
                 Atividade Principal (Regulamenta o valor do DAS mensal)
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {[
+              </span>
+              <div role="radiogroup" aria-labelledby="activity-label" className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {([
                   { id: 'comercio', title: 'Comércio / Indústria', detail: 'ICMS (+ R$ 1,00)' },
                   { id: 'servicos', title: 'Serviços', detail: 'ISS (+ R$ 5,00)' },
                   { id: 'misto', title: 'Comércio & Serviços', detail: 'ICMS + ISS (+ R$ 6,00)' },
-                ].map((act) => {
+                ] as const).map((act) => {
                   const isSelected = activity === act.id;
                   return (
                     <div
                       key={act.id}
+                      role="radio"
+                      aria-checked={isSelected}
+                      tabIndex={0}
                       onClick={() => {
-                        setActivity(act.id as any);
+                        setActivity(act.id);
                         setIsFormDirty(true);
                       }}
-                      className={`p-3.5 rounded-2xl border cursor-pointer transition ${
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setActivity(act.id);
+                          setIsFormDirty(true);
+                        }
+                      }}
+                      className={`p-3.5 rounded-2xl border cursor-pointer transition focus-visible:outline-2 focus-visible:outline-primary-deep ${
                         isSelected
                           ? 'bg-card border-brand shadow-sm ring-1 ring-brand'
                           : 'bg-canvas border-ink/10 hover:border-ink/20'
