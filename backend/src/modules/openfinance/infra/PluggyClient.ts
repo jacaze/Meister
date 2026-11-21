@@ -118,9 +118,10 @@ export class PluggyClient implements BankingAggregator {
   async createConnectToken(options?: { clientUserId?: string }): Promise<string> {
     const apiKey = await this.getApiKey();
 
+    // A Pluggy só grava o clientUserId no item quando ele vem em `options`
     const body: Record<string, unknown> = {};
     if (options?.clientUserId) {
-      body.clientUserId = options.clientUserId;
+      body.options = { clientUserId: options.clientUserId };
     }
 
     const res = await this.fetchWithTimeout(`${this.baseUrl}/connect_token`, {
