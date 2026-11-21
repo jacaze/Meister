@@ -10,12 +10,13 @@ O serviço `api` do `docker-compose.yml` só recebe `NODE_ENV`, `PORT`, `HOST`, 
 `JWT_SECRET`, `CORS_ORIGINS`, `APP_URL` e `INTERNAL_TICK_SECRET`. As chaves das integrações
 **não chegam ao container**:
 
-- `PLUGGY_CLIENT_ID`, `PLUGGY_CLIENT_SECRET`, `PLUGGY_WEBHOOK_SECRET`
+- `PLUGGY_CLIENT_ID`, `PLUGGY_CLIENT_SECRET`, `PLUGGY_WEBHOOK_SECRET` (e `PLUGGY_BASE_URL`, lida opcionalmente em `backend/src/modules/openfinance/infra/PluggyClient.ts:29`)
 - `GEMINI_API_KEY`, `LLM_MODEL`, `NARRATION_MODE`
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_MODE`, `TELEGRAM_WEBHOOK_SECRET`
-- `EMAIL_PROVIDER`, `EMAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`
 - `JWT_ACCESS_TTL`, `REFRESH_TTL_DAYS`, `LOCK_TIME_MINUTES`, `LOGIN_MAX_ATTEMPTS_*`, `REQUIRE_EMAIL_VERIFICATION`
 - `MEI_ANNUAL_LIMIT`, `DEFAULT_TIMEZONE`, `DEMO_MODE`
+
+> **Nota sobre e-mail:** `EMAIL_PROVIDER`, `EMAIL_FROM`, `SMTP_HOST` e `SMTP_PORT` constam no `.env.example`, mas **não** são lidas pelo backend (não há envio de e-mail transacional implementado). Por isso, não devem ser repassadas no compose até que o backend implemente esse recurso.
 
 Como todas são opcionais no `backend/src/shared/env.ts`, a API sobe "saudável" com Open Finance,
 IA e Telegram desligados, sem erro nenhum. Em produção isso passa despercebido.
@@ -33,7 +34,7 @@ IA e Telegram desligados, sem erro nenhum. Em produção isso passa despercebido
    Alternativa aceitável: `env_file: .env` + sobrescrever só `DATABASE_URL` (que precisa apontar para `db`).
    Escolha uma e justifique no PR.
 2. Crie um `docker-compose.prod.yml` (ou documente no README) com o que muda em produção:
-   `NODE_ENV=production`, `TELEGRAM_MODE=webhook`, `EMAIL_PROVIDER` real, `DEMO_MODE=false`.
+   `NODE_ENV=production`, `TELEGRAM_MODE=webhook` (nota: hoje atua apenas na validação de `env.ts`; a alternância polling/webhook em runtime é pendência do backend), `DEMO_MODE=false`.
 3. **Pedir ao Backend** (não implemente se for `backend/src/**`): um aviso no log de boot, sem
    valores, dizendo quais integrações estão desligadas por falta de variável. Ex.:
    `integrações desligadas: pluggy, telegram`. Registre isso no PR como pendência para o agente de backend.

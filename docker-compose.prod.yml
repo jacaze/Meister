@@ -1,0 +1,8 @@
+services:
+  api:
+    environment:
+      NODE_ENV: production
+      # Atualmente validado em backend/src/shared/env.ts (exige TELEGRAM_WEBHOOK_SECRET quando TELEGRAM_BOT_TOKEN está definido).
+      # A alternância efetiva entre polling e webhook em runtime ainda é pendência do backend.
+      TELEGRAM_MODE: webhook
+      DEMO_MODE: "false"

@@ -24,7 +24,8 @@ Não existe forma de servir o frontend em produção:
 2. Serviço `proxy` (Caddy) no compose de produção:
    - `https://<dominio>` → arquivos do frontend.
    - `/api/*` → `api:3000` (sem remover o prefixo, o backend já registra com `/api`).
-   - Rota do webhook do Telegram → `api:3000`. Confira o caminho exato em `telegramWebhookRoute`.
+   - `/health/ready` fica fora de `/api` (`backend/src/app.ts`) — o proxy precisa encaminhá-lo para `api:3000` ou o teste de fumaça deve chamar a API diretamente.
+   - Rota do webhook do Telegram (`POST /telegram/webhook`) → `api:3000`.
    - TLS automático (Let's Encrypt) via variável `DOMAIN`.
    - Cabeçalhos de segurança (HSTS etc.) sem duplicar o que o `helmet` do backend já envia.
 3. Ajuste `APP_URL` e `CORS_ORIGINS` para o domínio público. Com o mesmo domínio, o CORS fica
@@ -40,7 +41,7 @@ Teste de fumaça (`scripts/smoke-prod.sh`), rodando contra o compose de produç�
 
 - `GET /` → 200 com o HTML do app.
 - `GET /rota-qualquer-do-spa` → 200 com o mesmo `index.html`.
-- `GET /api/health/ready` → 200.
+- `GET /health/ready` → 200 (rota fora de `/api`: encaminhada pelo proxy ou chamada direto na API).
 - `POST` na rota do webhook do Telegram sem o segredo → 401/403 (prova que chega ao backend).
 
 Hoje o script falha por não haver serviço nenhum. Cole a saída no PR.
@@ -49,6 +50,6 @@ Hoje o script falha por não haver serviço nenhum. Cole a saída no PR.
 
 - [ ] `docker compose -f docker-compose.yml -f docker-compose.prod.yml up` sobe proxy, frontend, api, db e migrate.
 - [ ] Smoke test verde.
-- [ ] Login funciona pelo domínio (cookie de refresh com `Secure` em HTTPS: confira).
+- [ ] Login funciona pelo domínio em HTTPS (autenticação atual usa Bearer token em `localStorage`; não há cookie de refresh implementado).
 - [ ] README/`docs/deploy.md` com o passo a passo.
 - [ ] Tabela do `README.md` desta pasta atualizada.
