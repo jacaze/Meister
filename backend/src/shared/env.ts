@@ -23,6 +23,26 @@ const envSchema = z
     NODE_ENV: z.enum(['development', 'test', 'staging', 'production']).default('development'),
     PORT: z.coerce.number().int().min(1).max(65535).default(3000),
     HOST: z.string().min(1).default('0.0.0.0'),
+    // Proxies reversos confiáveis (IP, CIDR ou loopback/linklocal/uniquelocal), separados por vírgula.
+    // Vazio = não confia em X-Forwarded-For. Número de saltos não é aceito: o Fastify o ignora.
+    TRUST_PROXY: z
+      .string()
+      .optional()
+      .default('')
+      .transform((s) =>
+        s
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean)
+      )
+      .refine(
+        (items) => items.every((item) => /^(loopback|linklocal|uniquelocal|[0-9a-fA-F:.]+(\/\d{1,3})?)$/.test(item)),
+        'TRUST_PROXY aceita IPs, CIDRs ou loopback/linklocal/uniquelocal separados por vírgula'
+      )
+      .refine(
+        (items) => items.every((item) => !/^\d+$/.test(item)),
+        'TRUST_PROXY não aceita número de saltos; informe o IP/CIDR do proxy (ex.: uniquelocal)'
+      ),
     APP_URL: z.string().url().default('http://localhost:5173'),
     CORS_ORIGINS: z
       .string()

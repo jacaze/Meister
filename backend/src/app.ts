@@ -36,6 +36,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   const env = options.env ?? parseEnv(process.env);
   const fastify = Fastify({
     logger: options.logger ?? env.NODE_ENV !== 'test',
+    trustProxy: env.TRUST_PROXY.length > 0 ? env.TRUST_PROXY : false,
     bodyLimit: 10 * 1024 * 1024, // 10 MB for receipt images
   });
 
