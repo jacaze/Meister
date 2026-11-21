@@ -21,7 +21,7 @@ export async function complianceRoutes(fastify: FastifyInstance) {
     const scope = request.scope!;
     const body = recordConsentSchema.parse(request.body);
 
-    const ip = (request.headers['x-forwarded-for'] as string) || request.ip;
+    const ip = request.ip;
     const result = await recordConsent(scope, {
       kind: body.kind as ConsentKind,
       version: body.version,
