@@ -52,3 +52,14 @@ Feito pelo humano:
 - [ ] Humano conectou uma conta real via MeuPluggy e viu transações na Caixa de Revisão
       (anotar data e banco no PR, **sem** valores ou dados pessoais).
 - [ ] Tabela do `README.md` desta pasta atualizada.
+
+## Como foi resolvido (2026-11-21)
+
+- `backend/src/shared/env.ts`: `PLUGGY_BASE_URL` validada (URL completa; `https` fora de dev/test; vazia
+  conta como ausente) e par `PLUGGY_CLIENT_ID`/`PLUGGY_CLIENT_SECRET` obrigatório fora de dev/test.
+  Testes em `backend/src/shared/__tests__/env-pluggy.test.ts`.
+- `PLUGGY_BASE_URL` adicionada ao `.env.example`. **Agente da tarefa 02:** repasse-a no compose com `${PLUGGY_BASE_URL:-}`.
+- `docs/openfinance.md` escrito.
+- **Falta (humano):** conectar uma conta real via MeuPluggy e anotar aqui a data e o banco, sem valores.
+- Achado para tarefa futura: `DELETE /api/openfinance/connections/:id` não remove o item na Pluggy
+  (o consentimento continua ativo lá). Registrado em `docs/openfinance.md`.
