@@ -19,7 +19,7 @@ O app oferece **quatro situações** no primeiro acesso e cria as entidades cert
 | **Pessoa sozinha** | 1 PF |
 | **MEI/autônomo sozinho** | 1 PF + o negócio: **PJ** (MEI ou outra) **ou atividade autônoma** |
 | **Casal ou família sem negócio** | PF de quem cadastra + convite para o cônjuge (tarefa 15) + a casa compartilhada |
-| **Casal com negócio(s)** | Igual ao anterior + o negócio de cada um (ex.: ela com clínica PJ, ele autônomo) |
+| **Casal com negócio(s)** | Igual ao anterior + o negócio de cada um (ex.: ela com uma clínica PJ, ele autônomo; qualquer combinação de PJ e autônomo, para qualquer um dos dois) |
 
 **Autônomo sem CNPJ = atividade separada:** entidade própria ligada à PF da pessoa, com receitas e despesas do trabalho
 separadas do pessoal (útil para carnê-leão/IR), **sem** regras de MEI (sem limite anual, sem DAS).
@@ -39,7 +39,7 @@ separadas do pessoal (útil para carnê-leão/IR), **sem** regras de MEI (sem li
 ## Testes que devem falhar antes
 
 - Integração: cadastro "MEI/autônomo sozinho" com negócio `autonomo` → PF + entidade `autonomo`, sem DAS gerado.
-- Integração: "casal com negócio" com clínica `pj` → PF + PJ do dono do cadastro; convite pendente para o cônjuge (se a 15 existir).
+- Integração: "casal com negócio" com uma empresa `pj` de qualquer ramo → PF + PJ do dono do cadastro; convite pendente para o cônjuge (se a 15 existir).
 - Integração: trocar `individual` → `negocio` adiciona a PJ sem perder lançamentos.
 - Migração: workspace antigo com PJ vira `negocio`; sem PJ vira `individual`.
 

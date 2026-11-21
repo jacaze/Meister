@@ -12,6 +12,10 @@ autônomo), mas também serve para casais e famílias sem negócio. O app precis
 se ela usa o cartão pessoal dele para comprar algo para a clínica, o gasto é da clínica e a clínica fica devendo a ele
 (tarefa 18). No primeiro acesso o app pergunta qual é o caso e se autoconfigura (tarefa 17).
 
+> **Os exemplos são ilustrativos.** "Clínica" é só um caso: pode ser qualquer empresa (MEI ou outra PJ) ou atividade
+> autônoma, de qualquer pessoa da família, em qualquer direção (ele pagando pela empresa dela, ela pela dele, a empresa
+> pagando algo pessoal). Nada no código pode depender de ramo de atividade, gênero ou de quem é o dono.
+
 ## Decisões do dono (entrevista de 2026-11-21)
 
 | Tema | Decisão |

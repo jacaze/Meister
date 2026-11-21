@@ -11,13 +11,18 @@ de outra, o app só guarda um sim/não, `viaPersonalAccount` (`backend/prisma/sc
 "mistura PF/PJ" (`insights/infra/PrismaFinancialSnapshotReader.ts:147`). Não sabe **de quem** era o cartão nem que surgiu
 uma dívida entre as entidades.
 
-Exemplo do dono: a esposa compra material da **clínica (PJ dela)** com o **cartão pessoal do marido (PF dele)**.
-O gasto é da clínica; o dinheiro saiu do marido; a clínica fica devendo ao marido.
+Exemplo do dono: a esposa compra material da **empresa dela** (no exemplo, uma clínica) com o **cartão pessoal do marido
+(PF dele)**. O gasto é da empresa; o dinheiro saiu do marido; a empresa fica devendo ao marido.
+
+> **Os exemplos são ilustrativos.** "Clínica" é só um caso: pode ser qualquer empresa (MEI ou outra PJ) ou atividade
+> autônoma, de qualquer pessoa da família, em qualquer direção (ele pagando pela empresa dela, ela pela dele, a empresa
+> pagando algo pessoal). Nada no código pode depender de ramo de atividade, gênero ou de quem é o dono.
+
 
 ## Decisões do dono (2026-11-21)
 
 - **Registra e cobra o acerto:** a despesa entra na entidade dona do gasto, o pagamento sai da conta que pagou, e o app
-  mostra "clínica deve R$ X ao marido" até alguém marcar como acertado (transferência ou abatimento).
+  mostra "<entidade devedora> deve R$ X a <entidade credora>" (ex.: "Clínica deve R$ X ao João") até alguém marcar como acertado (transferência ou abatimento).
 - **Qualquer um dos dois classifica:** compra importada de uma conta **compartilhada** aparece na Caixa de Revisão dos
   dois; quem souber diz de quem é o gasto e o outro vê o resultado. Conta **pessoal** continua visível só para o dono,
   que pode classificar o gasto como de outra entidade (gera o acerto do mesmo jeito).
@@ -38,7 +43,7 @@ O gasto é da clínica; o dinheiro saiu do marido; a clínica fica devendo ao ma
    - Insight de "mistura PF/PJ" passa a ler os acertos em vez de `viaPersonalAccount`.
    - Dinheiro em `Money` (centavos); somatórios por par de entidades sem float.
 3. **Frontend:** no lançamento e na Caixa de Revisão, além de "de quem é", mostrar "pago com" (padrão: a conta de onde
-   veio). Quando forem diferentes, aviso "vai gerar um acerto". Tela de acertos: "Clínica deve R$ X a Fulano", com
+   veio). Quando forem diferentes, aviso "vai gerar um acerto". Tela de acertos: "<entidade> deve R$ X a <entidade>", com
    "Marcar como acertado".
 
 ## Testes que devem falhar antes
@@ -52,5 +57,6 @@ O gasto é da clínica; o dinheiro saiu do marido; a clínica fica devendo ao ma
 ## Critério de pronto
 
 - [ ] Testes acima falharam antes e passam depois; Gate 0 verde; mutação ≥ 80% no módulo novo.
-- [ ] O exemplo da clínica funciona de ponta a ponta no ambiente local.
+- [ ] Os cenários funcionam de ponta a ponta no ambiente local em mais de uma direção: PF de um pagando pela empresa
+      do outro, empresa pagando despesa pessoal, e empresa de um pagando pela empresa do outro.
 - [ ] Tabela do `README.md` desta pasta atualizada.
