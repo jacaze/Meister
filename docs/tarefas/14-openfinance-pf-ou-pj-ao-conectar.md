@@ -57,3 +57,15 @@ existir, atividade autônoma e as entidades do cônjuge), não só "PF/PJ" fixo.
 - [ ] Testes acima falharam antes e passam depois; Gate 0 verde.
 - [ ] Reconectar o MeuPluggy no ambiente local, marcar o Santander como PF e aprovar um lançamento: ele aparece na visão PF.
 - [ ] Tabela do `README.md` desta pasta atualizada.
+
+## Como foi resolvido (2026-11-21)
+
+- Conta nova: entidade do corpo (agora **validada** no workspace — antes aceitava entidade de outro workspace), senão PF
+  quando não há PJ, senão **sem entidade**. Conta existente mantém a entidade (sincronizar não desfaz a escolha).
+- `connect-item` devolve `accounts: [{ id, name, kind, entityId }]`; `GET /connections` inclui `entityId` nas contas.
+- `PATCH /api/openfinance/bank-accounts/:id` `{ entityId }` (404 para conta ou entidade de outro workspace).
+- Aprovação sem `entityId` usa a entidade da conta; conta sem entidade → 400 `ACCOUNT_ENTITY_REQUIRED` (usei o
+  `ValidationError` existente, 400, em vez de 422). Extrato OFX/CSV não tem conta e segue o padrão do ledger.
+- Frontend: folha "De quem são estas contas?" depois do widget e botão em cada conta da lista de bancos
+  ("Definir dono" em vermelho quando falta). Textos de entidade vêm de `lib/bankAccountEntity.ts`.
+- Não feito: aviso na Caixa de Revisão por item. O erro da aprovação já explica e a lista de bancos destaca a conta sem dono.
