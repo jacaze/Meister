@@ -21,6 +21,12 @@ describe('Env — Pluggy', () => {
     );
   });
 
+  it('em produção trata PLUGGY_CLIENT_SECRET só com espaços como ausente', () => {
+    expect(() => parseEnv({ ...prod, PLUGGY_CLIENT_ID: 'client-id', PLUGGY_CLIENT_SECRET: '   ' })).toThrow(
+      /PLUGGY_CLIENT_SECRET/
+    );
+  });
+
   it('em staging também recusa credencial pela metade', () => {
     expect(() => parseEnv({ ...base, NODE_ENV: 'staging', PLUGGY_CLIENT_ID: 'client-id' })).toThrow(
       /PLUGGY_CLIENT_SECRET/
