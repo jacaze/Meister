@@ -41,3 +41,18 @@ Unitário no padrão do teste existente `PluggyClient fetches v2 transactions wi
 - [ ] Testes falharam antes e passam depois.
 - [ ] Conexão vai para `status: 'erro'` com `lastError` quando a importação não completa.
 - [ ] Gate 0 verde; tabela do `README.md` desta pasta atualizada.
+
+## Como foi resolvido (2026-11-21)
+
+- **Não existe `pageSize` no `/v2/transactions`.** A documentação da Pluggy não lista o parâmetro; o padrão é
+  500 transações por página, e `next` é a query string pronta da próxima página (ou `null`). O teto antigo
+  era 10 páginas = 5.000 transações por conta, devolvidas como se fossem todas.
+- `PluggyClient.fetchTransactions`: teto configurável (`maxPages`, padrão 200 = 100 mil por conta). Ao
+  atingi-lo com página seguinte pendente, lança `ExternalServiceError` (503) em vez de devolver lista parcial.
+- `connectPluggyItem` busca **todas** as contas e transações antes de gravar. Se qualquer busca falhar, nada é
+  gravado e a conexão fica `status: 'erro'` com `lastError` genérico. Sucesso volta para `ativa` e limpa o erro.
+- `lastSyncAt` agora só é gravado quando a importação conclui. **Tarefa 08:** use esse campo para escolher
+  conexões a sincronizar; uma falha não adia a próxima tentativa.
+- Testes: `backend/src/modules/openfinance/__tests__/pluggy-pagination.test.ts` e
+  `backend/tests/openfinance-paginacao.integration.test.ts`.
+- Pendente (não bloqueia): `GET /api/openfinance/connections` não devolve `lastError`; a tela mostra só o status.

@@ -27,7 +27,7 @@ antes e critério de pronto.
 | 03 | [Publicar o frontend com proxy reverso e HTTPS](03-deploy-frontend-proxy-https.md) | DevOps | 🔴 bloqueador | PENDENTE |
 | 04 | [Promover `develop` → `main` (release)](04-git-promover-develop-para-main.md) | Humano | 🔴 bloqueador | PENDENTE |
 | 05 | [Ativar a Pluggy com conta real (MeuPluggy e produção)](05-pluggy-conta-real.md) | Humano + Backend (doc) | 🔴 bloqueador para testar | FEITA (código e doc); falta o teste com MeuPluggy pelo humano |
-| 06 | [Paginação da Pluggy sem corte silencioso](06-pluggy-paginacao-sem-corte.md) | QA → Backend | 🟡 | PENDENTE |
+| 06 | [Paginação da Pluggy sem corte silencioso](06-pluggy-paginacao-sem-corte.md) | QA → Backend | 🟡 | FEITA |
 | 07 | [Valores da Pluggy convertidos com `Money`, sem float](07-pluggy-valores-com-money.md) | QA → Backend | 🟡 | PENDENTE |
 | 08 | [Rotina interna agendada (tick): DAS e sincronização bancária](08-rotina-interna-tick.md) | QA → Backend → DevOps | 🟡 | PENDENTE |
 | 09 | [Webhook da Pluggy](09-pluggy-webhook.md) | QA → Backend | 🟡 | BLOQUEADA até 03 e 08 |

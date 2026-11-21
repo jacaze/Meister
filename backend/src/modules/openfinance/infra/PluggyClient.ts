@@ -4,7 +4,7 @@ import type {
   PluggyItemInfo,
   PluggyTransactionInfo,
 } from '../application/ports/BankingAggregator.js';
-import { NotFoundError, ValidationError } from '../../../shared/index.js';
+import { ExternalServiceError, NotFoundError, ValidationError } from '../../../shared/index.js';
 
 interface AuthCache {
   apiKey: string;
@@ -17,12 +17,14 @@ export class PluggyClient implements BankingAggregator {
   private readonly clientSecret?: string;
   private authCache: AuthCache | null = null;
   private readonly timeoutMs: number;
+  private readonly maxPages: number;
 
   constructor(options?: {
     clientId?: string;
     clientSecret?: string;
     baseUrl?: string;
     timeoutMs?: number;
+    maxPages?: number;
   }) {
     // Mesma leitura do env.ts: só espaços conta como ausente; sem barra final para não gerar "//auth"
     this.clientId = options?.clientId || process.env.PLUGGY_CLIENT_ID?.trim() || undefined;
@@ -32,6 +34,8 @@ export class PluggyClient implements BankingAggregator {
       ''
     );
     this.timeoutMs = options?.timeoutMs || 15000;
+    // /v2/transactions devolve 500 por página: 200 páginas = 100 mil transações por conta
+    this.maxPages = options?.maxPages || 200;
   }
 
   private async fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
@@ -226,9 +230,14 @@ export class PluggyClient implements BankingAggregator {
 
     let nextPath: string | null = `/v2/transactions?${params.toString()}`;
     let pageCount = 0;
-    const maxPages = 10;
 
-    while (nextPath && pageCount < maxPages) {
+    while (nextPath) {
+      if (pageCount >= this.maxPages) {
+        // Lista parcial importaria o extrato pela metade sem ninguém saber
+        throw new ExternalServiceError(
+          `A Pluggy devolveu mais de ${this.maxPages} páginas de transações; importação interrompida.`
+        );
+      }
       pageCount++;
       const url = nextPath.startsWith('http')
         ? nextPath

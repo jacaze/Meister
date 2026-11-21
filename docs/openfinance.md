@@ -90,5 +90,6 @@ Detalhes que importam:
 
 - `DELETE /api/openfinance/connections/:id` remove a conexão só no MEIster; o item continua existindo na
   Pluggy (o consentimento não é revogado lá).
-- Importação de contas com muitas transações pode vir cortada (tarefa 06).
+- Importação que não conclui (erro da Pluggy ou mais de 200 páginas por conta) não grava nada: a conexão
+  fica com `status: 'erro'` e a próxima sincronização tenta de novo.
 - Valores convertidos com float (tarefa 07).
