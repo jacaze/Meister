@@ -34,6 +34,7 @@ antes e critério de pronto.
 | 10 | [`DEMO_MODE`: remover ou implementar](10-demo-mode.md) | Backend | 🟢 | PENDENTE (decisão do dono) |
 | 11 | [Atualizar o README para a versão atual](11-readme-atualizado.md) | Qualquer agente | 🟢 | PENDENTE |
 | 12 | [Integra MEI (SERPRO): gerar DAS e gerir o MEI pelo app](12-integra-mei-serpro.md) | Humano → DB → Backend → Frontend | 🟢 épico | BLOQUEADA (contrato SERPRO + certificado) |
+| 13 | [Confiar no proxy reverso (`TRUST_PROXY`)](13-backend-trust-proxy.md) | Backend | 🔴 bloqueador | FEITA |
 
 ### Por que cada bloqueio
 
