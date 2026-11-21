@@ -153,5 +153,5 @@ jobs:
 
       - name: Validate Caddyfiles syntax
         run: |
-          docker run --rm -v "$PWD/docker/Caddyfile:/etc/caddy/Caddyfile:ro" -e DOMAIN=localhost caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
-          docker run --rm -v "$PWD/frontend/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+          docker run --rm -v "$PWD/docker/Caddyfile:/etc/caddy/Caddyfile:ro" -e DOMAIN=localhost caddy:2.11-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+          docker run --rm -v "$PWD/frontend/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2.11-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile

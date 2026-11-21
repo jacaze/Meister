@@ -8,12 +8,12 @@ Este documento descreve como publicar o **MEIster** em produção com HTTPS auto
 
 O stack de produção (`docker-compose.yml` + `docker-compose.prod.yml`) executa:
 
-- **`proxy` (`caddy:2-alpine`)**: único ponto exposto nas portas `80` e `443` (`PROXY_HTTP_PORT` / `PROXY_HTTPS_PORT`), com TLS automático via Let's Encrypt para `DOMAIN` (ou TLS interno quando `DOMAIN=localhost`).
+- **`proxy` (`caddy:2.11-alpine`)**: único ponto exposto nas portas `80` e `443` (`PROXY_HTTP_PORT` / `PROXY_HTTPS_PORT`), com TLS automático via Let's Encrypt para `DOMAIN` (ou TLS interno quando `DOMAIN=localhost`).
   - `/api/*` → `api:3000` (preserva o prefixo `/api`)
   - `/health`, `/health/*` (`/health/live`, `/health/ready`) → `api:3000`
   - `POST /telegram/webhook` → `api:3000`
   - Demais rotas → `frontend:8080`
-- **`frontend` (`frontend/Dockerfile` — `node:22-alpine` → `caddy:2-alpine`)**: serve o build estático do Vite (`dist/`) apenas na rede interna do Docker (`expose: 8080`), com fallback SPA para `/index.html` e os cabeçalhos PWA (`/sw.js` `no-cache`, `/assets/*` `immutable`).
+- **`frontend` (`frontend/Dockerfile` — `node:22-alpine` → `caddy:2.11-alpine`)**: serve o build estático do Vite (`dist/`) apenas na rede interna do Docker (`expose: 8080`), com fallback SPA para `/index.html` e os cabeçalhos PWA (`/sw.js` `no-cache`, `/assets/*` `immutable`).
 - **`api` (`backend/Dockerfile`)**: escuta em `3000`, ligado no host apenas a `127.0.0.1:3000` (nunca exposto externamente).
 - **`db` (`postgres:16-alpine`) + `migrate`**: escuta na rede interna e em `127.0.0.1:5436`.
 
@@ -65,7 +65,20 @@ O stack de produção (`docker-compose.yml` + `docker-compose.prod.yml`) executa
    curl -fsS https://app.seudominio.com.br/health/ready
    ```
 
-5. **Validar localmente (sem afetar banco existente):**
+5. **Conferir após o primeiro deploy se o IP gravado pela API é o IP público do cliente (e não `172.x.0.1`):**
+   - Faça um acesso a partir de uma rede externa (por exemplo, registrando um consentimento autenticado em `POST /api/consents` ou inspecionando `request.ip` nos logs da `api`) e confirme que o IP gravado pela API é o **IP público real do cliente**, e não o gateway interno da bridge Docker (`172.x.0.1`).
+   - Se o IP gravado for `172.x.0.1`, o tráfego está sofrendo SNAT pelo `userland-proxy` do Docker (ou entrando via IPv6 sem `ip6tables`). Ajuste `/etc/docker/daemon.json` na VPS, reinicie o serviço Docker e repita a checagem:
+     ```json
+     {
+       "userland-proxy": false,
+       "ip6tables": true
+     }
+     ```
+     ```bash
+     sudo systemctl restart docker
+     ```
+
+6. **Validar localmente (sem afetar banco existente):**
    O script [`scripts/smoke-prod.sh`](../scripts/smoke-prod.sh) sobe uma instância isolada com `DOMAIN=localhost` (portas altas `18080`/`18443` por padrão) e verifica SPA, Service Worker, `/health/ready`, ausência de cabeçalhos duplicados/COOP/COEP/CSP, `POST /telegram/webhook`, registro/login em HTTPS e sobrescrita de `X-Forwarded-For` pelo Caddy:
    ```bash
    ./scripts/smoke-prod.sh

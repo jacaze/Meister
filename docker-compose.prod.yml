@@ -19,7 +19,7 @@ services:
     restart: unless-stopped
 
   proxy:
-    image: caddy:2-alpine
+    image: caddy:2.11-alpine
     environment:
       DOMAIN: ${DOMAIN:-localhost}
     ports:
