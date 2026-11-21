@@ -16,6 +16,13 @@ export interface ConnectPluggyItemInput {
   readonly daysBack?: number;
 }
 
+export interface ConnectedBankAccount {
+  readonly id: string;
+  readonly name: string;
+  readonly kind: string;
+  readonly entityId: string | null;
+}
+
 export interface ConnectPluggyItemResult {
   readonly connectionId: string;
   readonly institution: string;
@@ -23,6 +30,7 @@ export interface ConnectPluggyItemResult {
   readonly importedTransactionsCount: number;
   readonly duplicatesSkippedCount: number;
   readonly transferSuspectsCount: number;
+  readonly accounts: ConnectedBankAccount[];
 }
 
 export async function connectPluggyItem(
@@ -120,7 +128,17 @@ export async function connectPluggyItem(
     throw err;
   }
 
-  const targetEntityId = input.entityId || scope.defaultEntityIds.pj || scope.defaultEntityIds.pf;
+  // Conta nova: entidade informada, ou PF quando não há PJ; com PJ fica sem entidade até o usuário dizer de quem é
+  if (input.entityId) {
+    const entity = await prisma.entity.findFirst({
+      where: { id: input.entityId, workspaceId: scope.workspaceId, active: true },
+      select: { id: true },
+    });
+    if (!entity) throw new NotFoundError('Entidade não encontrada.');
+  }
+  const newAccountEntityId: string | null =
+    input.entityId ?? (scope.defaultEntityIds.pj ? null : scope.defaultEntityIds.pf);
+  const accountsResult: ConnectedBankAccount[] = [];
 
   let importedTransactionsCount = 0;
   let duplicatesSkippedCount = 0;
@@ -149,7 +167,7 @@ export async function connectPluggyItem(
           externalId: acc.id,
           kind,
           name: acc.name,
-          entityId: targetEntityId,
+          entityId: newAccountEntityId,
         },
       });
     } else {
@@ -161,6 +179,12 @@ export async function connectPluggyItem(
         },
       });
     }
+    accountsResult.push({
+      id: bankAccount.id,
+      name: bankAccount.name,
+      kind: bankAccount.kind,
+      entityId: bankAccount.entityId,
+    });
 
     for (const tx of txs) {
       const existing = await prisma.bankTransaction.findUnique({
@@ -236,6 +260,7 @@ export async function connectPluggyItem(
     connectionId: connection.id,
     institution: institutionName,
     accountsCount: fetched.length,
+    accounts: accountsResult,
     importedTransactionsCount,
     duplicatesSkippedCount,
     transferSuspectsCount: suspects.length,

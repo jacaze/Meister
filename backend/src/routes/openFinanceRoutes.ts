@@ -11,9 +11,11 @@ import {
   syncPluggyConnection,
   listBankConnections,
   deleteBankConnection,
+  updateBankAccountEntity,
 } from '../modules/openfinance/public.js';
 import {
   connectPluggyItemSchema,
+  updateBankAccountEntitySchema,
   importStatementSchema,
   approveImportedTransactionSchema,
   batchApproveImportedTransactionsSchema,
@@ -72,6 +74,21 @@ export async function openFinanceRoutes(fastify: FastifyInstance) {
     const { id } = request.params;
     const result = await syncPluggyConnection(scope, { connectionId: id });
     return reply.status(200).send(result);
+  });
+
+  // 6b. De qual entidade (PF, PJ...) é uma conta bancária
+  fastify.patch<{
+    Params: {
+      id: string;
+    };
+  }>('/openfinance/bank-accounts/:id', async (request, reply) => {
+    const scope = request.scope!;
+    const body = updateBankAccountEntitySchema.parse(request.body);
+    const account = await updateBankAccountEntity(scope, {
+      bankAccountId: request.params.id,
+      entityId: body.entityId,
+    });
+    return reply.status(200).send(account);
   });
 
   // 7. Delete/Revoke Connection

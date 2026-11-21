@@ -13,3 +13,4 @@ export * from './application/use-cases/ConnectPluggyItem.js';
 export * from './application/use-cases/SyncPluggyConnection.js';
 export * from './application/use-cases/ListBankConnections.js';
 export * from './application/use-cases/DeleteBankConnection.js';
+export * from './application/use-cases/UpdateBankAccountEntity.js';
