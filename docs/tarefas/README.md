@@ -23,7 +23,7 @@ antes e critério de pronto.
 | # | Tarefa | Dono | Prioridade | Status |
 |---|---|---|---|---|
 | 01 | [Validar o dono do item da Pluggy antes de importar](01-openfinance-validar-dono-do-item.md) | QA → Backend → Frontend | 🔴 bloqueador | FEITA |
-| 02 | [Repassar as variáveis das integrações no docker-compose](02-compose-variaveis-das-integracoes.md) | DevOps | 🔴 bloqueador | PENDENTE |
+| 02 | [Repassar as variáveis das integrações no docker-compose](02-compose-variaveis-das-integracoes.md) | DevOps | 🔴 bloqueador | FEITA |
 | 03 | [Publicar o frontend com proxy reverso e HTTPS](03-deploy-frontend-proxy-https.md) | DevOps | 🔴 bloqueador | PENDENTE |
 | 04 | [Promover `develop` → `main` (release)](04-git-promover-develop-para-main.md) | Humano | 🔴 bloqueador | PENDENTE |
 | 05 | [Ativar a Pluggy com conta real (MeuPluggy e produção)](05-pluggy-conta-real.md) | Humano + Backend (doc) | 🔴 bloqueador para testar | PENDENTE (01 feita) |
