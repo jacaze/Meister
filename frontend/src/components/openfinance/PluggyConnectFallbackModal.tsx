@@ -129,8 +129,8 @@ export const PluggyConnectFallbackModal: React.FC<PluggyConnectFallbackModalProp
               />
             </div>
           </div>
-        ) : (
-          /* Manual Item ID Fallback */
+        ) : import.meta.env.DEV ? (
+          /* Manual Item ID Fallback (só em desenvolvimento) */
           <form onSubmit={handleManualSubmit} className="space-y-4 pt-2">
             <div className="p-4 rounded-2xl bg-primary-soft/60 border border-primary/20 space-y-1.5 text-xs text-ink-soft">
               <p className="font-bold text-brand flex items-center gap-1.5">
@@ -165,6 +165,11 @@ export const PluggyConnectFallbackModal: React.FC<PluggyConnectFallbackModalProp
               Vincular Item Manualmente
             </button>
           </form>
+        ) : (
+          <div className="p-4 rounded-2xl bg-primary-soft/60 border border-primary/20 text-xs text-ink-soft flex items-center gap-2">
+            <Bank size={16} weight="duotone" className="text-brand shrink-0" />
+            <span>Não foi possível iniciar a conexão com o banco. Feche e tente novamente.</span>
+          </div>
         )}
       </div>
     </Sheet>

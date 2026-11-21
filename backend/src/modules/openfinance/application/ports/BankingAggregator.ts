@@ -10,6 +10,7 @@ export interface PluggyItemInfo {
   readonly id: string;
   readonly status: string;
   readonly executionStatus?: string;
+  readonly clientUserId?: string; // enviado no connect token; identifica o dono do item
   readonly connector?: PluggyConnectorInfo;
   readonly createdAt: string;
   readonly updatedAt?: string;

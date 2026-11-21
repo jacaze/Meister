@@ -66,3 +66,13 @@ Teste unitário em `PluggyClient`: `fetchItem` mapeia `clientUserId` da resposta
 - [ ] Campo manual de `itemId` removido da UI de produção.
 - [ ] OpenAPI atualizado; Gate 0 verde.
 - [ ] Tabela do `README.md` desta pasta: 01 marcada como FEITA.
+
+## Como foi resolvido (2026-11-21)
+
+- A checagem roda só ao **criar** uma conexão nova. Conexão que já existe no workspace foi validada
+  quando nasceu; assim a sincronização feita por outro membro do mesmo workspace continua funcionando.
+- Item inexistente na Pluggy também responde 404 (antes era 400), para não revelar quais `itemId` existem.
+- Não há `docs/api/**` no repositório; o 404 ficou registrado nesta tarefa e no teste
+  `backend/tests/openfinance-dono-do-item.integration.test.ts`.
+- Pendência para o agente de DB (não bloqueia): índice único `(provider, item_id)` em `bank_connections`
+  para garantir no banco que um item não fique em dois workspaces em caso de corrida.

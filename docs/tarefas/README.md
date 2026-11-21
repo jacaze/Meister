@@ -22,11 +22,11 @@ antes e critério de pronto.
 
 | # | Tarefa | Dono | Prioridade | Status |
 |---|---|---|---|---|
-| 01 | [Validar o dono do item da Pluggy antes de importar](01-openfinance-validar-dono-do-item.md) | QA → Backend → Frontend | 🔴 bloqueador | PENDENTE |
+| 01 | [Validar o dono do item da Pluggy antes de importar](01-openfinance-validar-dono-do-item.md) | QA → Backend → Frontend | 🔴 bloqueador | FEITA |
 | 02 | [Repassar as variáveis das integrações no docker-compose](02-compose-variaveis-das-integracoes.md) | DevOps | 🔴 bloqueador | PENDENTE |
 | 03 | [Publicar o frontend com proxy reverso e HTTPS](03-deploy-frontend-proxy-https.md) | DevOps | 🔴 bloqueador | PENDENTE |
 | 04 | [Promover `develop` → `main` (release)](04-git-promover-develop-para-main.md) | Humano | 🔴 bloqueador | PENDENTE |
-| 05 | [Ativar a Pluggy com conta real (MeuPluggy e produção)](05-pluggy-conta-real.md) | Humano + Backend (doc) | 🔴 bloqueador para testar | BLOQUEADA até 01 |
+| 05 | [Ativar a Pluggy com conta real (MeuPluggy e produção)](05-pluggy-conta-real.md) | Humano + Backend (doc) | 🔴 bloqueador para testar | PENDENTE (01 feita) |
 | 06 | [Paginação da Pluggy sem corte silencioso](06-pluggy-paginacao-sem-corte.md) | QA → Backend | 🟡 | PENDENTE |
 | 07 | [Valores da Pluggy convertidos com `Money`, sem float](07-pluggy-valores-com-money.md) | QA → Backend | 🟡 | PENDENTE |
 | 08 | [Rotina interna agendada (tick): DAS e sincronização bancária](08-rotina-interna-tick.md) | QA → Backend → DevOps | 🟡 | PENDENTE |
