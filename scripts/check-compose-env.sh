@@ -13,7 +13,6 @@ done < <(
     grep -oE '^    [A-Z][A-Z0-9_]*:' "$ROOT_DIR/backend/src/shared/env.ts" | sed -E 's/^    ([A-Z][A-Z0-9_]*):/\1/' || true
   } | sort -u
 )
-unset PLUGGY_BASE_URL
 
 # Valores fictícios (sem padrões de segredo fraco) apenas para renderizar docker compose config
 export POSTGRES_PASSWORD="compose_env_check_postgres_value"
@@ -86,13 +85,16 @@ if (envExampleVars.length < 20) {
   process.exit(1);
 }
 
-// Variáveis exclusivas do container db/host que não pertencem ao ambiente do serviço api
-const HOST_OR_DB_ONLY = new Set([
+// Variáveis exclusivas do container db/proxy/host que não pertencem ao ambiente do serviço api
+const HOST_OR_INFRA_ONLY = new Set([
   'POSTGRES_USER',
   'POSTGRES_PASSWORD',
   'POSTGRES_DB',
   'POSTGRES_PORT',
   'DIRECT_URL',
+  'DOMAIN',
+  'PROXY_HTTP_PORT',
+  'PROXY_HTTPS_PORT',
 ]);
 
 // Variáveis presentes no .env.example para e-mail transacional ainda não implementado no backend
@@ -151,7 +153,7 @@ function validateComposeEnv(label, jsonPath, { expectProd }) {
 
   const missingFromExample = envExampleVars.filter(
     (v) =>
-      !HOST_OR_DB_ONLY.has(v) &&
+      !HOST_OR_INFRA_ONLY.has(v) &&
       !UNIMPLEMENTED_EMAIL_VARS.has(v) &&
       !Object.prototype.hasOwnProperty.call(apiEnv, v)
   );
@@ -187,8 +189,11 @@ function validateComposeEnv(label, jsonPath, { expectProd }) {
   if (expectProd) {
     const prodExpectations = [
       ['NODE_ENV', 'production'],
+      ['TRUST_PROXY', 'uniquelocal'],
       ['TELEGRAM_MODE', 'webhook'],
       ['DEMO_MODE', 'false'],
+      ['APP_URL', 'https://localhost'],
+      ['CORS_ORIGINS', 'https://localhost'],
     ];
     for (const [key, expected] of prodExpectations) {
       const actual = Object.prototype.hasOwnProperty.call(apiEnv, key) ? String(apiEnv[key]) : '<ausente>';
@@ -226,7 +231,7 @@ console.log(
 console.log(`  - docker-compose.yml (services.api): ${baseResult.totalApiVars} variáveis configuradas.`);
 if (prodResult) {
   console.log(
-    `  - docker-compose.prod.yml (services.api): ${prodResult.totalApiVars} variáveis configuradas (NODE_ENV=production, TELEGRAM_MODE=webhook, DEMO_MODE=false).`
+    `  - docker-compose.prod.yml (services.api): ${prodResult.totalApiVars} variáveis configuradas (NODE_ENV=production, TRUST_PROXY=uniquelocal, TELEGRAM_MODE=webhook, DEMO_MODE=false, APP_URL=https://localhost, CORS_ORIGINS=https://localhost).`
   );
 }
 NODE

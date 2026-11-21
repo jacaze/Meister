@@ -1,0 +1,37 @@
+{
+	admin off
+	auto_https off
+}
+
+:8080 {
+	root * /srv
+	encode zstd gzip
+
+	# Assets versionados com hash pelo Vite: cache imutável de longa duração
+	@assets path /assets/*
+	handle @assets {
+		header Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
+	# Service Worker: sempre revalidar byte-a-byte no deploy (contrato PWA do README)
+	@sw path /sw.js
+	handle @sw {
+		header Cache-Control "no-cache"
+		file_server
+	}
+
+	# Manifesto, ícones raiz e manifesto de assets
+	@pwa_root path /manifest.webmanifest /favicon.svg /icon-*.png /asset-manifest.json
+	handle @pwa_root {
+		header Cache-Control "no-cache"
+		file_server
+	}
+
+	# SPA: qualquer rota desconhecida devolve /index.html com revalidação
+	handle {
+		try_files {path} /index.html
+		header Cache-Control "no-cache"
+		file_server
+	}
+}
