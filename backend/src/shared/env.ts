@@ -63,6 +63,10 @@ const envSchema = z
     PLUGGY_CLIENT_ID: z.string().optional().default(''),
     PLUGGY_CLIENT_SECRET: z.string().optional().default(''),
     PLUGGY_WEBHOOK_SECRET: z.string().optional().default(''),
+    PLUGGY_BASE_URL: z.preprocess(
+      (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+      z.string().url('PLUGGY_BASE_URL deve ser uma URL completa (ex.: https://api.pluggy.ai)').optional()
+    ),
     INTERNAL_TICK_SECRET: z.string().optional().default(''),
     DEMO_MODE: z
       .string()
@@ -101,6 +105,25 @@ const envSchema = z
           path: ['DATABASE_URL'],
           message:
             'DATABASE_URL não pode conter senhas padrão como change_me ou dev_only em produção/staging',
+        });
+      }
+
+      const hasPluggyId = data.PLUGGY_CLIENT_ID.trim() !== '';
+      const hasPluggySecret = data.PLUGGY_CLIENT_SECRET.trim() !== '';
+      if (hasPluggyId !== hasPluggySecret) {
+        const missing = hasPluggyId ? 'PLUGGY_CLIENT_SECRET' : 'PLUGGY_CLIENT_ID';
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [missing],
+          message: `${missing} é obrigatório quando a outra credencial da Pluggy está preenchida`,
+        });
+      }
+
+      if (data.PLUGGY_BASE_URL && !data.PLUGGY_BASE_URL.startsWith('https://')) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['PLUGGY_BASE_URL'],
+          message: 'PLUGGY_BASE_URL deve usar https em produção/staging',
         });
       }
 
