@@ -1,0 +1,43 @@
+{
+	admin off
+}
+
+# Em produção, defina DOMAIN=app.seudominio.com.br para TLS automático (Let's Encrypt).
+# Em testes locais (DOMAIN=localhost), o Caddy emite TLS interno automaticamente.
+# Sem trusted_proxies, o Caddy descarta X-Forwarded-For enviado pelo cliente e envia à API
+# apenas o IP real da conexão de entrada.
+{$DOMAIN:localhost} {
+	header {
+		-Server
+		?Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		?X-Content-Type-Options "nosniff"
+		?X-Frame-Options "SAMEORIGIN"
+		?Referrer-Policy "strict-origin-when-cross-origin"
+		?Permissions-Policy "camera=(self), microphone=(), geolocation=()"
+	}
+
+	# API REST (mantém o prefixo /api)
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+
+	# Healthchecks da API (/health, /health/live, /health/ready ficam fora de /api)
+	@health path /health /health/*
+	handle @health {
+		reverse_proxy api:3000
+	}
+
+	# Webhook público do Telegram (somente POST /telegram/webhook)
+	@telegram_webhook {
+		method POST
+		path /telegram/webhook
+	}
+	handle @telegram_webhook {
+		reverse_proxy api:3000
+	}
+
+	# Frontend SPA
+	handle {
+		reverse_proxy frontend:8080
+	}
+}

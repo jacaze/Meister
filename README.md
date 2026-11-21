@@ -268,6 +268,23 @@ Para garantir o funcionamento pleno do Service Worker, precache offline e atuali
   ```
 - **Manifesto e Ícones raiz (`/manifest.webmanifest`, `/favicon.svg`, `/icon-*.png`):** Servidos com revalidação padrão (`Cache-Control: no-cache` ou `max-age=3600`).
 
+### Deploy em Produção (Docker Compose + Caddy + HTTPS)
+
+O stack de produção sobe `proxy` (Caddy com HTTPS automático), `frontend` (`frontend/Dockerfile`), `api`, `migrate` e `db` (com API e banco restritos a `127.0.0.1`):
+
+1. Copie `.env.example` para `.env` e defina as variáveis obrigatórias de produção:
+   - `DOMAIN` (ex.: `app.seudominio.com.br`; em teste local use `localhost`)
+   - `POSTGRES_PASSWORD` (senha forte sem prefixo `dev_only`/`change_me`)
+   - `JWT_SECRET` (mínimo 32 caracteres aleatórios)
+   - `INTERNAL_TICK_SECRET` (mínimo 32 caracteres aleatórios)
+2. Suba o ambiente de produção:
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+   ```
+3. **Renovação de certificado TLS:** o Caddy emite e renova automaticamente o certificado Let's Encrypt usando o volume persistente `caddy_data` (não use `down -v` em produção).
+
+Para detalhes completos (firewall, variáveis de integrações, Cloudflare, configuração de `TRUST_PROXY` e deploy em Render/Fly.io), consulte [docs/deploy.md](docs/deploy.md).
+
 ---
 
 ## Testes Automatizados

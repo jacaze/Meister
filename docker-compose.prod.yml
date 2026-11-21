@@ -2,7 +2,40 @@ services:
   api:
     environment:
       NODE_ENV: production
+      TRUST_PROXY: ${TRUST_PROXY:-uniquelocal}
+      APP_URL: https://${DOMAIN:-localhost}
+      CORS_ORIGINS: https://${DOMAIN:-localhost}
       # Atualmente validado em backend/src/shared/env.ts (exige TELEGRAM_WEBHOOK_SECRET quando TELEGRAM_BOT_TOKEN está definido).
       # A alternância efetiva entre polling e webhook em runtime ainda é pendência do backend.
       TELEGRAM_MODE: webhook
       DEMO_MODE: "false"
+
+  frontend:
+    build:
+      context: ./frontend
+      target: runtime
+    expose:
+      - "8080"
+    restart: unless-stopped
+
+  proxy:
+    image: caddy:2.11-alpine
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    ports:
+      - "${PROXY_HTTP_PORT:-80}:80"
+      - "${PROXY_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

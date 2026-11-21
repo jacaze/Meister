@@ -24,13 +24,13 @@ antes e critério de pronto.
 |---|---|---|---|---|
 | 01 | [Validar o dono do item da Pluggy antes de importar](01-openfinance-validar-dono-do-item.md) | QA → Backend → Frontend | 🔴 bloqueador | FEITA |
 | 02 | [Repassar as variáveis das integrações no docker-compose](02-compose-variaveis-das-integracoes.md) | DevOps | 🔴 bloqueador | FEITA |
-| 03 | [Publicar o frontend com proxy reverso e HTTPS](03-deploy-frontend-proxy-https.md) | DevOps | 🔴 bloqueador | PENDENTE |
+| 03 | [Publicar o frontend com proxy reverso e HTTPS](03-deploy-frontend-proxy-https.md) | DevOps | 🔴 bloqueador | FEITA |
 | 04 | [Promover `develop` → `main` (release)](04-git-promover-develop-para-main.md) | Humano | 🔴 bloqueador | PENDENTE |
 | 05 | [Ativar a Pluggy com conta real (MeuPluggy e produção)](05-pluggy-conta-real.md) | Humano + Backend (doc) | 🔴 bloqueador para testar | FEITA (código e doc); falta o teste com MeuPluggy pelo humano |
 | 06 | [Paginação da Pluggy sem corte silencioso](06-pluggy-paginacao-sem-corte.md) | QA → Backend | 🟡 | FEITA |
 | 07 | [Valores da Pluggy convertidos com `Money`, sem float](07-pluggy-valores-com-money.md) | QA → Backend | 🟡 | PENDENTE |
 | 08 | [Rotina interna agendada (tick): DAS e sincronização bancária](08-rotina-interna-tick.md) | QA → Backend → DevOps | 🟡 | PENDENTE |
-| 09 | [Webhook da Pluggy](09-pluggy-webhook.md) | QA → Backend | 🟡 | BLOQUEADA até 03 e 08 |
+| 09 | [Webhook da Pluggy](09-pluggy-webhook.md) | QA → Backend | 🟡 | BLOQUEADA até 08 |
 | 10 | [`DEMO_MODE`: remover ou implementar](10-demo-mode.md) | Backend | 🟢 | PENDENTE (decisão do dono) |
 | 11 | [Atualizar o README para a versão atual](11-readme-atualizado.md) | Qualquer agente | 🟢 | PENDENTE |
 | 12 | [Integra MEI (SERPRO): gerar DAS e gerir o MEI pelo app](12-integra-mei-serpro.md) | Humano → DB → Backend → Frontend | 🟢 épico | BLOQUEADA (contrato SERPRO + certificado) |
