@@ -17,8 +17,9 @@
 
 ## Decisão do dono (2026-11-21)
 
-Perguntar **depois** do widget da Pluggy: o app mostra as contas importadas e o usuário marca cada uma como PF ou PJ.
-Dá para trocar depois na lista de bancos.
+Perguntar **depois** do widget da Pluggy: o app mostra as contas importadas e o usuário marca de quem é cada uma.
+Dá para trocar depois na lista de bancos. O seletor lista as **entidades do workspace** (PF, PJ e, quando a tarefa 17
+existir, atividade autônoma e as entidades do cônjuge), não só "PF/PJ" fixo.
 
 ## O que fazer
 

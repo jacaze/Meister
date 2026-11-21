@@ -2,7 +2,15 @@
 
 **Prioridade:** 🟢 épico (diferencial do produto; Fase 5 do planejamento)
 **Donos:** DB → QA → Backend → Frontend
-**Status:** PENDENTE. Começar pela fase 0 (desenho) e validar com o dono antes de codar.
+**Status:** PENDENTE. Depende das tarefas **17** (perfil e entidades por pessoa) e **18** (de quem é o gasto × quem pagou,
+e acertos). Começar pela fase 0 (desenho) e validar com o dono antes de codar.
+
+## A ideia, nas palavras do dono
+
+A família no Meister é pensada para **casais em que um ou os dois têm negócio** (ex.: ela tem uma clínica, ele é
+autônomo), mas também serve para casais e famílias sem negócio. O app precisa dividir certinho **de quem é o quê**:
+se ela usa o cartão pessoal dele para comprar algo para a clínica, o gasto é da clínica e a clínica fica devendo a ele
+(tarefa 18). No primeiro acesso o app pergunta qual é o caso e se autoconfigura (tarefa 17).
 
 ## Decisões do dono (entrevista de 2026-11-21)
 
@@ -19,6 +27,9 @@
 | Cônjuge que já usa o Meister | **Traz os dados**: contas e lançamentos PF dele(a) entram na família como *pessoais* |
 | Saída da família | **Leva o que é pessoal**; o compartilhado fica com o dono |
 | Telegram | **Cada um vincula o próprio**; o que ele(a) manda vira lançamento dele(a) |
+| Pagou com o cartão do outro | **Registra e cobra o acerto** (tarefa 18) |
+| Quem classifica compra de conta compartilhada | **Qualquer um dos dois**; o outro vê o resultado |
+| Negócio de cada um | Cada pessoa pode ter PJ (MEI ou outra) ou **atividade autônoma** (tarefa 17) |
 
 ## O que já existe
 
@@ -71,7 +82,7 @@
 ### Fase 5 — Frontend
 - Tela "Família": convidar (gerar link, escolher papel), membros e papéis, sair/remover.
 - Em cada conta: alternar *pessoal / compartilhada*.
-- Tela "Casa": as quatro respostas da visão do casal.
+- Tela "Casa": as quatro respostas da visão do casal, com os acertos abertos entre as pessoas e os negócios (tarefa 18).
 - Seletor de pessoa nas telas de lançamentos e relatórios.
 
 ### Fase 6 — Telegram
