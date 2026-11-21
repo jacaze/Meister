@@ -1,7 +1,11 @@
 import type { Prisma } from '@prisma/client';
 import prisma from '../../../../config/prisma.js';
 import { assertCanWrite, NotFoundError, type WorkspaceScope } from '../../../../shared/index.js';
-import type { BankingAggregator } from '../ports/BankingAggregator.js';
+import type {
+  BankingAggregator,
+  PluggyAccountInfo,
+  PluggyTransactionInfo,
+} from '../ports/BankingAggregator.js';
 import { PluggyClient } from '../../infra/PluggyClient.js';
 import { TransferDetector } from '../../domain/TransferDetector.js';
 
@@ -60,17 +64,12 @@ export async function connectPluggyItem(
         itemId: input.itemId,
         institution: institutionName,
         status: 'ativa',
-        lastSyncAt: new Date(),
       },
     });
   } else {
     connection = await prisma.bankConnection.update({
       where: { id: connection.id },
-      data: {
-        institution: institutionName,
-        status: 'ativa',
-        lastSyncAt: new Date(),
-      },
+      data: { institution: institutionName },
     });
   }
 
@@ -101,18 +100,33 @@ export async function connectPluggyItem(
     return undefined;
   };
 
-  // 4. Fetch accounts
-  const accounts = await client.fetchAccounts(input.itemId);
+  // 4. Busca contas e transações antes de gravar: importação incompleta não grava nada
+  const daysBack = input.daysBack || 90;
+  const fromDate = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const fetched: Array<{ acc: PluggyAccountInfo; txs: PluggyTransactionInfo[] }> = [];
+  try {
+    const accounts = await client.fetchAccounts(input.itemId);
+    for (const acc of accounts) {
+      fetched.push({ acc, txs: await client.fetchTransactions(acc.id, { from: fromDate }) });
+    }
+  } catch (err) {
+    await prisma.bankConnection.update({
+      where: { id: connection.id },
+      data: {
+        status: 'erro',
+        lastError: 'A importação da Pluggy não foi concluída. Tente sincronizar novamente.',
+      },
+    });
+    throw err;
+  }
+
   const targetEntityId = input.entityId || scope.defaultEntityIds.pj || scope.defaultEntityIds.pf;
 
   let importedTransactionsCount = 0;
   let duplicatesSkippedCount = 0;
   const createdItems = [];
 
-  const daysBack = input.daysBack || 90;
-  const fromDate = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-
-  for (const acc of accounts) {
+  for (const { acc, txs } of fetched) {
     // Upsert BankAccount
     let bankAccount = await prisma.bankAccount.findFirst({
       where: {
@@ -147,9 +161,6 @@ export async function connectPluggyItem(
         },
       });
     }
-
-    // 5. Fetch transactions for account
-    const txs = await client.fetchTransactions(acc.id, { from: fromDate });
 
     for (const tx of txs) {
       const existing = await prisma.bankTransaction.findUnique({
@@ -216,10 +227,15 @@ export async function connectPluggyItem(
     });
   }
 
+  await prisma.bankConnection.update({
+    where: { id: connection.id },
+    data: { status: 'ativa', lastError: null, lastSyncAt: new Date() },
+  });
+
   return {
     connectionId: connection.id,
     institution: institutionName,
-    accountsCount: accounts.length,
+    accountsCount: fetched.length,
     importedTransactionsCount,
     duplicatesSkippedCount,
     transferSuspectsCount: suspects.length,
