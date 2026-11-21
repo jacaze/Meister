@@ -252,7 +252,12 @@ OF_STATUS="$(curl "${CURL_COMMON[@]}" -o "$OF_BODY" -w '%{http_code}' \
 OF_BODY="$OF_BODY" node -e "const d=JSON.parse(require('fs').readFileSync(process.env.OF_BODY,'utf8')); if(d.hasCredentials!==false) throw new Error(JSON.stringify(d));"
 echo "OK [6/7] Registro, login e GET /api/openfinance/config via HTTPS -> HTTP 200."
 
-# Check 7: Anti-spoofing de X-Forwarded-For (Caddy deve sobrescrever o valor enviado pelo cliente)
+# Check 7: Anti-spoofing de X-Forwarded-For + TRUST_PROXY=uniquelocal (cliente != container proxy)
+PROXY_CID="$(compose_cmd ps -q proxy)"
+[ -n "$PROXY_CID" ] || { echo "ERRO: Não foi possível obter o container ID do serviço proxy" >&2; exit 1; }
+PROXY_IP="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$PROXY_CID" | tr -d '[:space:]')"
+[ -n "$PROXY_IP" ] || { echo "ERRO: Não foi possível obter o IP interno do container proxy" >&2; exit 1; }
+
 CONSENT_BODY="$TMP_DIR/consent.json"
 CONSENT_STATUS="$(curl "${CURL_COMMON[@]}" -o "$CONSENT_BODY" -w '%{http_code}' -X POST \
   -H "Authorization: Bearer ${TOKEN}" \
@@ -262,9 +267,10 @@ CONSENT_STATUS="$(curl "${CURL_COMMON[@]}" -o "$CONSENT_BODY" -w '%{http_code}' 
   "${BASE_URL}/api/consents")"
 [ "$CONSENT_STATUS" = "200" ] || { echo "ERRO: POST /api/consents retornou HTTP $CONSENT_STATUS" >&2; exit 1; }
 
-IP_RECORDED="$(CONSENT_BODY="$CONSENT_BODY" node - <<'NODE'
+IP_RECORDED="$(CONSENT_BODY="$CONSENT_BODY" PROXY_IP="$PROXY_IP" node - <<'NODE'
 const fs = require('node:fs');
 const body = JSON.parse(fs.readFileSync(process.env.CONSENT_BODY, 'utf8'));
+const proxyIp = process.env.PROXY_IP;
 const ip = body.ipAddress;
 if (typeof ip !== 'string' || ip.trim() === '') {
   throw new Error(`ipAddress ausente em POST /api/consents: ${JSON.stringify(body)}`);
@@ -272,8 +278,13 @@ if (typeof ip !== 'string' || ip.trim() === '') {
 if (ip.includes('203.0.113.99') || ip.includes('198.51.100.77') || ip.includes(',')) {
   throw new Error(`X-Forwarded-For forjado vazou para a API: ipAddress="${ip}"`);
 }
+if (ip === proxyIp) {
+  throw new Error(
+    `API registrou o IP do container proxy ("${proxyIp}") em vez do IP do cliente — verifique TRUST_PROXY=uniquelocal`
+  );
+}
 process.stdout.write(ip);
 NODE
 )"
-echo "OK [7/7] X-Forwarded-For forjado sobrescrito pelo Caddy (ipAddress registrado: ${IP_RECORDED})."
+echo "OK [7/7] X-Forwarded-For forjado sobrescrito pelo Caddy e TRUST_PROXY ativo (cliente=${IP_RECORDED}, proxy=${PROXY_IP})."
 echo "SUCESSO: Todos os 7 checks do smoke test de produção passaram em ${BASE_URL}."
