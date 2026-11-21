@@ -24,9 +24,13 @@ export class PluggyClient implements BankingAggregator {
     baseUrl?: string;
     timeoutMs?: number;
   }) {
-    this.clientId = options?.clientId || process.env.PLUGGY_CLIENT_ID;
-    this.clientSecret = options?.clientSecret || process.env.PLUGGY_CLIENT_SECRET;
-    this.baseUrl = options?.baseUrl || process.env.PLUGGY_BASE_URL || 'https://api.pluggy.ai';
+    // Mesma leitura do env.ts: só espaços conta como ausente; sem barra final para não gerar "//auth"
+    this.clientId = options?.clientId || process.env.PLUGGY_CLIENT_ID?.trim() || undefined;
+    this.clientSecret = options?.clientSecret || process.env.PLUGGY_CLIENT_SECRET?.trim() || undefined;
+    this.baseUrl = (options?.baseUrl || process.env.PLUGGY_BASE_URL?.trim() || 'https://api.pluggy.ai').replace(
+      /\/+$/,
+      ''
+    );
     this.timeoutMs = options?.timeoutMs || 15000;
   }
 
