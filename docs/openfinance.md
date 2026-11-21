@@ -67,6 +67,9 @@ Detalhes que importam:
 
 - **Dono do item:** uma conexão nova só é criada se o `clientUserId` do item for o usuário autenticado e o
   item não estiver em outro workspace. Item de outro usuário, sem dono ou inexistente responde **404**.
+- **De quem é cada conta:** conta nova entra sem entidade quando o workspace tem PJ; com só PF, vai direto para a PF.
+  A resposta do `connect-item` traz `accounts` e o app pergunta "De quem são estas contas?". Aprovar item de conta sem
+  entidade responde 400 `ACCOUNT_ENTITY_REQUIRED`. Trocar a entidade depois afeta só o que ainda está na Caixa de Revisão.
 - **Duplicatas:** transação já importada (mesmo `provider` + `externalId`) é pulada.
 - **Transferências entre contas próprias** são marcadas como suspeitas (`isTransferSuspect`) para revisão.
 - **Sincronizar:** `POST /api/openfinance/connections/:id/sync` pede atualização à Pluggy e reimporta os
@@ -81,6 +84,7 @@ Detalhes que importam:
 | `POST /api/openfinance/connect-item` | Vincula o item devolvido pelo widget e importa |
 | `GET /api/openfinance/connections` | Lista as conexões do workspace |
 | `POST /api/openfinance/connections/:id/sync` | Sincroniza uma conexão |
+| `PATCH /api/openfinance/bank-accounts/:id` | Diz de qual entidade (pessoal ou empresa) é a conta: `{ entityId }` |
 | `DELETE /api/openfinance/connections/:id` | Remove a conexão do MEIster |
 | `GET /api/imports` | Caixa de Revisão |
 | `POST /api/imports/approve`, `/batch-approve`, `/ignore` | Aprovar ou ignorar itens importados |

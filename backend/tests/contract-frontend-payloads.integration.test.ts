@@ -736,4 +736,25 @@ describe('Frontend & Telegram Real Payloads Contract Suite (PostgreSQL 16)', () 
     expect(unlinkRes.statusCode).toBe(200);
     expect(await prisma.telegramLink.findFirst({ where: { userId, status: 'ativo' } })).toBeNull();
   });
+
+  it('17. ClassifyAccountsSheet.tsx — PATCH /api/openfinance/bank-accounts/:id com { entityId }', async () => {
+    const auth = { authorization: `Bearer ${token}` };
+    const conn = await prisma.bankConnection.create({
+      data: { workspaceId, provider: 'pluggy', itemId: `contrato_entidade_${Date.now()}`, institution: 'Banco Teste', status: 'ativa' },
+    });
+    const account = await prisma.bankAccount.create({
+      data: { connectionId: conn.id, externalId: `acc_contrato_${Date.now()}`, kind: 'conta_corrente', name: 'Conta Teste' },
+    });
+
+    // A folha envia exatamente { entityId } com o id de uma entidade do workspace
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/openfinance/bank-accounts/${account.id}`,
+      headers: auth,
+      payload: { entityId: pjEntityId },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ id: account.id, entityId: pjEntityId });
+  });
 });

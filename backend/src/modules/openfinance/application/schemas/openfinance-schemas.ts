@@ -13,6 +13,10 @@ export const connectPluggyItemSchema = z.object({
   entityId: optionalUuid,
 });
 
+export const updateBankAccountEntitySchema = z.object({
+  entityId: z.string().uuid(),
+});
+
 export const importStatementSchema = z.object({
   content: z.string().min(1).max(10_485_760),
   provider: z.enum(['ofx', 'csv', 'pluggy']).optional(),

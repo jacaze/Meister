@@ -12,6 +12,7 @@ export interface BankConnectionSummary {
     readonly id: string;
     readonly name: string;
     readonly kind: string;
+    readonly entityId: string | null;
   }>;
   readonly totalTransactions: number;
   readonly pendingReviewCount: number;
@@ -28,6 +29,7 @@ export async function listBankConnections(
           id: true,
           name: true,
           kind: true,
+          entityId: true,
         },
       },
       transactions: {

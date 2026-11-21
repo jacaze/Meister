@@ -6,12 +6,13 @@ import Mel from '../brand/Mel.js';
 import { Bank, CircleNotch, WarningCircle } from '../ui/icons.js';
 import { useToast } from '../ui/Toast.js';
 import { celebrate, haptic } from '../../lib/celebrate.js';
+import type { AccountToClassify } from './ClassifyAccountsSheet.js';
 
 interface PluggyConnectFallbackModalProps {
   readonly isOpen: boolean;
   readonly connectToken: string | null;
   readonly onClose: () => void;
-  readonly onSuccess: (itemId: string) => void;
+  readonly onSuccess: (itemId: string, accounts: readonly AccountToClassify[]) => void;
 }
 
 export const PluggyConnectFallbackModal: React.FC<PluggyConnectFallbackModalProps> = ({
@@ -32,11 +33,11 @@ export const PluggyConnectFallbackModal: React.FC<PluggyConnectFallbackModalProp
     setLoading(true);
     setError(null);
     try {
-      await api.post('/openfinance/connect-item', { itemId: manualItemId.trim() });
+      const res = await api.post('/openfinance/connect-item', { itemId: manualItemId.trim() });
       haptic([12, 40, 12]);
       celebrate('small');
       toast.success('Instituição conectada com sucesso!');
-      onSuccess(manualItemId.trim());
+      onSuccess(manualItemId.trim(), res.data?.accounts ?? []);
       onClose();
     } catch (err: unknown) {
       const msg =
@@ -105,7 +106,7 @@ export const PluggyConnectFallbackModal: React.FC<PluggyConnectFallbackModalProp
                       celebrate('big');
                       const count = res.data?.importedTransactionsCount || 0;
                       toast.success(`Conta bancária vinculada com sucesso! ${count} lançamentos importados para revisão.`);
-                      onSuccess(itemId);
+                      onSuccess(itemId, res.data?.accounts ?? []);
                       onClose();
                     } catch (err: unknown) {
                       const msg =

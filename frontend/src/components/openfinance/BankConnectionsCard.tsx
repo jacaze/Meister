@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import api from '../../api/client.js';
 import { useToast } from '../ui/Toast.js';
 import ConfirmDialog from '../ui/ConfirmDialog.js';
+import { entityLabel, type EntityOption } from '../../lib/bankAccountEntity.js';
+import type { AccountToClassify } from './ClassifyAccountsSheet.js';
 import {
   Bank,
   ArrowsClockwise,
@@ -22,6 +24,7 @@ export interface BankConnection {
     readonly id: string;
     readonly name: string;
     readonly kind: string;
+    readonly entityId: string | null;
   }>;
   readonly totalTransactions: number;
   readonly pendingReviewCount: number;
@@ -32,6 +35,8 @@ interface BankConnectionsCardProps {
   readonly onRefresh: () => void;
   readonly onOpenPluggyConnect: () => void;
   readonly onOpenConfig: () => void;
+  readonly entities: readonly EntityOption[];
+  readonly onClassifyAccounts: (accounts: readonly AccountToClassify[]) => void;
 }
 
 export const BankConnectionsCard: React.FC<BankConnectionsCardProps> = ({
@@ -39,6 +44,8 @@ export const BankConnectionsCard: React.FC<BankConnectionsCardProps> = ({
   onRefresh,
   onOpenPluggyConnect,
   onOpenConfig,
+  entities,
+  onClassifyAccounts,
 }) => {
   const toast = useToast();
   const [syncingId, setSyncingId] = useState<string | null>(null);
@@ -217,19 +224,34 @@ export const BankConnectionsCard: React.FC<BankConnectionsCardProps> = ({
                   {/* Accounts Details */}
                   {conn.accounts && conn.accounts.length > 0 && (
                     <div className="mt-3 space-y-1">
-                      {conn.accounts.map((acc) => (
-                        <div
-                          key={acc.id}
-                          className="flex items-center justify-between text-xs py-1 px-2.5 rounded-xl bg-field/60 border border-ink/4"
-                        >
-                          <span className="font-medium text-ink truncate max-w-[160px]">
-                            {acc.name}
-                          </span>
-                          <span className="text-[10px] text-muted font-bold">
-                            {formatKind(acc.kind)}
-                          </span>
-                        </div>
-                      ))}
+                      {conn.accounts.map((acc) => {
+                        const entity = entities.find((e) => e.id === acc.entityId);
+                        return (
+                          <div
+                            key={acc.id}
+                            className="flex items-center justify-between gap-2 text-xs py-1 px-2.5 rounded-xl bg-field/60 border border-ink/4"
+                          >
+                            <span className="font-medium text-ink truncate max-w-[140px]">
+                              {acc.name}
+                            </span>
+                            <span className="flex items-center gap-1.5 shrink-0">
+                              <span className="text-[10px] text-muted font-bold">{formatKind(acc.kind)}</span>
+                              <button
+                                type="button"
+                                onClick={() => onClassifyAccounts(conn.accounts)}
+                                aria-label={`Alterar de quem é ${acc.name}`}
+                                className={`min-h-[32px] px-2 rounded-lg text-[10px] font-bold border transition ${
+                                  entity
+                                    ? 'bg-card text-ink border-ink/10 hover:border-primary/40'
+                                    : 'bg-danger/10 text-danger border-danger/30'
+                                }`}
+                              >
+                                {entity ? entityLabel(entity) : 'Definir dono'}
+                              </button>
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

@@ -18,6 +18,7 @@ export async function approveImportedTransaction(
       id: input.bankTransactionId,
       connection: { workspaceId: scope.workspaceId },
     },
+    include: { bankAccount: { select: { entityId: true } } },
   });
 
   if (!item) {
@@ -26,6 +27,17 @@ export async function approveImportedTransaction(
 
   if (item.status === 'importada') {
     throw new ValidationError('Esta transação já foi aprovada e lançada anteriormente.');
+  }
+
+  // Entidade: a informada, senão a da conta conectada. Conta conectada sem entidade precisa ser classificada antes.
+  // Importação de extrato (OFX/CSV) não tem conta e segue o padrão do ledger.
+  const entityId = input.entityId ?? item.bankAccount?.entityId ?? undefined;
+  if (item.bankAccount && !entityId) {
+    throw new ValidationError(
+      'Defina de quem é esta conta bancária (pessoal ou empresa) antes de aprovar.',
+      undefined,
+      'ACCOUNT_ENTITY_REQUIRED'
+    );
   }
 
   // Resolve category
@@ -47,7 +59,7 @@ export async function approveImportedTransaction(
     description: item.description.slice(0, 1000),
     occurredOn: item.occurredOn.toISOString().slice(0, 10),
     categoryId: categoryId || undefined,
-    entityId: input.entityId,
+    entityId,
     viaPersonalAccount: input.viaPersonalAccount,
     origin: 'importacao',
     sourceRef: `${item.provider}:${item.externalId}`,

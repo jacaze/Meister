@@ -4,6 +4,9 @@ import {
   BankConnectionsCard,
   type BankConnection,
 } from '../components/openfinance/BankConnectionsCard.js';
+import ClassifyAccountsSheet, { type AccountToClassify } from '../components/openfinance/ClassifyAccountsSheet.js';
+import { accountsWithoutEntity } from '../lib/bankAccountEntity.js';
+import { useAuth } from '../context/AuthContext.js';
 import { PluggyConfigModal } from '../components/openfinance/PluggyConfigModal.js';
 import { PluggyConnectFallbackModal } from '../components/openfinance/PluggyConnectFallbackModal.js';
 import { formatBRL } from '../lib/money.js';
@@ -65,6 +68,9 @@ export const ReviewInboxPage: React.FC = () => {
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
   const [activeConnectToken, setActiveConnectToken] = useState<string | null>(null);
+  const [accountsToClassify, setAccountsToClassify] = useState<readonly AccountToClassify[]>([]);
+  const { workspace } = useAuth();
+  const entities = workspace?.entities ?? [];
 
   // Batch approve dialog
   const [isBatchConfirmOpen, setIsBatchConfirmOpen] = useState(false);
@@ -314,6 +320,8 @@ export const ReviewInboxPage: React.FC = () => {
         onRefresh={fetchData}
         onOpenPluggyConnect={handleOpenPluggyConnect}
         onOpenConfig={() => setIsConfigModalOpen(true)}
+        entities={entities}
+        onClassifyAccounts={setAccountsToClassify}
       />
 
       {/* Fila de Revisão de Lançamentos */}
@@ -532,7 +540,20 @@ export const ReviewInboxPage: React.FC = () => {
           setIsConnectModalOpen(false);
           setActiveConnectToken(null);
         }}
-        onSuccess={() => fetchData()}
+        onSuccess={(_itemId, accounts) => {
+          fetchData();
+          if (accountsWithoutEntity(accounts).length > 0) setAccountsToClassify(accounts);
+        }}
+      />
+
+      {/* De quem são as contas conectadas (PF/PJ) */}
+      <ClassifyAccountsSheet
+        key={accountsToClassify.map((a) => a.id).join(',')}
+        open={accountsToClassify.length > 0}
+        accounts={accountsToClassify}
+        entities={entities}
+        onClose={() => setAccountsToClassify([])}
+        onSaved={fetchData}
       />
 
       {/* Modal de Status de Configuração Pluggy (Sheet) */}
