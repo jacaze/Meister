@@ -60,6 +60,10 @@ Feito pelo humano:
   Testes em `backend/src/shared/__tests__/env-pluggy.test.ts`.
 - `PLUGGY_BASE_URL` adicionada ao `.env.example`. **Agente da tarefa 02:** repasse-a no compose com `${PLUGGY_BASE_URL:-}`.
 - `docs/openfinance.md` escrito.
-- **Falta (humano):** conectar uma conta real via MeuPluggy e anotar aqui a data e o banco, sem valores.
+- **Teste humano feito em 2026-11-21:** conta real do Santander conectada via MeuPluggy e transações importadas
+  para a Caixa de Revisão. O teste revelou que o `clientUserId` ia fora de `options` no `POST /connect_token`
+  (a Pluggy ignorava e o item nascia sem dono; `connect-item` respondia 404). Corrigido em
+  `fix/pluggy-connect-token-client-user-id`.
+- **Achado de produto:** todas as contas importadas vão para a entidade PJ, mesmo contas pessoais.
 - Achado para tarefa futura: `DELETE /api/openfinance/connections/:id` não remove o item na Pluggy
   (o consentimento continua ativo lá). Registrado em `docs/openfinance.md`.
