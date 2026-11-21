@@ -4,7 +4,7 @@ import type {
   PluggyItemInfo,
   PluggyTransactionInfo,
 } from '../application/ports/BankingAggregator.js';
-import { ValidationError } from '../../../shared/index.js';
+import { NotFoundError, ValidationError } from '../../../shared/index.js';
 
 interface AuthCache {
   apiKey: string;
@@ -147,10 +147,15 @@ export class PluggyClient implements BankingAggregator {
       headers: { 'X-API-KEY': apiKey },
     });
 
+    // Mesma resposta de item de outro usuário: não revela quais itemIds existem
+    if (res.status === 404) {
+      throw new NotFoundError('Conexão bancária não encontrada.');
+    }
+
     if (!res.ok) {
       const errorBody = await res.json().catch(() => null);
       throw new ValidationError(
-        `Erro ao buscar Item no Pluggy (${itemId}): ${errorBody?.message || res.statusText}`
+        `Erro ao buscar Item no Pluggy: ${errorBody?.message || res.statusText}`
       );
     }
 
@@ -159,6 +164,7 @@ export class PluggyClient implements BankingAggregator {
       id: data.id,
       status: data.status,
       executionStatus: data.executionStatus,
+      clientUserId: typeof data.clientUserId === 'string' ? data.clientUserId : undefined,
       connector: data.connector
         ? {
             id: data.connector.id,

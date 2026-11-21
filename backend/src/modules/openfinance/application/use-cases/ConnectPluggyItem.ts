@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import prisma from '../../../../config/prisma.js';
-import { assertCanWrite, type WorkspaceScope } from '../../../../shared/index.js';
+import { assertCanWrite, NotFoundError, type WorkspaceScope } from '../../../../shared/index.js';
 import type { BankingAggregator } from '../ports/BankingAggregator.js';
 import { PluggyClient } from '../../infra/PluggyClient.js';
 import { TransferDetector } from '../../domain/TransferDetector.js';
@@ -43,6 +43,16 @@ export async function connectPluggyItem(
   });
 
   if (!connection) {
+    // Nova conexão: o item precisa ter sido criado pelo connect token deste usuário e não pode
+    // estar em outro workspace. Conexão existente já foi validada ao ser criada (sync de membros).
+    const connectedElsewhere = await prisma.bankConnection.findFirst({
+      where: { provider: 'pluggy', itemId: input.itemId },
+      select: { id: true },
+    });
+    if (item.clientUserId !== scope.actorUserId || connectedElsewhere) {
+      throw new NotFoundError('Conexão bancária não encontrada.');
+    }
+
     connection = await prisma.bankConnection.create({
       data: {
         workspaceId: scope.workspaceId,
