@@ -1,52 +1,59 @@
 import type { Detector } from './Detector.js';
 import type { Finding } from '../Finding.js';
-import type { FinancialSnapshot } from '../FinancialSnapshot.js';
-import { calculateMedianCents } from '../FinancialSnapshot.js';
-import { Money } from '../../../../shared/index.js';
+import type { FinancialSnapshot, MonthlySummary } from '../FinancialSnapshot.js';
+import { moneyMetric } from '../metrics.js';
 
-function roundTo50(cents: bigint): bigint {
-  const rounded = (cents / 5000n) * 5000n;
-  return rounded;
+const MONTHS_REQUIRED = 3;
+
+function previousMonths(period: string, count: number): string[] {
+  const [yearStr, monthStr] = period.split('-');
+  let year = Number(yearStr);
+  let month = Number(monthStr);
+  const months: string[] = [];
+  for (let i = 0; i < count; i += 1) {
+    month -= 1;
+    if (month === 0) {
+      month = 12;
+      year -= 1;
+    }
+    months.push(`${year}-${String(month).padStart(2, '0')}`);
+  }
+  return months;
 }
 
+/**
+ * Estimativa do resultado (receitas - despesas) do próximo mês a partir dos 3 últimos meses
+ * fechados, consecutivos, da própria entidade:
+ *   - cenário central     = média aritmética dos 3 resultados mensais (divisão inteira em centavos);
+ *   - cenário conservador = pior resultado mensal dos 3 meses;
+ *   - cenário otimista    = melhor resultado mensal dos 3 meses.
+ * Sem os 3 meses fechados com movimentação, não emite nada (não inventa número).
+ */
 export class CashForecastDetector implements Detector {
   readonly id = 'cash_forecast';
-  readonly version = '1.0';
+  readonly version = '2.0';
 
   run(snapshot: FinancialSnapshot, _today: Date): Finding[] {
-    // Only run toward end of month (day 20+) or on demand
     if (snapshot.dayOfMonth < 20) {
       return [];
     }
 
-    if (snapshot.historicalMonths.length === 0) {
-      return [];
+    const byMonth = new Map<string, MonthlySummary>(
+      snapshot.historicalMonths.map((m) => [m.month, m])
+    );
+    const base: MonthlySummary[] = [];
+    for (const month of previousMonths(snapshot.period, MONTHS_REQUIRED)) {
+      const summary = byMonth.get(month);
+      if (!summary) return [];
+      base.push(summary);
     }
 
-    const recent = snapshot.historicalMonths.slice(0, 3);
-    const incomes = recent.map((m) => m.totalIncomeCents);
-    const expenses = recent.map((m) => m.totalExpenseCents);
+    const nets = base.map((m) => m.totalIncomeCents - m.totalExpenseCents);
+    const worstCents = nets.reduce((min, cur) => (cur < min ? cur : min), nets[0]!);
+    const bestCents = nets.reduce((max, cur) => (cur > max ? cur : max), nets[0]!);
+    const centralCents = nets.reduce((acc, cur) => acc + cur, 0n) / BigInt(nets.length);
 
-    const minIncome = incomes.reduce((min, cur) => (cur < min ? cur : min), incomes[0]!);
-    const maxIncome = incomes.reduce((max, cur) => (cur > max ? cur : max), incomes[0]!);
-    const medianIncome = calculateMedianCents(incomes);
-
-    const minExpense = expenses.reduce((min, cur) => (cur < min ? cur : min), expenses[0]!);
-    const maxExpense = expenses.reduce((max, cur) => (cur > max ? cur : max), expenses[0]!);
-    const medianExpense = calculateMedianCents(expenses);
-
-    // Worst scenario = minIncome - maxExpense
-    const worstCaseCents = roundTo50(minIncome - maxExpense);
-    // Best scenario = maxIncome - minExpense
-    const bestCaseCents = roundTo50(maxIncome - minExpense);
-    // Central scenario = medianIncome - medianExpense
-    const centralCaseCents = roundTo50(medianIncome - medianExpense);
-
-    const severity = worstCaseCents < 0n ? 'atencao' : 'info';
-
-    const worstMoney = Money.fromCents(worstCaseCents);
-    const bestMoney = Money.fromCents(bestCaseCents);
-    const centralMoney = Money.fromCents(centralCaseCents);
+    const severity = worstCents < 0n ? 'atencao' : 'info';
 
     return [
       {
@@ -56,15 +63,13 @@ export class CashForecastDetector implements Detector {
         period: snapshot.period,
         severity,
         confidence: 'estimativa',
-        impactAmountCents: centralCaseCents < 0n ? -centralCaseCents : centralCaseCents,
+        impactAmountCents: centralCents < 0n ? -centralCents : centralCents,
         metrics: [
-          { key: 'saldo_cenario_conservador', kind: 'money', value: worstMoney.toDecimalString(), display: `R$ ${worstMoney.toDecimalString().replace('.', ',')}` },
-          { key: 'saldo_cenario_central', kind: 'money', value: centralMoney.toDecimalString(), display: `R$ ${centralMoney.toDecimalString().replace('.', ',')}` },
-          { key: 'saldo_cenario_otimista', kind: 'money', value: bestMoney.toDecimalString(), display: `R$ ${bestMoney.toDecimalString().replace('.', ',')}` },
+          moneyMetric('saldo_cenario_conservador', worstCents),
+          moneyMetric('saldo_cenario_central', centralCents),
+          moneyMetric('saldo_cenario_otimista', bestCents),
         ],
-        actions: [
-          { kind: 'open_jar_plan', label: 'Planejar potes do próximo mês' },
-        ],
+        actions: [{ kind: 'open_jar_plan', label: 'Planejar potes do próximo mês' }],
         dedupeKey: `cash_forecast:${snapshot.period}`,
       },
     ];

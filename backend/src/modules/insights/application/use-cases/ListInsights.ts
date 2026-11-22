@@ -1,5 +1,6 @@
 import prisma from '../../../../config/prisma.js';
 import type { WorkspaceScope } from '../../../../shared/index.js';
+import { resolveScopedEntityId } from '../EntityGuard.js';
 
 export interface ListInsightsInput {
   readonly entityId?: string;
@@ -12,12 +13,27 @@ export async function listInsights(
   scope: WorkspaceScope,
   input: ListInsightsInput = {}
 ) {
+  const scopedEntityId = await resolveScopedEntityId(scope, input.entityId);
   const where: Record<string, unknown> = {
     workspaceId: scope.workspaceId,
   };
 
-  if (input.entityId) {
-    where.entityId = input.entityId;
+  if (scopedEntityId) {
+    where.entityId = scopedEntityId;
+  } else {
+    where.OR = [{ entityId: null }, { entityId: { in: [...scope.visibleEntityIds] } }];
+  }
+
+  // Detectores desligados/adiados pelo usuário não aparecem (inclui insights criados pelo tick)
+  const now = new Date();
+  const prefs = scope.actorUserId.startsWith('system:')
+    ? []
+    : await prisma.insightPreference.findMany({ where: { userId: scope.actorUserId } });
+  const hiddenDetectors = prefs
+    .filter((p) => p.detectorId && (!p.enabled || (p.snoozedUntil && p.snoozedUntil > now)))
+    .map((p) => p.detectorId as string);
+  if (hiddenDetectors.length > 0) {
+    where.detectorId = { notIn: hiddenDetectors };
   }
 
   if (input.status) {

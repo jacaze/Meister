@@ -12,3 +12,7 @@ export * from './application/use-cases/ExplainInsight.js';
 export * from './application/use-cases/DismissInsight.js';
 export * from './application/use-cases/BuildMonthlyDigest.js';
 export * from './application/use-cases/AskFinances.js';
+export * from './domain/DigestComposer.js';
+export * from './domain/metrics.js';
+export * from './application/use-cases/EnsureInsights.js';
+export * from './application/EntityGuard.js';

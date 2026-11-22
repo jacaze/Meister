@@ -2,7 +2,7 @@ import prisma from '../../../../config/prisma.js';
 import { resolveScopeForUser } from '../../../workspace/public.js';
 import { proposeFromText, confirmProposal, cancelProposal } from '../../../assistant/public.js';
 import { parseReceiptPhoto } from '../../../receipts/public.js';
-import { runDetectors, listInsights, buildMonthlyDigest, askFinances } from '../../../insights/public.js';
+import { refreshInsightsIfStale, listInsights, buildMonthlyDigest, askFinances } from '../../../insights/public.js';
 import { listLessons, askEducation } from '../../../education/public.js';
 import { getMeiLimit, listDas } from '../../../fiscal/public.js';
 import { getJarsStatus } from '../../../jars/public.js';
@@ -10,6 +10,7 @@ import { listTransactions } from '../../../ledger/public.js';
 import { MessagesPtBr, escapeMarkdownV2, formatBrl } from '../../domain/messages.pt-BR.js';
 import { decodeProposalCallback, encodeProposalCallback } from '../../domain/callback-data.js';
 import { DomainError } from '../../../../shared/errors.js';
+import { formatCompetence, formatDateBR, formatPercent } from '../../../../shared/format.js';
 import type { MessagingChannel } from '../ports/messaging-channel.js';
 import { linkChat } from './LinkChat.js';
 import { unlinkChat } from './GetLinkStatus.js';
@@ -385,16 +386,10 @@ export async function handleTelegramUpdate(
   }
 
   if (text === '/saldo') {
-    const txs = await listTransactions(scope, { pageSize: 100 });
-    let totalIn = 0;
-    let totalOut = 0;
-    for (const t of txs.items) {
-      const val = Number(t.amount);
-      if (t.type === 'receita') totalIn += val;
-      else if (t.type === 'despesa') totalOut += val;
-    }
-    const balance = totalIn - totalOut;
-    const balanceFormatted = formatBrl(balance);
+    const saldo = await askFinances(scope, 'saldo');
+    const totalIn = String(saldo.metrics?.totalEntradas ?? '0');
+    const totalOut = String(saldo.metrics?.totalSaidas ?? '0');
+    const balanceFormatted = formatBrl(String(saldo.metrics?.saldo ?? '0'));
 
     await channel.sendText(
       chatId,
@@ -422,7 +417,7 @@ export async function handleTelegramUpdate(
       `• *Teto Anual Proporcional:* ${escapeMarkdownV2(formatBrl(mei.limite))}\n` +
       `• *Faturamento Acumulado:* ${escapeMarkdownV2(formatBrl(mei.faturamentoAno))}\n` +
       `• *Disponível para Faturar:* ${escapeMarkdownV2(formatBrl(mei.restante))}\n` +
-      `• *Percentual Utilizado:* *${escapeMarkdownV2(mei.percentualUtilizado.toFixed(1))}%* \\(${escapeMarkdownV2(mei.status.toUpperCase())}\\)`
+      `• *Percentual Utilizado:* *${escapeMarkdownV2(formatPercent(mei.percentualUtilizado))}* \\(${escapeMarkdownV2(mei.status.toUpperCase())}\\)`
     );
     return;
   }
@@ -436,9 +431,9 @@ export async function handleTelegramUpdate(
     let msgDas = `🏛️ *Guias do DAS (Documento de Arrecadação do MEI)*\n\n`;
     for (const d of dasList.items.slice(0, 3)) {
       const statusIcon = d.status === 'pago' ? '✅' : d.status === 'atrasado' ? '🔴' : '🟡';
-      msgDas += `${statusIcon} *Competência ${escapeMarkdownV2(d.competence)}*\n` +
+      msgDas += `${statusIcon} *Competência ${escapeMarkdownV2(formatCompetence(d.competence))}*\n` +
         `• Valor: *${escapeMarkdownV2(formatBrl(d.amount))}*\n` +
-        `• Vencimento: ${escapeMarkdownV2(d.dueDate)}\n` +
+        `• Vencimento: ${escapeMarkdownV2(formatDateBR(d.dueDate))}\n` +
         `• Status: *${escapeMarkdownV2(d.status.toUpperCase())}*\n\n`;
     }
     msgDas += `🔗 [Acessar Portal PGMEI para Gerar Guia](https://www8.receita.fazenda.gov.br/SimplesNacional/Aplicacoes/ATSPO/pgmei.app/)`;
@@ -456,7 +451,7 @@ export async function handleTelegramUpdate(
     for (const j of jarsStatus.jars) {
       const icon = j.status === 'estourado' ? '🚨' : j.status === 'atencao' ? '⚠️' : '🟢';
       msgJars += `${icon} *${escapeMarkdownV2(j.name)}*\n` +
-        `• Utilizado: *${escapeMarkdownV2(formatBrl(j.usado))}* / ${escapeMarkdownV2(formatBrl(j.alocado))} \\(${escapeMarkdownV2(j.percentUsado.toFixed(0))}%\\)\n` +
+        `• Utilizado: *${escapeMarkdownV2(formatBrl(j.usado))}* / ${escapeMarkdownV2(formatBrl(j.alocado))} \\(${escapeMarkdownV2(formatPercent(j.percentUsado, 0))}\\)\n` +
         `• Disponível: ${escapeMarkdownV2(formatBrl(j.disponivel))}\n\n`;
     }
     await channel.sendText(chatId, msgJars);
@@ -473,14 +468,14 @@ export async function handleTelegramUpdate(
     for (const t of txs.items) {
       const icon = t.type === 'receita' ? '🟢' : '🔴';
       msgUltimos += `${icon} *${escapeMarkdownV2(t.description)}*\n` +
-        `• ${escapeMarkdownV2(formatBrl(String(t.amount)))} em ${escapeMarkdownV2(t.transactionDate.toISOString().slice(0, 10))}\n\n`;
+        `• ${escapeMarkdownV2(formatBrl(String(t.amount)))} em ${escapeMarkdownV2(formatDateBR(t.transactionDate.toISOString().slice(0, 10)))}\n\n`;
     }
     await channel.sendText(chatId, msgUltimos);
     return;
   }
 
   if (text === '/insights') {
-    await runDetectors(scope).catch(() => {});
+    await refreshInsightsIfStale(scope).catch(() => {});
     const insights = await listInsights(scope, { limit: 3 });
     if (insights.length === 0) {
       await channel.sendText(chatId, `💡 *Nenhuma anomalia ou alerta relevante encontrado no momento\\.* Suas finanças estão dentro do padrão habitual\\.`);
@@ -583,12 +578,8 @@ export async function handleTelegramUpdate(
       await channel.sendText(chatId, `❓ ${escapeMarkdownV2(outcome.questionText)}`);
     } else if (outcome.kind === 'query') {
       if (outcome.queryKind === 'saldo') {
-        const txs = await listTransactions(scope, { pageSize: 100 });
-        let total = 0;
-        for (const t of txs.items) {
-          total += t.type === 'receita' ? Number(t.amount) : -Number(t.amount);
-        }
-        await channel.sendText(chatId, `💰 Seu saldo atual em caixa é *${escapeMarkdownV2(formatBrl(total))}*\\.`);
+        const saldo = await askFinances(scope, 'saldo');
+        await channel.sendText(chatId, `💰 Seu saldo atual em caixa é *${escapeMarkdownV2(formatBrl(String(saldo.metrics?.saldo ?? '0')))}*\\.`);
       } else if (outcome.queryKind === 'limite') {
         if (!scope.defaultEntityIds.pj) {
           await channel.sendText(chatId, `ℹ️ _Essa conta não possui um perfil MEI ativo associado\\._`);
@@ -596,7 +587,7 @@ export async function handleTelegramUpdate(
         }
         const mei = await getMeiLimit(scope, { entityId: scope.defaultEntityIds.pj });
         if (mei) {
-          await channel.sendText(chatId, `📊 Você utilizou *${escapeMarkdownV2(mei.percentualUtilizado.toFixed(1))}%* do limite anual do MEI \\(Resta ${escapeMarkdownV2(formatBrl(mei.restante))}\\)\\.`);
+          await channel.sendText(chatId, `📊 Você utilizou *${escapeMarkdownV2(formatPercent(mei.percentualUtilizado))}* do limite anual do MEI \\(Resta ${escapeMarkdownV2(formatBrl(mei.restante))}\\)\\.`);
         }
       } else if (outcome.queryKind === 'das') {
         const dasList = await listDas(scope);

@@ -109,6 +109,23 @@ components:
             deferred:
               type: integer
               minimum: 0
+        insights:
+          type: object
+          additionalProperties: false
+          description: >-
+            Atualização automática de insights (detectores por entidade, no máximo uma vez por dia
+            por entidade; dedupe pela chave workspace + entidade + detector).
+          required:
+            - refreshed
+            - errors
+          properties:
+            refreshed:
+              type: integer
+              minimum: 0
+              description: Entidades reprocessadas nesta execução
+            errors:
+              type: integer
+              minimum: 0
     ErrorResponse:
       type: object
       required:

@@ -45,6 +45,11 @@ export interface RunInternalTickResult {
     readonly errors: number;
     readonly deferred: number;
   };
+  /** Presente apenas quando o gateway atualiza insights. */
+  readonly insights?: {
+    readonly refreshed: number;
+    readonly errors: number;
+  };
 }
 
 interface DueConnectionItem {
@@ -99,6 +104,8 @@ export async function runInternalTick(deps: RunInternalTickDeps): Promise<RunInt
     let ofSkipped = 0;
     let ofErrors = 0;
     let ofDeferred = 0;
+    let insightsRefreshed = 0;
+    let insightsErrors = 0;
 
     for (let i = 0; i < preparedWorkspaces.length; i += 1) {
       if (isBudgetExceeded()) {
@@ -118,6 +125,18 @@ export async function runInternalTick(deps: RunInternalTickDeps): Promise<RunInt
           { workspaceId: ws.id, errorCode: extractSafeErrorCode(err) },
           'Falha ao sincronizar DAS no tick interno'
         );
+      }
+
+      if (deps.gateway.refreshWorkspaceInsights && !isBudgetExceeded()) {
+        try {
+          insightsRefreshed += await deps.gateway.refreshWorkspaceInsights(scope, deps.clock);
+        } catch (err) {
+          insightsErrors += 1;
+          deps.logger?.error(
+            { workspaceId: ws.id, errorCode: extractSafeErrorCode(err) },
+            'Falha ao atualizar insights no tick interno'
+          );
+        }
       }
 
       workspacesProcessed += 1;
@@ -187,6 +206,9 @@ export async function runInternalTick(deps: RunInternalTickDeps): Promise<RunInt
         errors: ofErrors,
         deferred: ofDeferred,
       },
+      ...(deps.gateway.refreshWorkspaceInsights
+        ? { insights: { refreshed: insightsRefreshed, errors: insightsErrors } }
+        : {}),
     };
 
     deps.logger?.info(summary as unknown as Record<string, unknown>, 'Rotina interna tick concluída');

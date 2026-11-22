@@ -2,7 +2,7 @@ import type { Detector } from './Detector.js';
 import type { Finding } from '../Finding.js';
 import type { FinancialSnapshot } from '../FinancialSnapshot.js';
 import { calculateMedianCents } from '../FinancialSnapshot.js';
-import { Money } from '../../../../shared/index.js';
+import { moneyMetric } from '../metrics.js';
 
 export class IncomeDropDetector implements Detector {
   readonly id = 'income_drop';
@@ -46,9 +46,6 @@ export class IncomeDropDetector implements Detector {
 
     if (dropPercent >= 30) {
       const severity = dropPercent >= 50 ? 'alerta' : 'atencao';
-      const currentMoney = Money.fromCents(currentIncomeCents);
-      const projectedMoney = Money.fromCents(projectedIncomeCents);
-      const medianMoney = Money.fromCents(medianIncomeCents);
 
       return [
         {
@@ -60,9 +57,9 @@ export class IncomeDropDetector implements Detector {
           confidence: 'alta',
           impactAmountCents: dropCents,
           metrics: [
-            { key: 'receita_atual', kind: 'money', value: currentMoney.toDecimalString(), display: `R$ ${currentMoney.toDecimalString().replace('.', ',')}` },
-            { key: 'receita_projetada', kind: 'money', value: projectedMoney.toDecimalString(), display: `R$ ${projectedMoney.toDecimalString().replace('.', ',')}` },
-            { key: 'mediana_anterior', kind: 'money', value: medianMoney.toDecimalString(), display: `R$ ${medianMoney.toDecimalString().replace('.', ',')}` },
+            moneyMetric('receita_atual', currentIncomeCents),
+            moneyMetric('receita_projetada', projectedIncomeCents),
+            moneyMetric('mediana_anterior', medianIncomeCents),
             { key: 'percentual_queda', kind: 'percent', value: dropPercent, display: `-${dropPercent}%` },
           ],
           actions: [

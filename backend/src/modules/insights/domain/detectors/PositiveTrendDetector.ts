@@ -1,7 +1,7 @@
 import type { Detector } from './Detector.js';
 import type { Finding } from '../Finding.js';
 import type { FinancialSnapshot } from '../FinancialSnapshot.js';
-import { Money } from '../../../../shared/index.js';
+import { moneyMetric } from '../metrics.js';
 
 export class PositiveTrendDetector implements Detector {
   readonly id = 'positive_trend';
@@ -19,7 +19,6 @@ export class PositiveTrendDetector implements Detector {
       .filter((m) => m.netResultCents > 0n);
 
     if (positiveHistorical.length >= 1 || snapshot.currentMonth.totalIncomeCents > snapshot.currentMonth.totalExpenseCents * 2n) {
-      const netMoney = Money.fromCents(netCurrent);
 
       return [
         {
@@ -32,7 +31,7 @@ export class PositiveTrendDetector implements Detector {
           impactAmountCents: netCurrent,
           positive: true,
           metrics: [
-            { key: 'saldo_positivo', kind: 'money', value: netMoney.toDecimalString(), display: `R$ ${netMoney.toDecimalString().replace('.', ',')}` },
+            moneyMetric('saldo_positivo', netCurrent),
           ],
           actions: [],
           dedupeKey: `positive_trend:${snapshot.period}`,

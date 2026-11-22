@@ -1,7 +1,7 @@
 import type { Detector } from './Detector.js';
 import type { Finding } from '../Finding.js';
 import type { FinancialSnapshot } from '../FinancialSnapshot.js';
-import { Money } from '../../../../shared/index.js';
+import { moneyMetric, percentMetric } from '../metrics.js';
 
 export class LimitPaceDetector implements Detector {
   readonly id = 'limit_pace';
@@ -21,9 +21,6 @@ export class LimitPaceDetector implements Detector {
     }
 
     const severity = percent >= 100 ? 'alerta' : percent >= 90 ? 'atencao' : 'info';
-    const faturamentoMoney = Money.fromCents(limit.faturamentoAnoCents);
-    const limiteMoney = Money.fromCents(limit.limiteCents);
-    const restanteMoney = Money.fromCents(limit.restanteCents);
 
     return [
       {
@@ -35,10 +32,10 @@ export class LimitPaceDetector implements Detector {
         confidence: 'alta',
         impactAmountCents: limit.faturamentoAnoCents,
         metrics: [
-          { key: 'percentual_utilizado', kind: 'percent', value: percent, display: `${percent.toFixed(1)}%` },
-          { key: 'faturamento_acumulado', kind: 'money', value: faturamentoMoney.toDecimalString(), display: `R$ ${faturamentoMoney.toDecimalString().replace('.', ',')}` },
-          { key: 'teto_anual', kind: 'money', value: limiteMoney.toDecimalString(), display: `R$ ${limiteMoney.toDecimalString().replace('.', ',')}` },
-          { key: 'disponivel_restante', kind: 'money', value: restanteMoney.toDecimalString(), display: `R$ ${restanteMoney.toDecimalString().replace('.', ',')}` },
+          percentMetric('percentual_utilizado', percent),
+          moneyMetric('faturamento_acumulado', limit.faturamentoAnoCents),
+          moneyMetric('teto_anual', limit.limiteCents),
+          moneyMetric('disponivel_restante', limit.restanteCents),
         ],
         actions: [
           { kind: 'open_limit', label: 'Consultar Termômetro MEI' },

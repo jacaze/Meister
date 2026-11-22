@@ -1,6 +1,7 @@
 import prisma from '../../../../config/prisma.js';
 import type { WorkspaceScope } from '../../../../shared/index.js';
-import { Money } from '../../../../shared/index.js';
+import { LocalDate, Money, formatBRL } from '../../../../shared/index.js';
+import { composeDigestPoints } from '../../domain/DigestComposer.js';
 import { resolveScopedEntityId } from '../EntityGuard.js';
 import { excludeNonIncomeWhere, validTransactionsWhere } from '../../../ledger/public.js';
 
@@ -20,7 +21,7 @@ export async function buildMonthlyDigest(
   entityId?: string
 ): Promise<MonthlyDigestResult> {
   const scopedEntityId = await resolveScopedEntityId(scope, entityId);
-  const targetMonth = monthIso || new Date().toISOString().slice(0, 7);
+  const targetMonth = monthIso || LocalDate.today().toIsoDate().slice(0, 7);
   const parts = targetMonth.split('-');
   const year = parseInt(parts[0] || '2026', 10);
   const month = parseInt(parts[1] || '11', 10);
@@ -38,55 +39,52 @@ export async function buildMonthlyDigest(
       ...validTransactionsWhere(),
       ...excludeNonIncomeWhere(),
     },
+    include: { category: true },
   });
 
   let incomeCents = 0n;
   let expenseCents = 0n;
+  const categoryTotals = new Map<string, bigint>();
 
   for (const t of txs) {
     const val = Money.fromDecimalString(String(t.amount)).cents;
     if (t.type === 'receita') incomeCents += val;
-    else if (t.type === 'despesa') expenseCents += val;
+    else if (t.type === 'despesa') {
+      expenseCents += val;
+      const name = t.category?.name ?? 'Sem categoria';
+      categoryTotals.set(name, (categoryTotals.get(name) ?? 0n) + val);
+    }
   }
 
   const netCents = incomeCents - expenseCents;
-  const incomeMoney = Money.fromCents(incomeCents);
-  const expenseMoney = Money.fromCents(expenseCents);
-  const netMoney = Money.fromCents(netCents < 0n ? -netCents : netCents);
-  const netSign = netCents < 0n ? '-' : '+';
 
-  // 2. Fetch insights for this period
+  // 2. Insights deste período (da entidade pedida, ou do workspace quando não há filtro)
   const insights = await prisma.insight.findMany({
     where: {
       workspaceId: scope.workspaceId,
+      ...(scopedEntityId ? { entityId: scopedEntityId } : {}),
       period: targetMonth,
       status: { not: 'dispensada' },
     },
+    orderBy: { createdAt: 'desc' },
     take: 10,
   });
 
-  const points: string[] = [];
-
-  // Top critical/attention insights
-  const attentionInsights = insights.filter((i) => i.severity === 'alerta' || i.severity === 'atencao');
-  for (const ai of attentionInsights.slice(0, 2)) {
-    points.push(ai.narrationText);
+  let topExpenseCategory: { name: string; cents: bigint } | undefined;
+  for (const [name, cents] of categoryTotals.entries()) {
+    if (!topExpenseCategory || cents > topExpenseCategory.cents) topExpenseCategory = { name, cents };
   }
 
-  // Positive highlight or informative insight
-  const infoInsights = insights.filter((i) => i.severity === 'info');
-  for (const ii of infoInsights.slice(0, 3 - points.length)) {
-    points.push(ii.narrationText);
-  }
-
-  // Fallback points if fewer than 3 findings
-  if (points.length === 0) {
-    if (incomeCents > 0n || expenseCents > 0n) {
-      points.push(`Você registrou ${txs.length} transações no período, gerando uma movimentação total de R$ ${incomeMoney.toDecimalString().replace('.', ',')}.`);
-    } else {
-      points.push('Nenhuma movimentação relevante identificada para este mês ainda.');
-    }
-  }
+  const points = composeDigestPoints({
+    attentionTexts: insights
+      .filter((i) => i.severity === 'alerta' || i.severity === 'atencao')
+      .map((i) => i.narrationText),
+    infoTexts: insights.filter((i) => i.severity === 'info').map((i) => i.narrationText),
+    transactionCount: txs.length,
+    incomeCents,
+    expenseCents,
+    topExpenseCategory,
+  });
 
   const monthNames = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -97,9 +95,9 @@ export async function buildMonthlyDigest(
   return {
     month: targetMonth,
     label,
-    totalIncome: `R$ ${incomeMoney.toDecimalString().replace('.', ',')}`,
-    totalExpense: `R$ ${expenseMoney.toDecimalString().replace('.', ',')}`,
-    netResult: `${netSign}R$ ${netMoney.toDecimalString().replace('.', ',')}`,
+    totalIncome: formatBRL(incomeCents),
+    totalExpense: formatBRL(expenseCents),
+    netResult: `${netCents >= 0n ? '+' : ''}${formatBRL(netCents)}`,
     isPositive: netCents >= 0n,
     points,
   };

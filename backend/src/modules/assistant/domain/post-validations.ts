@@ -1,6 +1,7 @@
 import { LocalDate, Money, SystemClock, type Clock } from '../../../shared/index.js';
 import type { Extraction } from './extraction-schema.js';
 import { PtBrDateResolver } from './pt-br-date-resolver.js';
+import { normalizeDescription } from './description.js';
 
 export interface CategoryInfo {
   readonly id: string;
@@ -157,10 +158,11 @@ export function validateExtraction(
     ambiguousFields.push('low_confidence');
   }
 
-  const description =
+  const rawDescription =
     extraction.description ||
     extraction.merchant ||
     (extraction.type === 'receita' ? 'Receita lançada via assistente' : 'Despesa lançada via assistente');
+  const description = normalizeDescription(rawDescription, rawText);
 
   return {
     kind: 'valid',

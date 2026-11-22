@@ -2,6 +2,8 @@ export interface ResolvedPeriod {
   readonly startDate: string; // YYYY-MM-DD
   readonly endDate: string;   // YYYY-MM-DD
   readonly label: string;
+  /** Forma gramatical para iniciar frase ('Neste mês', 'No mês passado'). */
+  readonly phrase: string;
 }
 
 export class PeriodResolver {
@@ -15,20 +17,20 @@ export class PeriodResolver {
 
     if (normalized.includes('hoje')) {
       const todayIso = toIso(referenceDate);
-      return { startDate: todayIso, endDate: todayIso, label: 'Hoje' };
+      return { startDate: todayIso, endDate: todayIso, label: 'Hoje', phrase: 'Hoje' };
     }
 
     if (normalized.includes('ontem')) {
       const yest = new Date(referenceDate);
       yest.setDate(yest.getDate() - 1);
       const yestIso = toIso(yest);
-      return { startDate: yestIso, endDate: yestIso, label: 'Ontem' };
+      return { startDate: yestIso, endDate: yestIso, label: 'Ontem', phrase: 'Ontem' };
     }
 
     if (normalized.includes('esta semana') || normalized.includes('essa semana')) {
       const start = new Date(referenceDate);
       start.setDate(start.getDate() - start.getDay()); // Sunday
-      return { startDate: toIso(start), endDate: toIso(referenceDate), label: 'Esta semana' };
+      return { startDate: toIso(start), endDate: toIso(referenceDate), label: 'Esta semana', phrase: 'Nesta semana' };
     }
 
     if (normalized.includes('mês passado') || normalized.includes('mes passado')) {
@@ -38,6 +40,7 @@ export class PeriodResolver {
         startDate: toIso(prevMonthStart),
         endDate: toIso(prevMonthEnd),
         label: 'Mês passado',
+        phrase: 'No mês passado',
       };
     }
 
@@ -46,6 +49,7 @@ export class PeriodResolver {
         startDate: `${year}-01-01`,
         endDate: toIso(referenceDate),
         label: `Ano de ${year}`,
+        phrase: `Em ${year}`,
       };
     }
 
@@ -55,6 +59,7 @@ export class PeriodResolver {
         startDate: toIso(start),
         endDate: toIso(referenceDate),
         label: 'Últimos 3 meses',
+        phrase: 'Nos últimos 3 meses',
       };
     }
 
@@ -65,6 +70,7 @@ export class PeriodResolver {
       startDate: toIso(currentMonthStart),
       endDate: toIso(currentMonthEnd),
       label: 'Este mês',
+    phrase: 'Neste mês',
     };
   }
 }

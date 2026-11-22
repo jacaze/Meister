@@ -1,5 +1,6 @@
 import prisma from '../../../config/prisma.js';
 import type { Clock, WorkspaceScope } from '../../../shared/index.js';
+import { INSIGHTS_TICK_TTL_MS, refreshInsightsIfStale } from '../../insights/public.js';
 import { syncWorkspaceDas } from '../../fiscal/public.js';
 import { syncPluggyConnection, type BankingAggregator } from '../../openfinance/public.js';
 import type {
@@ -42,5 +43,9 @@ export class PrismaTickGateway implements TickGateway {
       connectionId,
       aggregator: this.aggregator,
     });
+  }
+
+  public async refreshWorkspaceInsights(scope: WorkspaceScope, clock: Clock): Promise<number> {
+    return refreshInsightsIfStale(scope, { now: clock.now(), ttlMs: INSIGHTS_TICK_TTL_MS });
   }
 }

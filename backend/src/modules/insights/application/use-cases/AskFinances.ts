@@ -1,6 +1,6 @@
 import prisma from '../../../../config/prisma.js';
 import type { WorkspaceScope } from '../../../../shared/index.js';
-import { Money } from '../../../../shared/index.js';
+import { Money, formatBRL, formatBRLFromDecimal, formatCompetence, formatDateBR, formatPercent } from '../../../../shared/index.js';
 import { PeriodResolver } from '../../domain/PeriodResolver.js';
 import { getMeiLimit, listDas } from '../../../fiscal/public.js';
 import { getJarsStatus } from '../../../jars/public.js';
@@ -51,10 +51,9 @@ export async function askFinances(
         answer: 'Não foi possível carregar os dados de limite MEI no momento.',
       };
     }
-    const pct = mei.percentualUtilizado.toFixed(1);
     return {
       intent: 'limite_mei',
-      answer: `Você faturou R$ ${mei.faturamentoAno.replace('.', ',')} no ano de ${mei.ano}, o que representa ${pct}% do teto anual proporcional de R$ ${mei.limite.replace('.', ',')}. Ainda restam R$ ${mei.restante.replace('.', ',')} disponíveis.`,
+      answer: `Você faturou ${formatBRLFromDecimal(mei.faturamentoAno)} no ano de ${mei.ano}, o que representa ${formatPercent(mei.percentualUtilizado)} do teto anual proporcional de ${formatBRLFromDecimal(mei.limite)}. Ainda restam ${formatBRLFromDecimal(mei.restante)} disponíveis.`,
       metrics: {
         percentual: mei.percentualUtilizado,
         faturamentoAno: mei.faturamentoAno,
@@ -76,7 +75,7 @@ export async function askFinances(
     if (pendente) {
       return {
         intent: 'das',
-        answer: `Você tem a guia DAS da competência ${pendente.competence} no valor de R$ ${pendente.amount.replace('.', ',')} com vencimento em ${pendente.dueDate} (${pendente.status.toUpperCase()}).`,
+        answer: `Você tem a guia DAS da competência ${formatCompetence(pendente.competence)} no valor de ${formatBRLFromDecimal(pendente.amount)} com vencimento em ${formatDateBR(pendente.dueDate)} (${pendente.status.toUpperCase()}).`,
       };
     }
     return {
@@ -95,7 +94,7 @@ export async function askFinances(
       };
     }
     const lines = jarsRes.jars.map(
-      (j) => `• ${j.name}: R$ ${j.usado} de R$ ${j.alocado} (${j.percentUsado.toFixed(0)}% usado)`
+      (j) => `• ${j.name}: ${formatBRLFromDecimal(j.usado)} de ${formatBRLFromDecimal(j.alocado)} (${formatPercent(j.percentUsado, 0)} usado)`
     );
     return {
       intent: 'potes',
@@ -121,15 +120,13 @@ export async function askFinances(
       else if (t.type === 'despesa') outCents += val;
     }
     const balCents = inCents - outCents;
-    const balMoney = Money.fromCents(balCents < 0n ? -balCents : balCents);
-    const sign = balCents < 0n ? '-' : '';
     return {
       intent: 'saldo',
-      answer: `Seu saldo acumulado em caixa é de ${sign}R$ ${balMoney.toDecimalString().replace('.', ',')}.`,
+      answer: `Seu saldo acumulado em caixa é de ${formatBRL(balCents)}.`,
       metrics: {
         totalEntradas: Money.fromCents(inCents).toDecimalString(),
         totalSaidas: Money.fromCents(outCents).toDecimalString(),
-        saldo: `${sign}${balMoney.toDecimalString()}`,
+        saldo: Money.formatCents(balCents),
       },
     };
   }
@@ -167,33 +164,31 @@ export async function askFinances(
 
   if (matchedCat) {
     const catCents = catMap.get(matchedCat.name) ?? 0n;
-    const catMoney = Money.fromCents(catCents);
     return {
       intent: 'gasto_por_categoria',
       periodLabel: period.label,
-      answer: `Em ${period.label}, você gastou R$ ${catMoney.toDecimalString().replace('.', ',')} na categoria "${matchedCat.name}".`,
+      answer: `${period.phrase}, você gastou ${formatBRL(catCents)} na categoria "${matchedCat.name}".`,
     };
   }
 
   // General expense breakdown
   const sorted = Array.from(catMap.entries()).sort((a, b) => (b[1] < a[1] ? -1 : 1));
-  const totalMoney = Money.fromCents(totalExpenseCents);
 
   if (sorted.length === 0) {
     return {
       intent: 'despesas_periodo',
       periodLabel: period.label,
-      answer: `Nenhum lançamento de despesa foi encontrado em ${period.label}.`,
+      answer: `Nenhum lançamento de despesa foi encontrado (${period.label.toLowerCase()}).`,
     };
   }
 
   const topCategories = sorted.slice(0, 3).map(
-    ([name, cents]) => `• ${name}: R$ ${Money.fromCents(cents).toDecimalString().replace('.', ',')}`
+    ([name, cents]) => `• ${name}: ${formatBRL(cents)}`
   );
 
   return {
     intent: 'maiores_gastos',
     periodLabel: period.label,
-    answer: `Em ${period.label}, seu total de despesas foi de R$ ${totalMoney.toDecimalString().replace('.', ',')}. Principais categorias:\n${topCategories.join('\n')}`,
+    answer: `${period.phrase}, seu total de despesas foi de ${formatBRL(totalExpenseCents)}. Principais categorias:\n${topCategories.join('\n')}`,
   };
 }
