@@ -124,6 +124,19 @@ Se cadastrar um webhook via API (`POST /webhooks`) com `headers` customizados e 
 | `GET /api/imports` | Caixa de Revisão |
 | `POST /api/imports/approve`, `/batch-approve`, `/ignore` | Aprovar ou ignorar itens importados |
 | `POST /api/imports/statement` | Importar OFX/CSV manualmente (sem Pluggy) |
+| `PUT /api/transactions/:id/non-income` | Marca uma receita como "não é renda" (`{ reason: 'own_account' \| 'refund' }`) ou desfaz (`{ reason: null }`) |
+
+### Entrada que não é renda
+
+Na Caixa de Revisão, uma **entrada** pendente pode ser aprovada como "Não é renda" (`POST /api/imports/approve`
+com `nonIncomeReason`): `own_account` = veio de outra conta do próprio usuário (banco não conectado);
+`refund` = reembolso ou devolução. O ledger grava a receita como **perna única de transferência**
+(`transfer_group_id` próprio + `transfer_type` = motivo). Com isso ela continua na lista de lançamentos
+(com o selo "Não é renda"), mas fica fora da receita do mês (dashboard, totais de lançamentos, insights e resumo do mês),
+da base dos potes e do faturamento do limite MEI — o mesmo critério que já valia para transferências.
+Saída não pode ser marcada (`400 NON_INCOME_ONLY_FOR_INCOME`); perna de transferência ou pró-labore também
+não (`400 NON_INCOME_TRANSFER_LEG`). Em Lançamentos, a mesma rota do ledger marca, troca o motivo ou desfaz,
+com registro em `transaction_audit`.
 
 ## Limitações conhecidas
 

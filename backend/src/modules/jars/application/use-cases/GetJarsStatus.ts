@@ -7,6 +7,7 @@ import {
 } from '../../../../shared/index.js';
 import { JarAllocator, type JarBand } from '../../domain/services/JarAllocator.js';
 import { createJarPlan } from './CreateJarPlan.js';
+import { TRANSFER_TYPES_NOT_INCOME } from '../../../ledger/public.js';
 
 export interface GetJarsStatusQuery {
   readonly entityId?: string;
@@ -217,7 +218,7 @@ export async function getJarsStatus(
   };
 }
 
-/** Receita confirmada de um mês, sem contar transferências entre contas próprias. */
+/** Receita confirmada de um mês, sem transferências entre contas próprias nem entradas "não é renda". */
 async function monthRevenue(workspaceId: string, entityId: string, ym: YearMonth): Promise<Money> {
   const rows = await prisma.transaction.findMany({
     where: {
@@ -227,7 +228,8 @@ async function monthRevenue(workspaceId: string, entityId: string, ym: YearMonth
       status: 'confirmado',
       deletedAt: null,
       // transfer_type é nulo nas receitas comuns: NOT sozinho descartaria essas linhas no SQL.
-      OR: [{ transferType: null }, { transferType: { not: 'transfer' } }],
+      // Pró-labore continua contando: é renda da PF.
+      OR: [{ transferType: null }, { transferType: { notIn: [...TRANSFER_TYPES_NOT_INCOME] } }],
       transactionDate: {
         gte: new Date(`${ym.startDate.toIsoDate()}T00:00:00.000Z`),
         lte: new Date(`${ym.endDate.toIsoDate()}T23:59:59.999Z`),

@@ -36,6 +36,9 @@ enum TransactionOrigin {
 enum TransferType {
   transfer
   pro_labore
+  // Perna única de entrada que não é renda (fila de revisão / lançamentos)
+  own_account // veio de outra conta do próprio usuário, fora do app
+  refund // reembolso ou devolução
 }
 
 model User {

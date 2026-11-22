@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { NON_INCOME_REASONS } from '../../../ledger/public.js';
 
 /**
  * Id opcional que a tela pode mandar como `null` (ex.: categoria sugerida vazia vinda de coluna nula).
@@ -29,6 +30,8 @@ export const approveImportedTransactionSchema = z.object({
   categoryId: optionalUuid,
   entityId: optionalUuid,
   viaPersonalAccount: z.boolean().optional(),
+  // "Não é renda" (só entradas): own_account = veio de outra conta minha; refund = reembolso/devolução
+  nonIncomeReason: z.enum(NON_INCOME_REASONS).optional(),
 });
 
 export const batchApproveImportedTransactionItemSchema = z.object({

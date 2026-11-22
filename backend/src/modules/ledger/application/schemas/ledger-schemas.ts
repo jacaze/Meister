@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { NON_INCOME_REASONS } from '../../domain/NonIncome.js';
 
 export const createSplitSchema = z.object({
   categoryId: z.string().uuid(),
@@ -75,3 +76,10 @@ export const registerOwnerWithdrawalSchema = z.object({
   occurredOn: z.string().min(1),
   description: z.string().max(1000).optional(),
 });
+
+/** PUT /transactions/:id/non-income — `reason: null` desfaz a marcação. */
+export const setNonIncomeSchema = z
+  .object({
+    reason: z.enum(NON_INCOME_REASONS).nullable(),
+  })
+  .strict();

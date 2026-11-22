@@ -1,6 +1,6 @@
 import prisma from '../../../../config/prisma.js';
 import { NotFoundError, ValidationError, type WorkspaceScope } from '../../../../shared/index.js';
-import { createTransaction } from '../../../ledger/public.js';
+import { createTransaction, setTransactionNonIncome, type NonIncomeReason } from '../../../ledger/public.js';
 import { findFallbackCategoryId } from '../../../catalog/public.js';
 
 export interface ApproveImportInput {
@@ -8,6 +8,8 @@ export interface ApproveImportInput {
   readonly categoryId?: string;
   readonly entityId?: string;
   readonly viaPersonalAccount?: boolean;
+  /** "Não é renda": a entrada é registrada como perna única de transferência (fora de receita/potes/limite MEI). */
+  readonly nonIncomeReason?: NonIncomeReason;
 }
 
 export async function approveImportedTransaction(
@@ -44,6 +46,13 @@ export async function approveImportedTransaction(
   // Categoria: a escolhida, senão a sugerida, senão "Outras Despesas/Receitas" do workspace
   // (por slug). Sem ela, o lançamento fica sem categoria; nunca uma categoria arbitrária.
   const type = item.direction === 'in' ? 'receita' : 'despesa';
+  if (input.nonIncomeReason && type !== 'receita') {
+    throw new ValidationError(
+      'Só entradas podem ser marcadas como "não é renda".',
+      undefined,
+      'NON_INCOME_ONLY_FOR_INCOME'
+    );
+  }
   const categoryId =
     input.categoryId || item.suggestedCategoryId || (await findFallbackCategoryId(scope, type));
 
@@ -62,7 +71,13 @@ export async function approveImportedTransaction(
     sourceRef: `${item.provider}:${item.externalId}`,
   });
 
-  // 2. Mark bank transaction as imported
+  // 2. "Não é renda": marca pelo caso de uso do ledger. Se falhar, o item segue pendente e a nova
+  // tentativa reaproveita o lançamento (idempotente por sourceRef) antes de marcar.
+  const result = input.nonIncomeReason
+    ? await setTransactionNonIncome(scope, tx.id, { reason: input.nonIncomeReason })
+    : tx;
+
+  // 3. Mark bank transaction as imported
   await prisma.bankTransaction.update({
     where: { id: item.id },
     data: {
@@ -71,7 +86,7 @@ export async function approveImportedTransaction(
     },
   });
 
-  return tx;
+  return result;
 }
 
 export async function ignoreImportedTransaction(

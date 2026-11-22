@@ -3,6 +3,7 @@ import api from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
 import QuickTransactionModal from '../components/modals/QuickTransactionModal.js';
 import EditTransactionSheet from '../components/modals/EditTransactionSheet.js';
+import { nonIncomeLabel, nonIncomeReasonOf } from '../lib/nonIncome.js';
 import ConfirmDialog from '../components/ui/ConfirmDialog.js';
 import AnimatedNumber from '../components/ui/AnimatedNumber.js';
 import { formatBRL, parseDecimal } from '../lib/money.js';
@@ -729,6 +730,14 @@ export const TransactionsPage: React.FC = () => {
                               <span className="font-bold text-sm text-ink truncate max-w-[180px] sm:max-w-md">
                                 {tx.description}
                               </span>
+                              {nonIncomeReasonOf(tx) && (
+                                <span
+                                  className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-info/10 text-info border border-info/20"
+                                  title={nonIncomeLabel(nonIncomeReasonOf(tx)!)}
+                                >
+                                  Não é renda
+                                </span>
+                              )}
                               {tx.viaPersonalAccount && (
                                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/20 text-brand border border-primary/30">
                                   Conta PF
