@@ -25,8 +25,9 @@ As credenciais ficam só no `.env` do servidor. Não existe rota para trocá-las
 Não há "modo sandbox" no código:
 
 - O backend sempre chama a API real da Pluggy (`https://api.pluggy.ai`).
-- O widget só lista os bancos de teste no dev server (`includeSandbox={import.meta.env.DEV}` em
-  `frontend/src/components/openfinance/PluggyConnectFallbackModal.tsx`). No build de produção eles somem.
+- O widget lista os bancos de teste (Pluggy Bank) no dev server e, em produção, só se o build for feito com
+  `VITE_PLUGGY_INCLUDE_SANDBOX=true` (demo hospedada; ver `docs/deploy.md`). Leitura centralizada em
+  `frontend/src/lib/pluggyConfig.ts`; o modal é `frontend/src/components/openfinance/PluggyConnectFallbackModal.tsx`.
 - **Quem decide se uma conta real conecta é a aplicação no painel da Pluggy** cujas credenciais estão no `.env`.
 
 ### Caminho A — testar com a sua própria conta, sem custo (MeuPluggy)
