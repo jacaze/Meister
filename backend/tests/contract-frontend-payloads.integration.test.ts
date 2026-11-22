@@ -779,5 +779,45 @@ describe('Frontend & Telegram Real Payloads Contract Suite (PostgreSQL 16)', () 
     });
     expect(archive.statusCode).toBe(200);
   });
+
+  it('19. QuickTransactionModal (paidByEntityId) e SettlementsPage — acertos entre entidades', async () => {
+    const auth = { authorization: `Bearer ${token}` };
+    const pf = await prisma.entity.findFirstOrThrow({ where: { workspaceId, kind: 'pf', active: true } });
+
+    // O modal envia paidByEntityId só quando o pagador é outra entidade
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/transactions',
+      headers: auth,
+      payload: {
+        type: 'despesa',
+        amount: '42.00',
+        description: 'Compra paga com a PF',
+        categoryId: expenseCategoryId,
+        paymentMethod: 'pix',
+        transactionDate: '2026-11-15',
+        entityId: pjEntityId,
+        paidByEntityId: pf.id,
+      },
+    });
+    expect(created.statusCode).toBe(201);
+    const settlement = await prisma.settlement.findUniqueOrThrow({ where: { transactionId: created.json().id } });
+
+    // A tela de acertos envia { via } para marcar e nada para reabrir
+    const settle = await app.inject({
+      method: 'POST',
+      url: `/api/settlements/${settlement.id}/settle`,
+      headers: auth,
+      payload: { via: 'transferencia' },
+    });
+    expect(settle.statusCode).toBe(200);
+
+    const reopen = await app.inject({
+      method: 'POST',
+      url: `/api/settlements/${settlement.id}/reopen`,
+      headers: auth,
+    });
+    expect(reopen.statusCode).toBe(200);
+  });
 });
 

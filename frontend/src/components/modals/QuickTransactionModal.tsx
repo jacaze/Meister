@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { entityLabel } from '../../lib/bankAccountEntity.js';
+import { settlementHint } from '../../lib/settlementHint.js';
 import { motion, useReducedMotion } from 'motion/react';
 import { Camera, CircleNotch, WarningCircle, TrendDown, TrendUp, ArrowsSplit, CaretRight } from '../ui/icons.js';
 import api from '../../api/client.js';
 import { useAuth } from '../../context/AuthContext.js';
 import Sheet from '../ui/Sheet.js';
-import CheckRow from '../ui/CheckRow.js';
 import Mel from '../brand/Mel.js';
 import { celebrate, haptic } from '../../lib/celebrate.js';
 import { parseBRL } from '../../lib/money.js';
@@ -47,7 +48,8 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
   const [paymentMethod, setPaymentMethod] = useState('pix');
   const [transactionDate, setTransactionDate] = useState(() => todayLocalIso());
   const [entityId, setEntityId] = useState(activeEntityId || '');
-  const [viaPersonalAccount, setViaPersonalAccount] = useState(false);
+  // Entidade cujo dinheiro pagou/recebeu; vazio = a própria entidade do lançamento (tarefa 18)
+  const [paidByEntityId, setPaidByEntityId] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -175,7 +177,7 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
           paymentMethod,
           transactionDate,
           entityId: entityId || undefined,
-          viaPersonalAccount,
+          paidByEntityId: paidByEntityId && paidByEntityId !== entityId ? paidByEntityId : undefined,
           sourceRef: receiptAccessKey ? `nfe:${receiptAccessKey}` : undefined,
         });
       }
@@ -193,6 +195,8 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
   };
 
   const selectedEntity = workspace?.entities.find((e) => e.id === entityId);
+  const payerEntity = workspace?.entities.find((e) => e.id === paidByEntityId);
+  const acertoHint = settlementHint(type, selectedEntity, payerEntity);
 
   const footer = (
     <div className="flex items-center gap-3">
@@ -461,7 +465,7 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
                 >
                   {workspace.entities.map((e) => (
                     <option key={e.id} value={e.id}>
-                      {e.kind === 'pj' ? 'PJ — ' : 'PF — '}{e.name}
+                      {entityLabel(e)}
                     </option>
                   ))}
                 </select>
@@ -469,14 +473,28 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({ on
             )}
           </div>
 
-          {/* Via Personal Account Checkbox (MEI Reality) */}
-          {selectedEntity?.kind === 'pj' && (
-            <CheckRow
-              checked={viaPersonalAccount}
-              onChange={setViaPersonalAccount}
-              label="Passou pela conta pessoal (PF)"
-              hint="Marque se foi pago ou recebido na sua conta de pessoa física"
-            />
+          {/* De quem é o dinheiro: se for de outra entidade, nasce um acerto (tarefa 18) */}
+          {workspace && workspace.entities.length > 1 && (
+            <div>
+              <label className="block text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5">
+                {type === 'despesa' ? 'Pago com o dinheiro de' : 'Recebido na conta de'}
+              </label>
+              <select
+                value={paidByEntityId}
+                onChange={(e) => setPaidByEntityId(e.target.value)}
+                className="w-full px-3 py-2.5 bg-canvas border border-ink/8 rounded-2xl text-sm text-ink focus:outline-none focus:border-primary transition"
+              >
+                <option value="">{selectedEntity ? `${entityLabel(selectedEntity)} (a mesma)` : 'A mesma'}</option>
+                {workspace.entities
+                  .filter((e) => e.id !== entityId)
+                  .map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {entityLabel(e)}
+                    </option>
+                  ))}
+              </select>
+              {acertoHint && <p className="mt-1.5 text-xs font-semibold text-brand">{acertoHint}</p>}
+            </div>
           )}
 
         </form>

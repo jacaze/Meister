@@ -5,7 +5,8 @@ import {
   type BankConnection,
 } from '../components/openfinance/BankConnectionsCard.js';
 import ClassifyAccountsSheet, { type AccountToClassify } from '../components/openfinance/ClassifyAccountsSheet.js';
-import { accountsWithoutEntity } from '../lib/bankAccountEntity.js';
+import { accountsWithoutEntity, entityLabel } from '../lib/bankAccountEntity.js';
+import { settlementHint } from '../lib/settlementHint.js';
 import { useAuth } from '../context/AuthContext.js';
 import { PluggyConfigModal } from '../components/openfinance/PluggyConfigModal.js';
 import { PluggyConnectFallbackModal } from '../components/openfinance/PluggyConnectFallbackModal.js';
@@ -44,6 +45,7 @@ interface BankTransactionItem {
   readonly status: string;
   readonly suggestedCategoryId?: string;
   readonly isTransferSuspect?: boolean;
+  readonly accountEntityId?: string | null;
 }
 
 function formatDateBR(dateStr?: string | null): string {
@@ -63,6 +65,8 @@ export const ReviewInboxPage: React.FC = () => {
   const [connecting, setConnecting] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'nova' | 'importada' | 'ignorada'>('nova');
   const [selectedCategories, setSelectedCategories] = useState<Record<string, string>>({});
+  // De quem é cada gasto/receita (tarefa 18); vazio = a entidade da conta de origem
+  const [selectedEntities, setSelectedEntities] = useState<Record<string, string>>({});
 
   // Modals state
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
@@ -196,6 +200,7 @@ export const ReviewInboxPage: React.FC = () => {
       await api.post('/imports/approve', {
         bankTransactionId: item.id,
         categoryId,
+        entityId: selectedEntities[item.id] || undefined,
       });
       toast.success('Lançamento conciliado e aprovado!');
       setItems((prev) => prev.filter((i) => i.id !== item.id));
@@ -237,6 +242,7 @@ export const ReviewInboxPage: React.FC = () => {
       const payload = eligibleItems.map((it) => ({
         bankTransactionId: it.id,
         categoryId: selectedCategories[it.id] || it.suggestedCategoryId,
+        entityId: selectedEntities[it.id] || undefined,
       }));
 
       const res = await api.post('/imports/batch-approve', { items: payload });
@@ -419,6 +425,12 @@ export const ReviewInboxPage: React.FC = () => {
             {items.map((item) => {
               const isReceita = item.direction === 'in';
               const isSuspect = item.isTransferSuspect;
+              const ownerId = selectedEntities[item.id] || item.accountEntityId || '';
+              const acertoHint = settlementHint(
+                isReceita ? 'receita' : 'despesa',
+                entities.find((e) => e.id === ownerId),
+                entities.find((e) => e.id === item.accountEntityId)
+              );
 
               return (
                 <div
@@ -489,6 +501,23 @@ export const ReviewInboxPage: React.FC = () => {
                             </option>
                           ))}
                       </select>
+                      {entities.length > 1 && (
+                        <select
+                          value={ownerId}
+                          onChange={(e) => setSelectedEntities((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                          aria-label={isReceita ? 'De quem é esta receita' : 'De quem é este gasto'}
+                          className="mt-2 w-full min-h-[44px] px-3 py-2 bg-card border border-ink/10 rounded-xl text-xs font-bold text-ink focus:outline-none focus:border-primary transition"
+                        >
+                          {!item.accountEntityId && <option value="">(De quem é?)</option>}
+                          {entities.map((e) => (
+                            <option key={e.id} value={e.id}>
+                              {isReceita ? 'Receita de: ' : 'Gasto de: '}
+                              {entityLabel(e)}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      {acertoHint && <p className="mt-1 text-[11px] font-semibold text-brand">{acertoHint}</p>}
                     </div>
                   )}
 
