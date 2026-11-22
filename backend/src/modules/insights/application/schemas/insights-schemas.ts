@@ -5,6 +5,11 @@ export const askFinancesSchema = z.object({
   entityId: z.string().uuid().optional(),
 });
 
+export const digestQuerySchema = z.object({
+  month: z.string().optional(),
+  entityId: z.string().uuid().optional(),
+});
+
 export const submitInsightFeedbackSchema = z.object({
   value: z.enum(['util', 'inutil']),
   reason: z.string().max(1000).optional(),

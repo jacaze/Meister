@@ -11,7 +11,8 @@ import type {
 } from '../domain/FinancialSnapshot.js';
 import { getMeiLimit } from '../../fiscal/public.js';
 import { getJarsStatus } from '../../jars/public.js';
-import { excludeNonIncomeWhere } from '../../ledger/public.js';
+import { resolveScopedEntityId } from '../application/EntityGuard.js';
+import { excludeNonIncomeWhere, validTransactionsWhere } from '../../ledger/public.js';
 
 export class PrismaFinancialSnapshotReader implements FinancialSnapshotReader {
   async readSnapshot(
@@ -19,11 +20,12 @@ export class PrismaFinancialSnapshotReader implements FinancialSnapshotReader {
     entityId?: string,
     referenceDate: Date = new Date()
   ): Promise<FinancialSnapshot> {
-    const targetEntityId = entityId ?? scope.defaultEntityIds.pj ?? scope.defaultEntityIds.pf;
+    const scopedEntityId = await resolveScopedEntityId(scope, entityId);
+    const targetEntityId = scopedEntityId ?? scope.defaultEntityIds.pj ?? scope.defaultEntityIds.pf;
 
     // 1. Entity details
     const entity = targetEntityId
-      ? await prisma.entity.findUnique({ where: { id: targetEntityId } })
+      ? await prisma.entity.findFirst({ where: { id: targetEntityId, workspaceId: scope.workspaceId } })
       : null;
     const isMei = entity?.isMei ?? Boolean(scope.defaultEntityIds.pj);
 
@@ -96,6 +98,7 @@ export class PrismaFinancialSnapshotReader implements FinancialSnapshotReader {
         },
         type: { in: ['receita', 'despesa'] },
         // Entrada "não é renda" (outra conta própria, reembolso) não entra na receita dos insights
+        ...validTransactionsWhere(),
         ...excludeNonIncomeWhere(),
       },
       include: {

@@ -1,7 +1,8 @@
 import prisma from '../../../../config/prisma.js';
 import type { WorkspaceScope } from '../../../../shared/index.js';
 import { Money } from '../../../../shared/index.js';
-import { excludeNonIncomeWhere } from '../../../ledger/public.js';
+import { resolveScopedEntityId } from '../EntityGuard.js';
+import { excludeNonIncomeWhere, validTransactionsWhere } from '../../../ledger/public.js';
 
 export interface MonthlyDigestResult {
   readonly month: string; // 'YYYY-MM'
@@ -15,8 +16,10 @@ export interface MonthlyDigestResult {
 
 export async function buildMonthlyDigest(
   scope: WorkspaceScope,
-  monthIso?: string
+  monthIso?: string,
+  entityId?: string
 ): Promise<MonthlyDigestResult> {
+  const scopedEntityId = await resolveScopedEntityId(scope, entityId);
   const targetMonth = monthIso || new Date().toISOString().slice(0, 7);
   const parts = targetMonth.split('-');
   const year = parseInt(parts[0] || '2026', 10);
@@ -29,8 +32,10 @@ export async function buildMonthlyDigest(
   const txs = await prisma.transaction.findMany({
     where: {
       workspaceId: scope.workspaceId,
+      ...(scopedEntityId ? { entityId: scopedEntityId } : {}),
       transactionDate: { gte: startOfMonth, lte: endOfMonth },
       type: { in: ['receita', 'despesa'] },
+      ...validTransactionsWhere(),
       ...excludeNonIncomeWhere(),
     },
   });

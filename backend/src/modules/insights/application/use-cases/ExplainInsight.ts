@@ -1,5 +1,6 @@
 import prisma from '../../../../config/prisma.js';
 import { NotFoundError, type WorkspaceScope } from '../../../../shared/index.js';
+import { validTransactionsWhere } from '../../../ledger/public.js';
 
 const DETECTOR_DESCRIPTIONS: Record<string, string> = {
   category_spike: 'Identifica quando os gastos de uma categoria específica aumentaram 30% ou mais em relação à sua média dos meses anteriores.',
@@ -40,6 +41,7 @@ export async function explainInsight(
     const txs = await prisma.transaction.findMany({
       where: {
         workspaceId: scope.workspaceId,
+        ...validTransactionsWhere(),
         category: { name: categoryMetric.value },
       },
       orderBy: { transactionDate: 'desc' },

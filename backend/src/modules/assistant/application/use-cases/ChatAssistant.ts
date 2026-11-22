@@ -4,6 +4,7 @@ import { Money } from '../../../../shared/index.js';
 import { proposeFromText } from './ProposeFromText.js';
 import { askFinances } from '../../../insights/public.js';
 import { askEducation } from '../../../education/public.js';
+import { validTransactionsWhere } from '../../../ledger/public.js';
 
 export interface ChatMessage {
   readonly role: 'user' | 'assistant';
@@ -212,7 +213,7 @@ export async function chatAssistant(
 
     // Balance summary
     const txs = await prisma.transaction.findMany({
-      where: { workspaceId: scope.workspaceId },
+      where: { workspaceId: scope.workspaceId, ...validTransactionsWhere() },
       select: { type: true, amount: true },
     });
     let inCents = 0n;
