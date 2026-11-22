@@ -9,12 +9,14 @@ Este documento descreve como publicar o **MEIster** em produção com HTTPS auto
 O stack de produção (`docker-compose.yml` + `docker-compose.prod.yml`) executa:
 
 - **`proxy` (`caddy:2.11-alpine`)**: único ponto exposto nas portas `80` e `443` (`PROXY_HTTP_PORT` / `PROXY_HTTPS_PORT`), com TLS automático via Let's Encrypt para `DOMAIN` (ou TLS interno quando `DOMAIN=localhost`).
+  - `/api/internal`, `/api/internal/*` → bloqueados com HTTP `404` (não expostos externamente)
   - `/api/*` → `api:3000` (preserva o prefixo `/api`)
   - `/health`, `/health/*` (`/health/live`, `/health/ready`) → `api:3000`
   - `POST /telegram/webhook` → `api:3000`
   - Demais rotas → `frontend:8080`
 - **`frontend` (`frontend/Dockerfile` — `node:22-alpine` → `caddy:2.11-alpine`)**: serve o build estático do Vite (`dist/`) apenas na rede interna do Docker (`expose: 8080`), com fallback SPA para `/index.html` e os cabeçalhos PWA (`/sw.js` `no-cache`, `/assets/*` `immutable`).
 - **`api` (`backend/Dockerfile`)**: escuta em `3000`, ligado no host apenas a `127.0.0.1:3000` (nunca exposto externamente).
+- **`cron` (`docker/cron/Dockerfile` — `alpine:3.21`)**: dispara `POST http://api:3000/api/internal/tick` a cada hora (`0 * * * *`) dentro da rede interna do Docker com o cabeçalho `X-Internal-Secret`, gerando guias DAS pendentes do mês, marcando DAS vencidos em `America/Sao_Paulo` como `atrasado` e sincronizando conexões Pluggy cujo `lastSyncAt` ultrapassou `OPENFINANCE_SYNC_INTERVAL_HOURS` (ou estejam em status `erro`). <!-- gitleaks:allow -->
 - **`db` (`postgres:16-alpine`) + `migrate`**: escuta na rede interna e em `127.0.0.1:5436`.
 
 > **Confiança no proxy (`TRUST_PROXY`):**
@@ -46,7 +48,8 @@ O stack de produção (`docker-compose.yml` + `docker-compose.prod.yml`) executa
    - `DOMAIN=app.seudominio.com.br` (sem `https://`)
    - `POSTGRES_PASSWORD` (senha forte aleatória; nunca usar `change_me` ou `dev_only`)
    - `JWT_SECRET` (mínimo 32 caracteres aleatórios — ex.: `openssl rand -base64 48`)
-   - `INTERNAL_TICK_SECRET` (mínimo 32 caracteres aleatórios)
+   - `INTERNAL_TICK_SECRET` (mínimo 32 caracteres aleatórios — autentica o serviço `cron` na rota `POST /api/internal/tick`)
+   - `OPENFINANCE_SYNC_INTERVAL_HOURS` (opcional; padrão `12` — intervalo mínimo em horas entre sincronizações automáticas da Pluggy)
    - Integrações conforme uso:
      - `PLUGGY_CLIENT_ID` e `PLUGGY_CLIENT_SECRET` (ambas juntas ou ambas vazias; se `PLUGGY_BASE_URL` for usada, precisa começar com `https://`)
      - `GEMINI_API_KEY` (opcional; sem ela usa fallback determinístico/template)
@@ -59,10 +62,13 @@ O stack de produção (`docker-compose.yml` + `docker-compose.prod.yml`) executa
    docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
    ```
 
-4. **Verificar saúde e logs:**
+4. **Verificar saúde, cron e logs:**
    ```bash
    docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
    curl -fsS https://app.seudominio.com.br/health/ready
+   docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --tail=50 cron
+   # Execução manual sob demanda (a rota /api/internal/* é bloqueada externamente pelo Caddy):
+   docker compose -f docker-compose.yml -f docker-compose.prod.yml exec cron /usr/local/bin/tick.sh
    ```
 
 5. **Conferir após o primeiro deploy se o IP gravado pela API é o IP público do cliente (e não `172.x.0.1`):**
@@ -79,7 +85,7 @@ O stack de produção (`docker-compose.yml` + `docker-compose.prod.yml`) executa
      ```
 
 6. **Validar localmente (sem afetar banco existente):**
-   O script [`scripts/smoke-prod.sh`](../scripts/smoke-prod.sh) sobe uma instância isolada com `DOMAIN=localhost` (portas altas `18080`/`18443` por padrão) e verifica SPA, Service Worker, `/health/ready`, ausência de cabeçalhos duplicados/COOP/COEP/CSP, `POST /telegram/webhook`, registro/login em HTTPS e sobrescrita de `X-Forwarded-For` pelo Caddy:
+   O script [`scripts/smoke-prod.sh`](../scripts/smoke-prod.sh) sobe uma instância isolada com `DOMAIN=localhost` (portas altas `18080`/`18443` por padrão) e verifica SPA, Service Worker, `/health/ready`, ausência de cabeçalhos duplicados/COOP/COEP/CSP, `POST /telegram/webhook`, registro/login em HTTPS, sobrescrita de `X-Forwarded-For` pelo Caddy, bloqueio de `/api/internal/*` e execução do serviço `cron`:
    ```bash
    ./scripts/smoke-prod.sh
    ```

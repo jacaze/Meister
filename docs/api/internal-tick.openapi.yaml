@@ -1,0 +1,115 @@
+openapi: 3.1.0
+info:
+  title: MEIster Internal Scheduler API
+  version: 1.0.0
+  description: >
+    Contrato da rotina interna agendada do MEIster (`POST /api/internal/tick`).
+    Não é exposta externamente pelo proxy reverso Caddy (responde 404 na borda pública)
+    e é invocada apenas na rede privada pelo container `cron` com `X-Internal-Secret`.
+paths:
+  /api/internal/tick:
+    post:
+      summary: Executa a rotina periódica interna (DAS e sincronização Open Finance)
+      operationId: runInternalTick
+      security:
+        - InternalSecretAuth: []
+      responses:
+        '200':
+          description: Rotina concluída com contagens agregadas por etapa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalTickResult'
+        '401':
+          description: Cabeçalho `X-Internal-Secret` ausente ou inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: >
+            `INTERNAL_TICK_SECRET` não configurado (rotina desligada no backend) ou rota
+            bloqueada externamente pelo proxy reverso Caddy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Já existe uma execução da rotina interna em andamento (`TICK_ALREADY_RUNNING`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  securitySchemes:
+    InternalSecretAuth:
+      type: apiKey
+      in: header
+      name: X-Internal-Secret
+  schemas:
+    InternalTickResult:
+      type: object
+      additionalProperties: false
+      required:
+        - executedAt
+        - workspacesProcessed
+        - das
+        - openfinance
+      properties:
+        executedAt:
+          type: string
+          format: date-time
+          description: Instante da execução em ISO-8601 (UTC)
+        workspacesProcessed:
+          type: integer
+          minimum: 0
+        das:
+          type: object
+          additionalProperties: false
+          required:
+            - created
+            - alreadyExisted
+            - markedOverdue
+            - errors
+          properties:
+            created:
+              type: integer
+              minimum: 0
+            alreadyExisted:
+              type: integer
+              minimum: 0
+            markedOverdue:
+              type: integer
+              minimum: 0
+            errors:
+              type: integer
+              minimum: 0
+        openfinance:
+          type: object
+          additionalProperties: false
+          required:
+            - synced
+            - skipped
+            - errors
+          properties:
+            synced:
+              type: integer
+              minimum: 0
+            skipped:
+              type: integer
+              minimum: 0
+            errors:
+              type: integer
+              minimum: 0
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        correlationId:
+          type: string

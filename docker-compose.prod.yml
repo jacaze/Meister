@@ -36,6 +36,18 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  cron:
+    build:
+      context: ./docker/cron
+    environment:
+      TZ: ${DEFAULT_TIMEZONE:-America/Sao_Paulo}
+      INTERNAL_TICK_SECRET: ${INTERNAL_TICK_SECRET:?defina INTERNAL_TICK_SECRET}
+      API_TICK_URL: http://api:3000/api/internal/tick # gitleaks:allow
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   caddy_data:
   caddy_config:

@@ -11,7 +11,7 @@ PROXY_HTTPS_PORT="${PROXY_HTTPS_PORT:-18443}"
 
 # Evita que variáveis exportadas no shell poluam o teste determinístico
 unset TRUST_PROXY APP_URL CORS_ORIGINS PLUGGY_CLIENT_ID PLUGGY_CLIENT_SECRET PLUGGY_WEBHOOK_SECRET \
-  PLUGGY_BASE_URL TELEGRAM_BOT_TOKEN TELEGRAM_WEBHOOK_SECRET DEMO_MODE NODE_ENV
+  PLUGGY_BASE_URL OPENFINANCE_SYNC_INTERVAL_HOURS TELEGRAM_BOT_TOKEN TELEGRAM_WEBHOOK_SECRET DEMO_MODE NODE_ENV
 
 TMP_DIR="$(mktemp -d)"
 SMOKE_OVERRIDE="$TMP_DIR/smoke-override.yml"
@@ -53,10 +53,10 @@ compose_cmd() {
     -f "$ROOT_DIR/docker-compose.yml" -f "$ROOT_DIR/docker-compose.prod.yml" -f "$SMOKE_OVERRIDE" "$@"
 }
 
-# Pré-verificação TDD: falha claramente se frontend ou proxy não existirem no compose de produção
+# Pré-verificação TDD: falha claramente se frontend, proxy ou cron não existirem no compose de produção
 SERVICES="$(compose_cmd config --services)"
 MISSING_SERVICES=()
-for svc in frontend proxy; do
+for svc in frontend proxy cron; do
   if ! printf '%s\n' "$SERVICES" | grep -qx "$svc"; then
     MISSING_SERVICES+=("$svc")
   fi
@@ -70,7 +70,7 @@ if [ "${#MISSING_SERVICES[@]}" -gt 0 ]; then
 fi
 
 echo "==> Subindo stack de produção isolado (${SMOKE_PROJECT})..."
-compose_cmd up -d --build db migrate api frontend proxy
+compose_cmd up -d --build db migrate api frontend proxy cron
 
 BASE_URL="https://${DOMAIN}:${PROXY_HTTPS_PORT}"
 CURL_COMMON=(-skS --connect-timeout 5 --max-time 15 --resolve "${DOMAIN}:${PROXY_HTTPS_PORT}:127.0.0.1")
@@ -157,14 +157,14 @@ for (const h of forbidden) {
   }
 }
 NODE
-echo "OK [1/7] GET / -> 200 HTML, cabeçalhos validados, sem COOP/COEP/CSP."
+echo "OK [1/8] GET / -> 200 HTML, cabeçalhos validados, sem COOP/COEP/CSP."
 
 # Check 2: Fallback SPA
 SPA_HTML="$TMP_DIR/spa.html"
 SPA_STATUS="$(curl "${CURL_COMMON[@]}" -o "$SPA_HTML" -w '%{http_code}' "${BASE_URL}/rota-qualquer-do-spa")"
 [ "$SPA_STATUS" = "200" ] || { echo "ERRO: GET /rota-qualquer-do-spa retornou HTTP $SPA_STATUS" >&2; exit 1; }
 cmp -s "$ROOT_HTML" "$SPA_HTML" || { echo "ERRO: Fallback SPA difere de GET /" >&2; exit 1; }
-echo "OK [2/7] GET /rota-qualquer-do-spa -> 200 idêntico ao /index.html."
+echo "OK [2/8] GET /rota-qualquer-do-spa -> 200 idêntico ao /index.html."
 
 # Check 3: Service Worker com Cache-Control: no-cache
 SW_HEADERS="$TMP_DIR/sw.headers"
@@ -174,7 +174,7 @@ if ! grep -qi '^cache-control:.*no-cache' "$SW_HEADERS"; then
   echo "ERRO: GET /sw.js sem Cache-Control: no-cache" >&2
   exit 1
 fi
-echo "OK [3/7] GET /sw.js -> 200 com Cache-Control: no-cache."
+echo "OK [3/8] GET /sw.js -> 200 com Cache-Control: no-cache."
 
 # Check 4: /health/ready, /health/live, /health sem cabeçalhos duplicados com Helmet
 HEALTH_HEADERS="$TMP_DIR/health.headers"
@@ -216,7 +216,7 @@ LIVE_STATUS="$(curl "${CURL_COMMON[@]}" -o /dev/null -w '%{http_code}' "${BASE_U
 [ "$LIVE_STATUS" = "200" ] || { echo "ERRO: GET /health/live retornou HTTP $LIVE_STATUS" >&2; exit 1; }
 ROOT_HEALTH_STATUS="$(curl "${CURL_COMMON[@]}" -o /dev/null -w '%{http_code}' "${BASE_URL}/health")"
 [ "$ROOT_HEALTH_STATUS" = "200" ] || { echo "ERRO: GET /health retornou HTTP $ROOT_HEALTH_STATUS" >&2; exit 1; }
-echo "OK [4/7] /health/ready, /health/live e /health -> 200 sem cabeçalhos duplicados."
+echo "OK [4/8] /health/ready, /health/live e /health -> 200 sem cabeçalhos duplicados."
 
 # Check 5: POST /telegram/webhook sem segredo -> 401/403
 TG_STATUS="$(curl "${CURL_COMMON[@]}" -o /dev/null -w '%{http_code}' -X POST \
@@ -225,7 +225,7 @@ if [ "$TG_STATUS" != "401" ] && [ "$TG_STATUS" != "403" ]; then
   echo "ERRO: POST /telegram/webhook sem segredo retornou HTTP $TG_STATUS (esperado 401 ou 403)" >&2
   exit 1
 fi
-echo "OK [5/7] POST /telegram/webhook sem segredo -> HTTP $TG_STATUS."
+echo "OK [5/8] POST /telegram/webhook sem segredo -> HTTP $TG_STATUS."
 
 # Check 6: Registro + Login + GET /api/openfinance/config em HTTPS
 SMOKE_EMAIL="smoke-prod-$(date +%s)-$$@example.com"
@@ -250,7 +250,7 @@ OF_STATUS="$(curl "${CURL_COMMON[@]}" -o "$OF_BODY" -w '%{http_code}' \
   -H "Authorization: Bearer ${TOKEN}" "${BASE_URL}/api/openfinance/config")"
 [ "$OF_STATUS" = "200" ] || { echo "ERRO: GET /api/openfinance/config retornou HTTP $OF_STATUS" >&2; exit 1; }
 OF_BODY="$OF_BODY" node -e "const d=JSON.parse(require('fs').readFileSync(process.env.OF_BODY,'utf8')); if(d.hasCredentials!==false) throw new Error(JSON.stringify(d));"
-echo "OK [6/7] Registro, login e GET /api/openfinance/config via HTTPS -> HTTP 200."
+echo "OK [6/8] Registro, login e GET /api/openfinance/config via HTTPS -> HTTP 200."
 
 # Check 7: Anti-spoofing de X-Forwarded-For + TRUST_PROXY=uniquelocal (cliente != container proxy)
 PROXY_CID="$(compose_cmd ps -q proxy)"
@@ -286,5 +286,26 @@ if (ip === proxyIp) {
 process.stdout.write(ip);
 NODE
 )"
-echo "OK [7/7] X-Forwarded-For forjado sobrescrito pelo Caddy e TRUST_PROXY ativo (cliente=${IP_RECORDED}, proxy=${PROXY_IP})."
-echo "SUCESSO: Todos os 7 checks do smoke test de produção passaram em ${BASE_URL}."
+echo "OK [7/8] X-Forwarded-For forjado sobrescrito pelo Caddy e TRUST_PROXY ativo (cliente=${IP_RECORDED}, proxy=${PROXY_IP})."
+
+# Check 8: /api/internal/* bloqueado externamente no Caddy (404) e serviço cron chama POST /api/internal/tick na rede interna (200)
+TICK_EXT_STATUS="$(curl "${CURL_COMMON[@]}" -o /dev/null -w '%{http_code}' -X POST \
+  -H 'X-Internal-Secret: smoke_prod_tick_secret_value_with_minimum_32_characters' \
+  "${BASE_URL}/api/internal/tick")"
+[ "$TICK_EXT_STATUS" = "404" ] || { echo "ERRO: POST /api/internal/tick via Caddy retornou HTTP $TICK_EXT_STATUS (esperado 404)" >&2; exit 1; }
+
+CRON_TICK_OUT="$(compose_cmd exec -T cron /usr/local/bin/tick.sh 2>&1)" || {
+  echo "ERRO: Execução de /usr/local/bin/tick.sh no container cron falhou:" >&2
+  printf '%s\n' "$CRON_TICK_OUT" >&2
+  exit 1
+}
+if ! printf '%s\n' "$CRON_TICK_OUT" | grep -q 'HTTP 200'; then
+  echo "ERRO: tick.sh não retornou HTTP 200 esperado: $CRON_TICK_OUT" >&2
+  exit 1
+fi
+if printf '%s\n' "$CRON_TICK_OUT" | grep -q 'smoke_prod_tick_secret_value'; then
+  echo "ERRO: segredo interno vazou na saída do cron" >&2
+  exit 1
+fi
+echo "OK [8/8] /api/internal/tick bloqueado no Caddy (404) e executado via rede interna pelo cron (HTTP 200)."
+echo "SUCESSO: Todos os 8 checks do smoke test de produção passaram em ${BASE_URL}."
