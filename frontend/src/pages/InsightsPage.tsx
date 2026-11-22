@@ -102,7 +102,7 @@ export const InsightsPage: React.FC = () => {
     try {
       const [insightsRes, digestRes] = await Promise.all([
         api.get('/insights', { params: { entityId: activeEntityId } }),
-        api.get('/insights/digest'),
+        api.get('/insights/digest', { params: { entityId: activeEntityId } }),
       ]);
       setInsights(insightsRes.data.items || []);
       setDigest(digestRes.data);
