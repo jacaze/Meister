@@ -1,3 +1,4 @@
+export * from './domain/NonIncome.js';
 export * from './application/use-cases/CreateTransaction.js';
 export * from './application/use-cases/UpdateTransaction.js';
 export * from './application/use-cases/DeleteTransaction.js';
@@ -5,3 +6,5 @@ export * from './application/use-cases/GetTransaction.js';
 export * from './application/use-cases/ListTransactions.js';
 export * from './application/use-cases/CreateTransfer.js';
 export * from './application/use-cases/Settlements.js';
+export * from './application/use-cases/SetTransactionNonIncome.js';
+export * from './application/queries/income-filter.js';

@@ -370,6 +370,49 @@ describe('Frontend & Telegram Real Payloads Contract Suite (PostgreSQL 16)', () 
     expect(approveRes.statusCode).toBe(200);
   });
 
+  it('8b. ReviewInboxPage.tsx (Não é renda) & EditTransactionSheet.tsx — entrada que não é renda', async () => {
+    const fitId = `FIT_NAO_RENDA_${Date.now()}`;
+    const ofxContent = `OFXHEADER:100\nDATA:OFXSGML\nVERSION:102\n<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><BANKTRANLIST><STMTTRN><TRNTYPE>CREDIT</TRNTYPE><DTPOSTED>20260302120000[-03:EST]</DTPOSTED><TRNAMT>320.00</TRNAMT><FITID>${fitId}</FITID><MEMO>PIX RECEBIDO MESMA TITULARIDADE</MEMO></STMTTRN></BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>`;
+    const importRes = await app.inject({
+      method: 'POST',
+      url: '/api/imports/statement',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { content: ofxContent, provider: 'ofx' },
+    });
+    expect(importRes.statusCode).toBe(201);
+    const bankTx = await prisma.bankTransaction.findFirstOrThrow({
+      where: { connection: { workspaceId }, externalId: fitId },
+    });
+
+    // ReviewInboxPage.handleNonIncome: categoria sugerida pode faltar (undefined some do JSON), entityId undefined
+    const approveRes = await app.inject({
+      method: 'POST',
+      url: '/api/imports/approve',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { bankTransactionId: bankTx.id, nonIncomeReason: 'own_account' },
+    });
+    expect(approveRes.statusCode).toBe(200);
+    const txId = approveRes.json().id as string;
+    expect(approveRes.json().transferType).toBe('own_account');
+
+    // EditTransactionSheet.handleNonIncome: { reason } com motivo ou null para voltar a contar como renda
+    const refundRes = await app.inject({
+      method: 'PUT',
+      url: `/api/transactions/${txId}/non-income`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: { reason: 'refund' },
+    });
+    expect(refundRes.statusCode).toBe(200);
+    const undoRes = await app.inject({
+      method: 'PUT',
+      url: `/api/transactions/${txId}/non-income`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: { reason: null },
+    });
+    expect(undoRes.statusCode).toBe(200);
+    expect(undoRes.json().transferType).toBeNull();
+  });
+
   it('9. PluggyConnectFallbackModal.tsx:35 & BankConnectionsCard.tsx:51, 72', async () => {
     // 9a. Envia payload exatamente como o modal envia (itemId válido)
     const connectRes = await app.inject({

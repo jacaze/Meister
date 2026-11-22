@@ -147,6 +147,7 @@ export async function openFinanceRoutes(fastify: FastifyInstance) {
       categoryId?: string;
       entityId?: string;
       viaPersonalAccount?: boolean;
+      nonIncomeReason?: 'own_account' | 'refund';
     };
   }>('/imports/approve', async (request, reply) => {
     const scope = request.scope!;
@@ -157,6 +158,7 @@ export async function openFinanceRoutes(fastify: FastifyInstance) {
       categoryId: body.categoryId,
       entityId: body.entityId,
       viaPersonalAccount: body.viaPersonalAccount,
+      nonIncomeReason: body.nonIncomeReason,
     });
 
     return reply.status(200).send(transaction);

@@ -1,6 +1,7 @@
 import prisma from '../../../../config/prisma.js';
 import type { WorkspaceScope } from '../../../../shared/index.js';
 import { Money } from '../../../../shared/index.js';
+import { excludeNonIncomeWhere } from '../../../ledger/public.js';
 
 export interface MonthlyDigestResult {
   readonly month: string; // 'YYYY-MM'
@@ -30,6 +31,7 @@ export async function buildMonthlyDigest(
       workspaceId: scope.workspaceId,
       transactionDate: { gte: startOfMonth, lte: endOfMonth },
       type: { in: ['receita', 'despesa'] },
+      ...excludeNonIncomeWhere(),
     },
   });
 

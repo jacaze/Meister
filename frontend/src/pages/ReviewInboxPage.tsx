@@ -8,6 +8,7 @@ import ClassifyAccountsSheet, { type AccountToClassify } from '../components/ope
 import { accountsWithoutEntity, entityLabel } from '../lib/bankAccountEntity.js';
 import { hasPjEntity, transferSuspectCopy } from '../lib/reviewCopy.js';
 import { settlementHint } from '../lib/settlementHint.js';
+import { NON_INCOME_OPTIONS, canMarkNonIncomeFromInbox, type NonIncomeReason } from '../lib/nonIncome.js';
 import { useAuth } from '../context/AuthContext.js';
 import { PluggyConfigModal } from '../components/openfinance/PluggyConfigModal.js';
 import { PluggyConnectFallbackModal } from '../components/openfinance/PluggyConnectFallbackModal.js';
@@ -68,6 +69,8 @@ export const ReviewInboxPage: React.FC = () => {
   const [selectedCategories, setSelectedCategories] = useState<Record<string, string>>({});
   // De quem é cada gasto/receita (tarefa 18); vazio = a entidade da conta de origem
   const [selectedEntities, setSelectedEntities] = useState<Record<string, string>>({});
+  // Item com as opções de "Não é renda" abertas
+  const [nonIncomeOpenFor, setNonIncomeOpenFor] = useState<string | null>(null);
 
   // Modals state
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
@@ -210,6 +213,28 @@ export const ReviewInboxPage: React.FC = () => {
         err && typeof err === 'object' && 'response' in err && (err as { response?: { data?: { message?: string } } }).response?.data?.message
           ? (err as { response: { data: { message: string } } }).response.data.message
           : 'Erro ao aprovar lançamento.';
+      toast.error(msg);
+    }
+  };
+
+  const handleNonIncome = async (item: BankTransactionItem, reason: NonIncomeReason) => {
+    try {
+      await api.post('/imports/approve', {
+        bankTransactionId: item.id,
+        categoryId: selectedCategories[item.id] || item.suggestedCategoryId,
+        entityId: selectedEntities[item.id] || undefined,
+        nonIncomeReason: reason,
+      });
+      toast.success(
+        'Registrado como "não é renda": fica fora da renda, dos potes e do limite MEI. Para desfazer, edite o lançamento em Lançamentos.'
+      );
+      setNonIncomeOpenFor(null);
+      setItems((prev) => prev.filter((i) => i.id !== item.id));
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && 'response' in err && (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          ? (err as { response: { data: { message: string } } }).response.data.message
+          : 'Erro ao registrar como não é renda.';
       toast.error(msg);
     }
   };
@@ -445,8 +470,8 @@ export const ReviewInboxPage: React.FC = () => {
               );
 
               return (
+                <div key={item.id} className="space-y-2">
                 <div
-                  key={item.id}
                   className={`p-4 rounded-2xl border transition flex flex-col md:flex-row md:items-center justify-between gap-4 ${
                     isSuspect
                       ? 'bg-primary-soft/30 border-primary/40 shadow-sm'
@@ -545,6 +570,18 @@ export const ReviewInboxPage: React.FC = () => {
 
                     {statusFilter === 'nova' && (
                       <div className="flex items-center gap-1.5">
+                        {canMarkNonIncomeFromInbox(item) && (
+                          <button
+                            type="button"
+                            onClick={() => setNonIncomeOpenFor((prev) => (prev === item.id ? null : item.id))}
+                            aria-expanded={nonIncomeOpenFor === item.id}
+                            aria-controls={`nao-e-renda-${item.id}`}
+                            className="min-h-[44px] px-3 py-2 text-xs font-bold text-ink-soft rounded-xl border border-ink/10 hover:border-ink/20 hover:text-ink transition"
+                            title="Entrada que não é renda (outra conta sua, reembolso)"
+                          >
+                            Não é renda
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => handleIgnore(item)}
@@ -566,6 +603,30 @@ export const ReviewInboxPage: React.FC = () => {
                       </div>
                     )}
                   </div>
+                </div>
+                {statusFilter === 'nova' && nonIncomeOpenFor === item.id && (
+                  <div
+                    id={`nao-e-renda-${item.id}`}
+                    role="group"
+                    aria-label="Por que esta entrada não é renda?"
+                    className="p-3 rounded-2xl border border-ink/8 bg-card-2 space-y-2"
+                  >
+                    <p className="text-xs font-bold text-ink">Por que esta entrada não é renda?</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {NON_INCOME_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.reason}
+                          type="button"
+                          onClick={() => handleNonIncome(item, opt.reason)}
+                          className="min-h-[44px] text-left px-3 py-2 rounded-xl bg-card border border-ink/10 hover:border-primary transition"
+                        >
+                          <span className="block text-xs font-extrabold text-ink">{opt.label}</span>
+                          <span className="block text-[11px] text-muted leading-snug mt-0.5">{opt.hint}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 </div>
               );
             })}

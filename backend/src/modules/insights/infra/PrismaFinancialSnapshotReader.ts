@@ -11,6 +11,7 @@ import type {
 } from '../domain/FinancialSnapshot.js';
 import { getMeiLimit } from '../../fiscal/public.js';
 import { getJarsStatus } from '../../jars/public.js';
+import { excludeNonIncomeWhere } from '../../ledger/public.js';
 
 export class PrismaFinancialSnapshotReader implements FinancialSnapshotReader {
   async readSnapshot(
@@ -94,6 +95,8 @@ export class PrismaFinancialSnapshotReader implements FinancialSnapshotReader {
           lte: endOfMonth,
         },
         type: { in: ['receita', 'despesa'] },
+        // Entrada "não é renda" (outra conta própria, reembolso) não entra na receita dos insights
+        ...excludeNonIncomeWhere(),
       },
       include: {
         splits: true,

@@ -72,6 +72,8 @@ export async function evaluateNudges(scope: WorkspaceScope): Promise<readonly Ed
         workspaceId: scope.workspaceId,
         entityId: pjEntity.id,
         type: 'receita',
+        // Mesmo critério do limite MEI (GetMeiLimit): transferências e "não é renda" não são faturamento
+        transferGroupId: null,
         transactionDate: { gte: startOfYear, lte: endOfYear },
       },
       _sum: { amount: true },

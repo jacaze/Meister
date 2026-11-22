@@ -6,6 +6,14 @@ import api from '../../api/client.js';
 import { useToast } from '../ui/Toast.js';
 import { parseBRL } from '../../lib/money.js';
 import { celebrate, haptic } from '../../lib/celebrate.js';
+import {
+  NON_INCOME_OPTIONS,
+  canMarkNonIncome,
+  nonIncomeLabel,
+  nonIncomeReasonOf,
+  transactionKind,
+  type NonIncomeReason,
+} from '../../lib/nonIncome.js';
 
 interface Category {
   readonly id: string;
@@ -24,6 +32,7 @@ export interface TransactionForEdit {
   readonly transactionDate: string;
   readonly viaPersonalAccount?: boolean;
   readonly transferGroupId?: string | null;
+  readonly transferType?: string | null;
 }
 
 interface EditTransactionSheetProps {
@@ -42,7 +51,12 @@ export const EditTransactionSheet: React.FC<EditTransactionSheetProps> = ({
   onSaved,
 }) => {
   const toast = useToast();
-  const isTransfer = Boolean(transaction?.transferGroupId);
+  const kind = transaction ? transactionKind(transaction) : 'regular';
+  // Transferência e "não é renda" são pernas de transferência: valor, tipo e data ficam travados
+  const isTransfer = kind !== 'regular';
+  const currentNonIncome = transaction ? nonIncomeReasonOf(transaction) : null;
+  const showNonIncome = transaction ? canMarkNonIncome(transaction) : false;
+  const [nonIncomeSaving, setNonIncomeSaving] = useState(false);
   const [type, setType] = useState<'receita' | 'despesa'>('despesa');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
@@ -137,6 +151,31 @@ export const EditTransactionSheet: React.FC<EditTransactionSheetProps> = ({
     }
   };
 
+  const handleNonIncome = async (reason: NonIncomeReason | null) => {
+    if (!transaction || reason === currentNonIncome) return;
+    setError(null);
+    setNonIncomeSaving(true);
+    try {
+      await api.put(`/transactions/${transaction.id}/non-income`, { reason });
+      toast.success(
+        reason
+          ? `Marcado como "${nonIncomeLabel(reason)}": não conta mais como renda, nos potes nem no limite MEI.`
+          : 'Voltou a contar como renda.'
+      );
+      onSaved();
+      onClose();
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && 'response' in err && (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          ? (err as { response: { data: { message: string } } }).response.data.message
+          : 'Falha ao atualizar se o lançamento conta como renda.';
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setNonIncomeSaving(false);
+    }
+  };
+
   const footer = (
     <div className="flex items-center gap-3 w-full">
       <button
@@ -174,7 +213,17 @@ export const EditTransactionSheet: React.FC<EditTransactionSheetProps> = ({
           </div>
         )}
 
-        {isTransfer && (
+        {kind === 'non_income' && currentNonIncome && (
+          <div className="p-3.5 bg-info/10 border border-info/20 rounded-2xl flex items-start gap-2.5 text-xs text-ink-soft">
+            <ArrowsLeftRight size={18} className="text-info shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold text-ink block mb-0.5">Não é renda: {nonIncomeLabel(currentNonIncome)}</span>
+              Esta entrada não conta como renda, nos potes nem no limite MEI. Para alterar valor, tipo ou data, volte a contar como renda primeiro.
+            </div>
+          </div>
+        )}
+
+        {kind === 'transfer' && (
           <div className="p-3.5 bg-info/10 border border-info/20 rounded-2xl flex items-start gap-2.5 text-xs text-ink-soft">
             <ArrowsLeftRight size={18} className="text-info shrink-0 mt-0.5" />
             <div>
@@ -187,7 +236,9 @@ export const EditTransactionSheet: React.FC<EditTransactionSheetProps> = ({
         {/* Tipo: Receita / Despesa */}
         <div>
           <label className="block text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5">
-            Tipo de Lançamento {isTransfer && '(Bloqueado por ser transferência)'}
+            Tipo de Lançamento{' '}
+            {kind === 'transfer' && '(Bloqueado por ser transferência)'}
+            {kind === 'non_income' && '(Bloqueado: não é renda)'}
           </label>
           <div className="grid grid-cols-2 gap-2 p-1 bg-field rounded-2xl">
             <button
@@ -320,6 +371,38 @@ export const EditTransactionSheet: React.FC<EditTransactionSheetProps> = ({
             }`}
           />
         </div>
+
+        {/* "Não é renda": só receitas que não são perna de transferência de duas pontas */}
+        {showNonIncome && (
+          <fieldset disabled={nonIncomeSaving || loading} className="space-y-1.5">
+            <legend className="block text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5">
+              Esta entrada conta como renda?
+            </legend>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {[{ reason: null, label: 'Sim, é renda' } as const, ...NON_INCOME_OPTIONS].map((opt) => {
+                const active = opt.reason === currentNonIncome;
+                return (
+                  <button
+                    key={opt.reason ?? 'renda'}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => handleNonIncome(opt.reason)}
+                    className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold text-left transition disabled:opacity-60 ${
+                      active
+                        ? 'bg-card text-ink border border-primary shadow-sm'
+                        : 'bg-field text-muted border border-transparent hover:text-ink'
+                    }`}
+                  >
+                    {opt.reason ? `Não: ${opt.label.charAt(0).toLowerCase()}${opt.label.slice(1)}` : opt.label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-muted">
+              Entradas que não são renda ficam registradas, mas fora da renda do mês, dos potes e do limite MEI.
+            </p>
+          </fieldset>
+        )}
 
         {/* Via Personal Account Checkbox */}
         <CheckRow
