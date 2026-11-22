@@ -1,0 +1,93 @@
+# Blueprint do Render para a DEMO do MEIster (custo zero).
+# Banco: Neon (externo). Cron: cron-job.org (externo). Guia: docs/deploy-demo-render.md
+# NUNCA coloque valores de segredos neste arquivo: use sync: false (preenchido no painel) ou generateValue.
+services:
+  # --- API (Fastify) em Docker, plano free ---
+  - type: web
+    name: meister-api
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    # /health/live NAO toca no banco: evita manter o Neon acordado 24h (limite de 100 CU-h/mes).
+    healthCheckPath: /health/live
+    autoDeployTrigger: commit
+    # preDeployCommand nao existe no plano free; as migrations rodam no start (idempotente).
+    # O CLI do Prisma (versao fixada) e instalado na imagem pelo backend/Dockerfile.
+    dockerCommand: sh -c "node_modules/.bin/prisma migrate deploy && node dist/main-api.js"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # O Render injeta PORT (padrao 10000); a API le PORT e escuta em HOST=0.0.0.0.
+      - key: HOST
+        value: 0.0.0.0
+      - key: TRUST_PROXY
+        value: uniquelocal
+      - key: DEFAULT_TIMEZONE
+        value: America/Sao_Paulo
+      - key: TELEGRAM_MODE
+        value: webhook
+      - key: DEMO_MODE
+        value: "false"
+      - key: NARRATION_MODE
+        value: auto
+      # --- Segredos / valores especificos do ambiente (preencher no painel) ---
+      # URL DIRETA do Neon (host sem "-pooler"), com ?sslmode=require
+      - key: DATABASE_URL
+        sync: false
+      # URL publica do Static Site (ex.: https://meister-web.onrender.com), sem barra final
+      - key: APP_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      # generateValue = 256 bits em base64 (44 caracteres, atende o minimo de 32)
+      - key: JWT_SECRET
+        generateValue: true
+      - key: INTERNAL_TICK_SECRET
+        generateValue: true
+      # Opcionais (deixe vazio se nao for usar)
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false
+      - key: PLUGGY_CLIENT_ID
+        sync: false
+      - key: PLUGGY_CLIENT_SECRET
+        sync: false
+      - key: PLUGGY_WEBHOOK_SECRET
+        sync: false
+
+  # --- Frontend (Vite) como Static Site ---
+  - type: web
+    name: meister-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Variavel de build do frontend (PR #23): habilita o sandbox da Pluggy na demo.
+      - key: VITE_PLUGGY_INCLUDE_SANDBOX
+        value: "true"
+    routes:
+      # O frontend chama baseURL relativo /api; o rewrite proxia para a API (mesma origem para o navegador).
+      # Se o nome meister-api ja existir no Render, a URL ganha sufixo: ajuste o destino abaixo.
+      - type: rewrite
+        source: /api/*
+        destination: https://meister-api.onrender.com/api/*
+      # Fallback SPA (so se aplica quando nao existe arquivo no caminho)
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /sw.js
+        name: Cache-Control
+        value: no-cache
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable

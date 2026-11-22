@@ -11,7 +11,11 @@ RUN npm ci
 FROM deps AS build
 COPY tsconfig.json ./
 COPY src ./src/
-RUN npx prisma generate && npm run build && npm prune --omit=dev
+ARG PRISMA_VERSION=6.19.3
+# O CLI do Prisma (devDependency) precisa existir no runtime para `prisma migrate deploy`
+# (serviço migrate do compose e start do Render, onde preDeployCommand não existe no plano free).
+RUN npx prisma generate && npm run build && npm prune --omit=dev \
+  && npm install --no-save --no-audit --no-fund --omit=dev "prisma@${PRISMA_VERSION}"
 
 FROM base AS runtime
 ENV NODE_ENV=production

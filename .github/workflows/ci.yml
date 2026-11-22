@@ -151,6 +151,9 @@ jobs:
       - name: Verify compose environment variables
         run: ./scripts/check-compose-env.sh
 
+      - name: Validate Render blueprint (demo)
+        run: ./scripts/check-render-blueprint.sh
+
       - name: Validate Caddyfiles syntax
         run: |
           docker run --rm -v "$PWD/docker/Caddyfile:/etc/caddy/Caddyfile:ro" -e DOMAIN=localhost caddy:2.11-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
