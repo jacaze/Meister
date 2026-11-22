@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
@@ -7,7 +7,7 @@ import rateLimit from '@fastify/rate-limit';
 import { z } from 'zod';
 import prisma from './config/prisma.js';
 import { type AppEnv, type Clock, parseEnv, registerCorrelationAndErrorHandler } from './shared/index.js';
-import type { BankingAggregator } from './modules/openfinance/public.js';
+import type { BankingAggregator, PluggyWebhookDispatcher } from './modules/openfinance/public.js';
 import type { TickLock } from './modules/scheduler/public.js';
 import authRoutes from './routes/authRoutes.js';
 import categoryRoutes from './routes/categoryRoutes.js';
@@ -21,6 +21,7 @@ import transferRoutes from './routes/transferRoutes.js';
 import receiptRoutes from './routes/receiptRoutes.js';
 import insightRoutes from './routes/insightRoutes.js';
 import openFinanceRoutes from './routes/openFinanceRoutes.js';
+import openFinanceWebhookRoute from './routes/openFinanceWebhookRoute.js';
 import { educationRoutes } from './routes/educationRoutes.js';
 import { complianceRoutes } from './routes/complianceRoutes.js';
 import { assistantRoutes } from './routes/assistantRoutes.js';
@@ -30,9 +31,10 @@ import internalRoutes from './routes/internalRoutes.js';
 
 export interface BuildAppOptions {
   env?: AppEnv;
-  logger?: boolean;
+  logger?: FastifyServerOptions['logger'];
   clock?: Clock;
   bankingAggregator?: BankingAggregator;
+  pluggyWebhookDispatcher?: PluggyWebhookDispatcher;
   tickLock?: TickLock;
   tickTimeBudgetMs?: number;
 }
@@ -92,6 +94,13 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await fastify.register(settlementRoutes, { prefix: '/api' });
   await fastify.register(receiptRoutes, { prefix: '/api' });
   await fastify.register(insightRoutes, { prefix: '/api' });
+  await fastify.register(openFinanceWebhookRoute, {
+    prefix: '/api',
+    pluggyWebhookSecret: env.PLUGGY_WEBHOOK_SECRET,
+    clock: options.clock,
+    bankingAggregator: options.bankingAggregator,
+    pluggyWebhookDispatcher: options.pluggyWebhookDispatcher,
+  });
   await fastify.register(openFinanceRoutes, { prefix: '/api' });
   await fastify.register(educationRoutes, { prefix: '/api' });
   await fastify.register(complianceRoutes, { prefix: '/api' });

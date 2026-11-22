@@ -140,6 +140,18 @@ const envSchema = z
         });
       }
 
+      const trimmedWebhookSecret = data.PLUGGY_WEBHOOK_SECRET.trim();
+      if (trimmedWebhookSecret !== '') {
+        if (trimmedWebhookSecret.length < 32 || isWeakSecret(trimmedWebhookSecret)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['PLUGGY_WEBHOOK_SECRET'],
+            message:
+              'PLUGGY_WEBHOOK_SECRET deve ter pelo menos 32 caracteres e não pode usar valor padrão em produção/staging',
+          });
+        }
+      }
+
       if (data.PLUGGY_BASE_URL && !data.PLUGGY_BASE_URL.startsWith('https://')) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
