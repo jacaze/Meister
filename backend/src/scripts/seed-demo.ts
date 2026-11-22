@@ -6,7 +6,14 @@ import { provisionWorkspace, resolveScopeForUser, updateBusinessProfile } from '
 import { listCategories, seedDefaultCategories } from '../modules/catalog/public.js';
 import { createJarPlan } from '../modules/jars/public.js';
 import { ensureDasCharges, getMeiLimit, markDasPaid } from '../modules/fiscal/public.js';
-import { createTransaction, deleteTransaction } from '../modules/ledger/public.js';
+import {
+  createTransaction,
+  deleteTransaction,
+  listSettlements,
+  registerOwnerWithdrawal,
+  settleSettlement,
+} from '../modules/ledger/public.js';
+import { runDetectors } from '../modules/insights/public.js';
 import { buildDemoScenario } from './demo-scenario.js';
 
 // Seed de demonstração para o servidor (Docker): roda com `node dist/scripts/seed-demo.js`, sem tsx.
@@ -33,6 +40,11 @@ export interface SeedDemoSummary {
   readonly lancamentosNovos: number;
   readonly lancamentosTotal: number;
   readonly dasTotal: number;
+  readonly proLabores: number;
+  readonly acertosAbertos: number;
+  readonly acertosAcertados: number;
+  readonly insightsPj: number;
+  readonly insightsPf: number;
 }
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -219,7 +231,7 @@ export async function seedDemo(config: SeedDemoConfig, clock: Clock = new System
   let created = 0;
   for (const entry of all) {
     if (already.has(entry.key)) continue;
-    await createTransaction(scope, {
+    const tx = await createTransaction(scope, {
       entityId: entry.entity === 'pj' ? pjEntityId : scope.defaultEntityIds.pf,
       type: entry.type,
       amount: entry.amount.toDecimalString(),
@@ -229,9 +241,41 @@ export async function seedDemo(config: SeedDemoConfig, clock: Clock = new System
       paymentMethod: entry.paymentMethod,
       origin: 'manual',
       sourceRef: entry.key,
+      ...(entry.paidByPf ? { paidByEntityId: scope.defaultEntityIds.pf } : {}),
     });
     created += 1;
+    if (entry.settled) {
+      // Caso já quitado: só quita ao criar, para um rerun nunca desfazer o que o usuário reabriu
+      const { items } = await listSettlements(scope, { status: 'aberto' });
+      const open = items.find((s) => s.transactionId === tx.id);
+      if (open) await settleSettlement(scope, open.id, 'transferencia');
+    }
   }
+
+  // Pró-labore: retirada do dono pelo ledger (despesa na PJ + receita na PF com o mesmo transferGroupId)
+  for (const w of scenario.withdrawals) {
+    const done = await prisma.transaction.count({
+      where: {
+        workspaceId: scope.workspaceId,
+        entityId: pjEntityId,
+        transferType: 'pro_labore',
+        transactionDate: new Date(`${w.date.toIsoDate()}T00:00:00.000Z`),
+        deletedAt: null,
+      },
+    });
+    if (done > 0) continue;
+    await registerOwnerWithdrawal(scope, {
+      amount: w.amount.toDecimalString(),
+      occurredOn: w.date.toIsoDate(),
+      description: w.description,
+    });
+    created += 2;
+  }
+
+  // Insights das duas entidades, para a tela já abrir com conteúdo
+  const referenceDate = new Date(`${today.toIsoDate()}T12:00:00.000Z`);
+  const insightsPj = (await runDetectors(scope, { entityId: pjEntityId, referenceDate })).length;
+  const insightsPf = (await runDetectors(scope, { entityId: scope.defaultEntityIds.pf, referenceDate })).length;
 
   const limit = await getMeiLimit(scope);
   const total = await prisma.transaction.count({ where: { workspaceId: scope.workspaceId, deletedAt: null } });
@@ -247,6 +291,11 @@ export async function seedDemo(config: SeedDemoConfig, clock: Clock = new System
     lancamentosNovos: created,
     lancamentosTotal: total,
     dasTotal,
+    proLabores: scenario.withdrawals.length,
+    acertosAbertos: await prisma.settlement.count({ where: { workspaceId: scope.workspaceId, status: 'aberto' } }),
+    acertosAcertados: await prisma.settlement.count({ where: { workspaceId: scope.workspaceId, status: 'acertado' } }),
+    insightsPj,
+    insightsPf,
   };
 }
 
@@ -257,7 +306,8 @@ async function main(): Promise<void> {
   // Sem valores financeiros, e-mail ou senha no log: só contagens e o percentual do limite
   console.log(
     `Demo pronta: ${summary.lancamentosNovos} lançamentos novos (${summary.lancamentosTotal} no total), ` +
-      `${summary.dasTotal} DAS, abertura em ${summary.openedOn}, ` +
+      `${summary.dasTotal} DAS, ${summary.proLabores} pró-labores, ` +
+      `${summary.acertosAbertos} acerto(s) em aberto e ${summary.acertosAcertados} acertado(s), ${summary.insightsPj} insights da PJ e ${summary.insightsPf} da PF, abertura em ${summary.openedOn}, ` +
       `${summary.mesesAtividade} meses de atividade${summary.proporcional ? ' (limite proporcional)' : ''}, ` +
       `${summary.percentualUtilizado}% do limite (${summary.status}).`
   );
