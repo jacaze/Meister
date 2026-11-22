@@ -16,6 +16,12 @@
 		?Permissions-Policy "camera=(self), microphone=(), geolocation=()"
 	}
 
+	# Rotinas internas não são expostas externamente (chamadas apenas pela rede interna do Docker)
+	@internal path /api/internal /api/internal/*
+	handle @internal {
+		respond 404
+	}
+
 	# API REST (mantém o prefixo /api)
 	handle /api/* {
 		reverse_proxy api:3000

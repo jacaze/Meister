@@ -29,8 +29,8 @@ antes e critério de pronto.
 | 05 | [Ativar a Pluggy com conta real (MeuPluggy e produção)](05-pluggy-conta-real.md) | Humano + Backend (doc) | 🔴 bloqueador para testar | FEITA |
 | 06 | [Paginação da Pluggy sem corte silencioso](06-pluggy-paginacao-sem-corte.md) | QA → Backend | 🟡 | FEITA |
 | 07 | [Valores da Pluggy convertidos com `Money`, sem float](07-pluggy-valores-com-money.md) | QA → Backend | 🟡 | PENDENTE |
-| 08 | [Rotina interna agendada (tick): DAS e sincronização bancária](08-rotina-interna-tick.md) | QA → Backend → DevOps | 🟡 | PENDENTE |
-| 09 | [Webhook da Pluggy](09-pluggy-webhook.md) | QA → Backend | 🟡 | BLOQUEADA até 08 |
+| 08 | [Rotina interna agendada (tick): DAS e sincronização bancária](08-rotina-interna-tick.md) | QA → Backend → DevOps | 🟡 | FEITA |
+| 09 | [Webhook da Pluggy](09-pluggy-webhook.md) | QA → Backend | 🟡 | PENDENTE (03 e 08 feitas) |
 | 10 | [`DEMO_MODE`: remover ou implementar](10-demo-mode.md) | Backend | 🟢 | PENDENTE (decisão do dono) |
 | 11 | [Atualizar o README para a versão atual](11-readme-atualizado.md) | Qualquer agente | 🟢 | PENDENTE |
 | 12 | [Integra MEI (SERPRO): gerar DAS e gerir o MEI pelo app](12-integra-mei-serpro.md) | Humano → DB → Backend → Frontend | 🟢 épico | BLOQUEADA (contrato SERPRO + certificado) |
