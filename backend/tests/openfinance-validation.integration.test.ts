@@ -92,9 +92,10 @@ describe('OpenFinance Validation Hardening (Integration)', () => {
     await prisma.category.create({
       data: {
         workspaceId,
-        name: `Receita OF ${Date.now()}`,
-        slug: `receita-of-${Date.now()}`,
+        name: 'Outras Receitas',
+        slug: 'outras-receitas', // categoria padrão: é a que a aprovação sem categoria usa
         type: 'receita',
+        isDefault: true,
       },
     });
 

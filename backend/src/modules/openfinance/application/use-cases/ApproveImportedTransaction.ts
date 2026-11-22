@@ -1,6 +1,7 @@
 import prisma from '../../../../config/prisma.js';
 import { NotFoundError, ValidationError, type WorkspaceScope } from '../../../../shared/index.js';
 import { createTransaction } from '../../../ledger/public.js';
+import { findFallbackCategoryId } from '../../../catalog/public.js';
 
 export interface ApproveImportInput {
   readonly bankTransactionId: string;
@@ -40,21 +41,15 @@ export async function approveImportedTransaction(
     );
   }
 
-  // Resolve category
-  let categoryId = input.categoryId || item.suggestedCategoryId;
-  if (!categoryId) {
-    const fallbackCategory = await prisma.category.findFirst({
-      where: {
-        workspaceId: scope.workspaceId,
-        type: item.direction === 'in' ? 'receita' : 'despesa',
-      },
-    });
-    categoryId = fallbackCategory?.id ?? null;
-  }
+  // Categoria: a escolhida, senão a sugerida, senão "Outras Despesas/Receitas" do workspace
+  // (por slug). Sem ela, o lançamento fica sem categoria; nunca uma categoria arbitrária.
+  const type = item.direction === 'in' ? 'receita' : 'despesa';
+  const categoryId =
+    input.categoryId || item.suggestedCategoryId || (await findFallbackCategoryId(scope, type));
 
   // 1. Create transaction in ledger
   const tx = await createTransaction(scope, {
-    type: item.direction === 'in' ? 'receita' : 'despesa',
+    type,
     amount: String(item.amount),
     description: item.description.slice(0, 1000),
     occurredOn: item.occurredOn.toISOString().slice(0, 10),
