@@ -1,0 +1,151 @@
+openapi: 3.1.0
+info:
+  title: MEIster Pluggy Open Finance Webhook API
+  version: 1.0.0
+  description: >
+    Contrato do endpoint receptor de webhooks da Pluggy (`POST /api/openfinance/webhook`).
+    Operado fora do `authMiddleware` de usuário e protegido via `PLUGGY_WEBHOOK_SECRET`:
+    por padrão com assinatura criptográfica HMAC-SHA256 (`X-Pluggy-Signature`) quando o segredo
+    começa com `whsec_` (sem fallback), ou alternativamente via cabeçalho customizado comparado
+    em tempo constante. Responde `202 Accepted` rapidamente e processa a notificação de forma
+    assíncrona e idempotente.
+paths:
+  /api/openfinance/webhook:
+    post:
+      summary: Recebe notificações de eventos Open Finance enviadas pela Pluggy
+      operationId: handlePluggyWebhook
+      security:
+        - PluggySignatureAuth: []
+        - PluggyWebhookSecretHeader: []
+        - PluggyBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PluggyWebhookPayload'
+      responses:
+        '202':
+          description: >
+            Notificação autenticada, validada e enfileirada para processamento assíncrono
+            (inclui `itemId` desconhecido e eventos informativos sem revelar existência).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookAcceptedResponse'
+        '400':
+          description: Payload JSON inválido ou contrato de evento malformado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: >
+            Assinatura `X-Pluggy-Signature` ausente/inválida/fora da janela de 5 min ou
+            segredo estático inválido (`INVALID_PLUGGY_WEBHOOK_SECRET`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: >
+            `PLUGGY_WEBHOOK_SECRET` não configurado (`PLUGGY_WEBHOOK_DISABLED`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  securitySchemes:
+    PluggySignatureAuth:
+      type: apiKey
+      in: header
+      name: X-Pluggy-Signature
+      description: >
+        Cabeçalho `t=<unix_seconds>,v1=<hex_hmac_sha256>` calculado sobre `<t>.<rawBody>`
+        com o signing secret (`whsec_...`) da aplicação no painel da Pluggy (tolerância ±5 min).
+    PluggyWebhookSecretHeader:
+      type: apiKey
+      in: header
+      name: X-Webhook-Secret
+      description: >
+        Alternativa estática (também aceita `X-Pluggy-Webhook-Secret`) apenas quando
+        `PLUGGY_WEBHOOK_SECRET` não começa com `whsec_` e `X-Pluggy-Signature` não está presente.
+    PluggyBearerAuth:
+      type: http
+      scheme: bearer
+      description: Alternativa estática via `Authorization: Bearer <PLUGGY_WEBHOOK_SECRET>`.
+  schemas:
+    PluggyWebhookPayload:
+      type: object
+      additionalProperties: true
+      required:
+        - event
+      properties:
+        event:
+          type: string
+          minLength: 1
+          maxLength: 120
+          example: item/updated
+        eventId:
+          type: string
+          minLength: 1
+          maxLength: 255
+        clientId:
+          type: string
+          minLength: 1
+          maxLength: 255
+        triggeredBy:
+          type: string
+          minLength: 1
+          maxLength: 64
+        itemId:
+          type: string
+          minLength: 1
+          maxLength: 255
+        accountId:
+          type: string
+          minLength: 1
+          maxLength: 255
+        transactionIds:
+          type: array
+          maxItems: 1000
+          items:
+            type: string
+            minLength: 1
+            maxLength: 255
+        consentExpiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        error:
+          type: object
+          nullable: true
+          additionalProperties: true
+          properties:
+            code:
+              type: string
+              maxLength: 120
+            message:
+              type: string
+              maxLength: 1000
+    WebhookAcceptedResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - received
+      properties:
+        received:
+          type: boolean
+          enum: [true]
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        correlationId:
+          type: string

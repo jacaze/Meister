@@ -13,7 +13,9 @@ import {
 } from '../domain/tick-policy.js';
 import {
   INTERNAL_TICK_ACTOR_ID,
+  PLUGGY_WEBHOOK_ACTOR_ID,
   systemScopeFor,
+  type SystemJobActorId,
 } from '../application/system-scope.js';
 import type {
   TickGateway,
@@ -283,6 +285,26 @@ describe('Scheduler — systemScopeFor', () => {
       { id: 'pf-inactive', kind: 'pf', isMei: false, active: false },
     ]);
     expect(empty.defaultEntityIds).toEqual({ pf: '' });
+  });
+
+  it('suporta actorUserId do webhook da Pluggy e rejeita ator fora da allowlist', () => {
+    const scope = systemScopeFor(
+      'ws-wh',
+      [{ id: 'pf-1', kind: 'pf', isMei: false, active: true }],
+      PLUGGY_WEBHOOK_ACTOR_ID
+    );
+    expect(PLUGGY_WEBHOOK_ACTOR_ID).toBe('system:pluggy-webhook');
+    expect(scope.actorUserId).toBe('system:pluggy-webhook');
+    expect(scope.visibleEntityIds).toEqual(['pf-1']);
+    expect(scope.ownEntityIds).toEqual([]);
+
+    expect(() =>
+      systemScopeFor(
+        'ws-wh',
+        [{ id: 'pf-1', kind: 'pf', isMei: false, active: true }],
+        'system:other' as unknown as SystemJobActorId
+      )
+    ).toThrow(ValidationError);
   });
 });
 

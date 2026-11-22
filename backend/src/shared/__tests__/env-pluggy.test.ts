@@ -59,4 +59,36 @@ describe('Env — Pluggy', () => {
   it('PLUGGY_BASE_URL vazia (docker compose com ${VAR:-}) conta como ausente', () => {
     expect(parseEnv({ ...prod, PLUGGY_BASE_URL: '' }).PLUGGY_BASE_URL).toBeUndefined();
   });
+
+  it('PLUGGY_WEBHOOK_SECRET em produção/staging: aceita vazio/espaços ou forte (>= 32 chars e whsec_), recusa curto ou fraco', () => {
+    expect(parseEnv({ ...prod, PLUGGY_WEBHOOK_SECRET: '' }).PLUGGY_WEBHOOK_SECRET).toBe('');
+    expect(parseEnv({ ...prod, PLUGGY_WEBHOOK_SECRET: '   ' }).PLUGGY_WEBHOOK_SECRET).toBe('   ');
+
+    expect(() => parseEnv({ ...prod, PLUGGY_WEBHOOK_SECRET: 'a'.repeat(31) })).toThrow(
+      /PLUGGY_WEBHOOK_SECRET/
+    );
+    expect(() =>
+      parseEnv({ ...prod, PLUGGY_WEBHOOK_SECRET: '   abc123   ' })
+    ).toThrow(/PLUGGY_WEBHOOK_SECRET/);
+    expect(() =>
+      parseEnv({ ...prod, PLUGGY_WEBHOOK_SECRET: 'changeme_secret_value_with_more_than_32_chars' })
+    ).toThrow(/PLUGGY_WEBHOOK_SECRET/);
+    expect(() =>
+      parseEnv({ ...prod, NODE_ENV: 'staging', PLUGGY_WEBHOOK_SECRET: 'dev_only_secret_with_more_than_32_characters' })
+    ).toThrow(/PLUGGY_WEBHOOK_SECRET/);
+
+    const strongStatic = 'pluggy_webhook_prod_secret_with_32_plus_chars';
+    expect(parseEnv({ ...prod, PLUGGY_WEBHOOK_SECRET: strongStatic }).PLUGGY_WEBHOOK_SECRET).toBe(
+      strongStatic
+    );
+    // Test threshold exactly 32 chars
+    const exact32 = 'a'.repeat(32);
+    expect(parseEnv({ ...prod, PLUGGY_WEBHOOK_SECRET: exact32 }).PLUGGY_WEBHOOK_SECRET).toBe(exact32);
+
+    const whsec = `whsec_${'a1b2c3d4'.repeat(8)}`;
+    expect(parseEnv({ ...prod, PLUGGY_WEBHOOK_SECRET: whsec }).PLUGGY_WEBHOOK_SECRET).toBe(whsec);
+
+    // Em desenvolvimento e teste aceita segredo curto
+    expect(parseEnv({ ...base, PLUGGY_WEBHOOK_SECRET: 'curto' }).PLUGGY_WEBHOOK_SECRET).toBe('curto');
+  });
 });

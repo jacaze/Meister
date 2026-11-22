@@ -7,6 +7,7 @@ import { connectPluggyItem, type ConnectPluggyItemResult } from './ConnectPluggy
 export interface SyncPluggyConnectionInput {
   readonly connectionId: string;
   readonly aggregator?: BankingAggregator;
+  readonly triggerRemoteSync?: boolean;
 }
 
 export async function syncPluggyConnection(
@@ -32,11 +33,13 @@ export async function syncPluggyConnection(
 
   const client = input.aggregator || new PluggyClient();
 
-  // Trigger sync on Pluggy
-  try {
-    await client.syncItem(connection.itemId);
-  } catch (err) {
-    console.warn(`[SyncPluggyConnection] Non-blocking warning on syncItem:`, err);
+  if (input.triggerRemoteSync !== false) {
+    // Trigger sync on Pluggy
+    try {
+      await client.syncItem(connection.itemId);
+    } catch (err) {
+      console.warn(`[SyncPluggyConnection] Non-blocking warning on syncItem:`, err);
+    }
   }
 
   // Pull latest updates and transactions

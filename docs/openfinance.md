@@ -9,12 +9,13 @@ Como o MEIster importa extratos bancários pela Pluggy, como configurar e como t
 | `PLUGGY_CLIENT_ID` | não (sem ela o Open Finance fica desligado) | Client ID da aplicação no painel da Pluggy |
 | `PLUGGY_CLIENT_SECRET` | junto com o ID | Client Secret da mesma aplicação |
 | `PLUGGY_BASE_URL` | não | Só para apontar para um servidor simulado em dev. Vazia = `https://api.pluggy.ai` |
-| `PLUGGY_WEBHOOK_SECRET` | não | Reservada para o webhook (tarefa 09), ainda sem uso |
+| `PLUGGY_WEBHOOK_SECRET` | não (desabilita webhook se vazia) | Signing secret (`whsec_...`) da Pluggy (padrão recomendado) ou segredo estático (mín. 32 chars em prod/staging) |
 
 Validação no boot (`backend/src/shared/env.ts`), fora de `development`/`test`:
 
 - `PLUGGY_CLIENT_ID` e `PLUGGY_CLIENT_SECRET` vêm juntas ou nenhuma. Só uma preenchida derruba o boot.
 - `PLUGGY_BASE_URL`, se preenchida, precisa ser `https://`. Em qualquer ambiente precisa ser URL completa.
+- `PLUGGY_WEBHOOK_SECRET`, se preenchida, precisa ter pelo menos 32 caracteres e não usar valores padrão de exemplo.
 
 As credenciais ficam só no `.env` do servidor. Não existe rota para trocá-las pela aplicação
 (`POST /api/openfinance/config` responde 404 de propósito).
@@ -46,7 +47,7 @@ O MeuPluggy funciona como proxy da conexão original e atualiza os dados uma vez
 
 1. No painel da Pluggy: **Applications → Go to production**. Envolve contrato e due diligence com a Pluggy.
 2. Coloque as novas credenciais **só** no `.env` de produção.
-3. Cadastre o webhook (tarefa 09, quando existir).
+3. Cadastre o webhook no painel da Pluggy apontando para `https://<dominio>/api/openfinance/webhook` (veja a seção [Webhook da Pluggy](#webhook-da-pluggy)).
 
 ## Fluxo
 
@@ -75,7 +76,37 @@ Detalhes que importam:
 - **Duplicatas:** transação já importada (mesmo `provider` + `externalId`) é pulada.
 - **Transferências entre contas próprias** são marcadas como suspeitas (`isTransferSuspect`) para revisão.
 - **Sincronizar:** `POST /api/openfinance/connections/:id/sync` pede atualização à Pluggy e reimporta os
-  últimos 45 dias. Ainda não há sincronização automática (tarefa 08) nem webhook (tarefa 09).
+  últimos 45 dias. A rotina interna agendada (`/api/internal/tick`, a cada `OPENFINANCE_SYNC_INTERVAL_HOURS`, padrão 12 h)
+  e o webhook (`POST /api/openfinance/webhook`) também mantêm as conexões atualizadas automaticamente.
+
+## Webhook da Pluggy
+
+O endpoint público `POST /api/openfinance/webhook` (contrato em [openfinance-webhook.openapi.yaml](api/openfinance-webhook.openapi.yaml))
+responde `202 Accepted` rapidamente (dentro do limite de 10 s da Pluggy) e processa cada evento em segundo plano, de forma serializada por `itemId` e idempotente.
+Quando `PLUGGY_WEBHOOK_SECRET` não está configurado (ou contém apenas espaços), o endpoint responde `404`. Falhas de assinatura ou segredo respondem `401` (que a Pluggy não reenvia).
+
+### Configuração recomendada no painel da Pluggy (Signing Secret)
+
+1. No painel da Pluggy, acesse **Applications → Configure → Webhooks** e gere o **Webhook Signing Secret** (formato `whsec_<hex>`).
+2. Defina `PLUGGY_WEBHOOK_SECRET` no `.env` de produção com esse signing secret completo e reinicie a API.
+3. Cadastre a URL pública `https://<dominio>/api/openfinance/webhook` selecionando os eventos desejados (ou `all`).
+4. **Regra de segurança:** quando `PLUGGY_WEBHOOK_SECRET` começa com `whsec_`, o backend **exige** o cabeçalho `X-Pluggy-Signature: t=<unix>,v1=<hmac_sha256>` validado em tempo constante sobre `<t>.<rawBody>` com janela anti-replay de ±5 minutos — **sem fallback** para cabeçalhos estáticos.
+
+### Alternativa: cabeçalho customizado estático
+
+Se cadastrar um webhook via API (`POST /webhooks`) com `headers` customizados e optar por um segredo estático (não iniciado por `whsec_`, mínimo 32 caracteres em produção/staging), o backend aceita comparação em tempo constante em `X-Webhook-Secret`, `X-Pluggy-Webhook-Secret` ou `Authorization: Bearer <segredo>`.
+
+> [!IMPORTANT]
+> Conforme a documentação oficial da Pluggy (*Webhook Security*), cabeçalhos customizados **não** são enviados para `webhookUrl` configurado diretamente em um *Item* ou *Connect Token*. Prefira sempre o **Signing Secret (`whsec_...`)** com `X-Pluggy-Signature`.
+
+### Eventos tratados e proteções
+
+- `item/updated`, `item/created`, `transactions/created`, `transactions/updated`: reconsultam item, contas e transações dos últimos 45 dias na API autenticada da Pluggy **sem** acionar `syncItem` de volta (evita loop infinito de webhooks).
+- `item/error` e `item/waiting_user_input`: marcam a conexão com `status: 'erro'`, mensagem genérica segura (sem gravar texto bruto do payload) e atualizam `consentExpiresAt` quando informado.
+- `item/login_succeeded`: muda conexão em `erro` para `atualizando` limpando `lastError`.
+- `item/deleted`: marca a conexão como `revogada` (estado terminal; eventos posteriores são ignorados).
+- `transactions/deleted`: marca apenas transações pendentes na Caixa de Revisão (`status` `nova` ou `casada`) dessa conexão como `removida`. Lançamentos já aprovados (`importada`) e registros do ledger (`transactions`) **nunca** são alterados ou apagados.
+- **Privacidade e recuperação:** o corpo bruto e cabeçalhos do webhook nunca são gravados nos logs; `itemId` desconhecido retorna `202` sem alterar o banco; eventual evento recebido imediatamente antes de um restart do container da API é recuperado pela rotina periódica (`/api/internal/tick`, a cada `OPENFINANCE_SYNC_INTERVAL_HOURS`).
 
 ## Rotas
 
@@ -86,6 +117,7 @@ Detalhes que importam:
 | `POST /api/openfinance/connect-item` | Vincula o item devolvido pelo widget e importa |
 | `GET /api/openfinance/connections` | Lista as conexões do workspace |
 | `POST /api/openfinance/connections/:id/sync` | Sincroniza uma conexão |
+| `POST /api/openfinance/webhook` | Receptor autenticado de webhooks da Pluggy (`202 Accepted`) |
 | `PATCH /api/openfinance/bank-accounts/:id` | Diz de qual entidade (pessoal ou empresa) é a conta: `{ entityId }` |
 | `DELETE /api/openfinance/connections/:id` | Remove a conexão do MEIster |
 | `GET /api/imports` | Caixa de Revisão |

@@ -33,6 +33,15 @@ export interface ConnectPluggyItemResult {
   readonly accounts: ConnectedBankAccount[];
 }
 
+function isPrismaUniqueViolation(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'code' in err &&
+    (err as { code?: unknown }).code === 'P2002'
+  );
+}
+
 export async function connectPluggyItem(
   scope: WorkspaceScope,
   input: ConnectPluggyItemInput
@@ -216,21 +225,30 @@ export async function connectPluggyItem(
       const occurredDate = new Date(tx.date.slice(0, 10));
       const suggestedCatId = mapSuggestedCategory(tx.description, tx.category);
 
-      const created = await prisma.bankTransaction.create({
-        data: {
-          connectionId: connection.id,
-          bankAccountId: bankAccount.id,
-          provider: 'pluggy',
-          externalId: tx.id,
-          direction,
-          amount: absAmount,
-          occurredOn: occurredDate,
-          description: tx.description,
-          suggestedCategoryId: suggestedCatId,
-          raw: tx as unknown as Prisma.InputJsonValue,
-          status: 'nova',
-        },
-      });
+      let created;
+      try {
+        created = await prisma.bankTransaction.create({
+          data: {
+            connectionId: connection.id,
+            bankAccountId: bankAccount.id,
+            provider: 'pluggy',
+            externalId: tx.id,
+            direction,
+            amount: absAmount,
+            occurredOn: occurredDate,
+            description: tx.description,
+            suggestedCategoryId: suggestedCatId,
+            raw: tx as unknown as Prisma.InputJsonValue,
+            status: 'nova',
+          },
+        });
+      } catch (err) {
+        if (isPrismaUniqueViolation(err)) {
+          duplicatesSkippedCount += 1;
+          continue;
+        }
+        throw err;
+      }
 
       createdItems.push(created);
       importedTransactionsCount += 1;
