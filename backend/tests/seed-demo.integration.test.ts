@@ -98,6 +98,16 @@ describe('seed de demonstração (servidor)', () => {
 
       const pagos = await prisma.dasCharge.count({ where: { workspaceId: scope.workspaceId, status: 'pago' } });
       expect(pagos).toBeGreaterThan(0);
+      // Cada DAS pago tem exatamente uma despesa (das:<id>) e não há lançamento DAS legado duplicado
+      const despesasDas = await prisma.transaction.count({
+        where: { workspaceId: scope.workspaceId, sourceRef: { startsWith: 'das:' }, deletedAt: null },
+      });
+      expect(despesasDas).toBe(pagos);
+      expect(
+        await prisma.transaction.count({
+          where: { workspaceId: scope.workspaceId, sourceRef: { startsWith: 'demo:das:' }, deletedAt: null },
+        })
+      ).toBe(0);
 
       await seedDemo(config);
       expect(await contar()).toEqual(before);

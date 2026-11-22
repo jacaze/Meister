@@ -152,7 +152,7 @@ export const DasPage: React.FC = () => {
     setUnmarkLoading(true);
     try {
       await api.delete(`/das/${dasToUnmark.id}/pay`);
-      toast.success('Pagamento de DAS desmarcado.');
+      toast.success('Pagamento de DAS desmarcado e despesa removida.');
       setDasToUnmark(null);
       fetchData(true);
     } catch (err: unknown) {
