@@ -43,6 +43,8 @@ export { SealCheck } from '@phosphor-icons/react/dist/csr/SealCheck';
 export { Lightbulb } from '@phosphor-icons/react/dist/csr/Lightbulb';
 export { TelegramLogo } from '@phosphor-icons/react/dist/csr/TelegramLogo';
 export { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
+export { Handshake } from '@phosphor-icons/react/dist/csr/Handshake';
+export { ArrowCounterClockwise } from '@phosphor-icons/react/dist/csr/ArrowCounterClockwise';
 export { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
 export { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 export { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';

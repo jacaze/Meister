@@ -23,6 +23,7 @@ import { educationRoutes } from './routes/educationRoutes.js';
 import { complianceRoutes } from './routes/complianceRoutes.js';
 import { assistantRoutes } from './routes/assistantRoutes.js';
 import { telegramRoutes, telegramWebhookRoute } from './routes/telegramRoutes.js';
+import { settlementRoutes } from './routes/settlementRoutes.js';
 
 export interface BuildAppOptions {
   env?: AppEnv;
@@ -81,6 +82,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await fastify.register(fiscalRoutes, { prefix: '/api' });
   await fastify.register(jarsRoutes, { prefix: '/api' });
   await fastify.register(transferRoutes, { prefix: '/api' });
+  await fastify.register(settlementRoutes, { prefix: '/api' });
   await fastify.register(receiptRoutes, { prefix: '/api' });
   await fastify.register(insightRoutes, { prefix: '/api' });
   await fastify.register(openFinanceRoutes, { prefix: '/api' });

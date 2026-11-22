@@ -1,4 +1,5 @@
 import prisma from '../../../../config/prisma.js';
+import { syncTransactionSettlement } from './Settlements.js';
 import {
   NotFoundError,
   assertCanWrite,
@@ -34,6 +35,8 @@ export async function deleteTransaction(
       data: { deletedAt: now },
     });
   }
+
+  await syncTransactionSettlement(tx.id);
 
   await prisma.transactionAudit.create({
     data: {

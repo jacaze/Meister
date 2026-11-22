@@ -60,6 +60,8 @@ export async function approveImportedTransaction(
     occurredOn: item.occurredOn.toISOString().slice(0, 10),
     categoryId: categoryId || undefined,
     entityId,
+    // O dinheiro saiu/entrou na conta conectada; se o gasto for de outra entidade, nasce o acerto
+    paidByEntityId: item.bankAccount?.entityId ?? null,
     viaPersonalAccount: input.viaPersonalAccount,
     origin: 'importacao',
     sourceRef: `${item.provider}:${item.externalId}`,

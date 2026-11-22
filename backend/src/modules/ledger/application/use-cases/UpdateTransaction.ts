@@ -1,4 +1,5 @@
 import type { PaymentMethod, TransactionType } from '@prisma/client';
+import { syncTransactionSettlement } from './Settlements.js';
 import prisma from '../../../../config/prisma.js';
 import {
   LocalDate,
@@ -158,6 +159,8 @@ export async function updateTransaction(
       status: updated.status,
     },
   });
+
+  await syncTransactionSettlement(updated.id);
 
   return updated;
 }

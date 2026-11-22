@@ -14,6 +14,7 @@ import {
   SignOut,
   Storefront,
   type Icon,
+  Handshake,
 } from '../ui/icons.js';
 import { useAuth } from '../../context/AuthContext.js';
 import QuickTransactionModal from '../modals/QuickTransactionModal.js';
@@ -41,6 +42,7 @@ export const AppLayout: React.FC = () => {
   const outlet = useOutlet();
   const reduce = useReducedMotion();
   const isMei = user?.accountType === 'mei';
+  const hasManyEntities = (workspace?.entities.length ?? 0) > 1;
 
   const primary: NavItem[] = [
     { label: 'Início', short: 'Início', path: '/', icon: House },
@@ -49,6 +51,7 @@ export const AppLayout: React.FC = () => {
   ];
   const secondary: NavItem[] = [
     { label: 'Extratos & Open Finance', short: 'Extratos', path: '/revisao', icon: Bank },
+    ...(hasManyEntities ? [{ label: 'Acertos', short: 'Acertos', path: '/acertos', icon: Handshake }] : []),
     { label: 'Educação & Lições', short: 'Lições', path: '/educacao', icon: GraduationCap },
     ...(isMei ? [{ label: 'Impostos & DAS', short: 'DAS', path: '/impostos', icon: Calculator }] : []),
     { label: 'Relatórios', short: 'Relatórios', path: '/relatorios', icon: ChartLineUp },

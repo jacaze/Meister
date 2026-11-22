@@ -19,6 +19,7 @@ export async function listReviewInbox(
     },
     orderBy: { occurredOn: 'desc' },
     take: input.limit ?? 100,
+    include: { bankAccount: { select: { entityId: true } } },
   });
 
   return items.map((it) => ({
@@ -32,5 +33,7 @@ export async function listReviewInbox(
     suggestedCategoryId: it.suggestedCategoryId,
     isTransferSuspect: it.isTransferSuspect,
     matchedTransactionId: it.matchedTransactionId,
+    // Entidade da conta de origem (tarefa 18): aprovar em outra entidade gera acerto
+    accountEntityId: it.bankAccount?.entityId ?? null,
   }));
 }

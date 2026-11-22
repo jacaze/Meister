@@ -1,4 +1,5 @@
 import type { PaymentMethod, TransactionOrigin, TransactionType } from '@prisma/client';
+import { resolvePaidByEntityId, syncTransactionSettlement } from './Settlements.js';
 import prisma from '../../../../config/prisma.js';
 import {
   LocalDate,
@@ -32,6 +33,8 @@ export interface CreateTransactionInput {
   readonly status?: 'confirmado' | 'pendente_revisao';
   readonly sourceRef?: string | null;
   readonly viaPersonalAccount?: boolean;
+  // Entidade cujo dinheiro pagou/recebeu; diferente da dona gera acerto (tarefa 18)
+  readonly paidByEntityId?: string | null;
 }
 
 export async function createTransaction(
@@ -106,6 +109,11 @@ export async function createTransaction(
   if (!entity) {
     throw new NotFoundError('Entidade não encontrada no workspace');
   }
+  const paidByEntityId = await resolvePaidByEntityId(scope, {
+    entity,
+    paidByEntityId: input.paidByEntityId,
+    viaPersonalAccount: input.viaPersonalAccount,
+  });
 
   // 6. Validate Category & Splits
   const status = input.status ?? 'confirmado';
@@ -202,6 +210,7 @@ export async function createTransaction(
           status,
           categoryId: (input.splits && input.splits.length > 0) ? null : categoryId,
           viaPersonalAccount: Boolean(input.viaPersonalAccount),
+          paidByEntityId,
           splits: (input.splits && input.splits.length > 0)
             ? {
                 create: input.splits.map((s, idx) => ({
@@ -251,6 +260,7 @@ export async function createTransaction(
           categoryId: (input.splits && input.splits.length > 0) ? null : categoryId,
           sourceRef: input.sourceRef ?? null,
           viaPersonalAccount: Boolean(input.viaPersonalAccount),
+          paidByEntityId,
           splits: (input.splits && input.splits.length > 0)
             ? {
                 create: input.splits.map((s, idx) => ({
@@ -302,6 +312,9 @@ export async function createTransaction(
       throw err;
     }
   }
+
+  // Idempotente: cria, ajusta ou remove o acerto conforme o lançamento gravado
+  await syncTransactionSettlement(created.id);
 
   if (!existingDeletedId || isRestorationWinner) {
     defaultEventBus.publish({

@@ -70,6 +70,8 @@ Detalhes que importam:
 - **De quem é cada conta:** conta nova entra sem entidade quando o workspace tem mais de uma entidade (PJ, autônomo...); com só a PF, vai direto para ela.
   A resposta do `connect-item` traz `accounts` e o app pergunta "De quem são estas contas?". Aprovar item de conta sem
   entidade responde 400 `ACCOUNT_ENTITY_REQUIRED`. Trocar a entidade depois afeta só o que ainda está na Caixa de Revisão.
+- **De quem é o gasto × de onde saiu:** a aprovação usa a entidade da conta como pagadora. Aprovar o item em outra
+  entidade (ex.: compra no cartão pessoal que é da empresa) gera um acerto (tarefa 18).
 - **Duplicatas:** transação já importada (mesmo `provider` + `externalId`) é pulada.
 - **Transferências entre contas próprias** são marcadas como suspeitas (`isTransferSuspect`) para revisão.
 - **Sincronizar:** `POST /api/openfinance/connections/:id/sync` pede atualização à Pluggy e reimporta os

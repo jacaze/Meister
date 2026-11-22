@@ -15,6 +15,7 @@ import {
   httpCreateTransactionSchema,
   httpUpdateTransactionSchema,
 } from '../modules/ledger/application/schemas/ledger-schemas.js';
+import { resolvePaidByEntityId, syncTransactionSettlement } from '../modules/ledger/public.js';
 
 const TRANSACTION_TYPES: readonly TransactionType[] = ['receita', 'despesa'] as const;
 const PAYMENT_METHODS: readonly PaymentMethod[] = [
@@ -134,6 +135,7 @@ export async function create(
     transactionDate?: unknown;
     entityId?: unknown;
     viaPersonalAccount?: unknown;
+    paidByEntityId?: unknown;
     sourceRef?: unknown;
   } = {},
   scope?: WorkspaceScope
@@ -172,6 +174,13 @@ export async function create(
   if (!entity) {
     throw new NotFoundError('Entidade não encontrada no workspace');
   }
+
+  // De quem é o dinheiro que pagou/recebeu; diferente da entidade dona gera acerto (tarefa 18)
+  const paidByEntityId = await resolvePaidByEntityId(resolvedScope, {
+    entity,
+    paidByEntityId: input.paidByEntityId,
+    viaPersonalAccount: input.viaPersonalAccount,
+  });
 
   let sourceRef =
     typeof input.sourceRef === 'string' && input.sourceRef.trim()
@@ -230,7 +239,7 @@ export async function create(
           where: { transactionId: existing.id },
         });
 
-        return tx.transaction.update({
+        const restored = await tx.transaction.update({
           where: { id: existing.id },
           data: {
             entityId: targetEntityId,
@@ -241,6 +250,7 @@ export async function create(
             paymentMethod,
             transactionDate: transactionDate.toUtcDate(),
             viaPersonalAccount: Boolean(input.viaPersonalAccount),
+            paidByEntityId,
             audits: {
               create: {
                 workspaceId: resolvedScope.workspaceId,
@@ -257,29 +267,36 @@ export async function create(
           },
           include: includeConfig,
         });
+        await syncTransactionSettlement(restored.id, tx);
+        return restored;
       });
     }
   }
 
   try {
-    return await prisma.transaction.create({
-      data: {
-        userId,
-        workspaceId: resolvedScope.workspaceId,
-        entityId: targetEntityId,
-        categoryId: category.id,
-        description,
-        amount: money.toNumber(),
-        type,
-        paymentMethod,
-        transactionDate: transactionDate.toUtcDate(),
-        viaPersonalAccount: Boolean(input.viaPersonalAccount),
-        status: 'confirmado',
-        sourceRef,
-      },
-      include: {
-        category: { select: { id: true, name: true, slug: true } },
-      },
+    return await prisma.$transaction(async (tx) => {
+      const created = await tx.transaction.create({
+        data: {
+          userId,
+          workspaceId: resolvedScope.workspaceId,
+          entityId: targetEntityId,
+          categoryId: category.id,
+          description,
+          amount: money.toNumber(),
+          type,
+          paymentMethod,
+          transactionDate: transactionDate.toUtcDate(),
+          viaPersonalAccount: Boolean(input.viaPersonalAccount),
+          paidByEntityId,
+          status: 'confirmado',
+          sourceRef,
+        },
+        include: {
+          category: { select: { id: true, name: true, slug: true } },
+        },
+      });
+      await syncTransactionSettlement(created.id, tx);
+      return created;
     });
   } catch (err: unknown) {
     const prismaErr = err as { code?: string } | null;
@@ -405,6 +422,7 @@ export async function update(
     paymentMethod?: unknown;
     transactionDate?: unknown;
     viaPersonalAccount?: unknown;
+    paidByEntityId?: unknown;
   } = {},
   scope?: WorkspaceScope
 ) {
@@ -443,6 +461,7 @@ export async function update(
     paymentMethod?: PaymentMethod | null;
     transactionDate?: Date;
     viaPersonalAccount?: boolean;
+    paidByEntityId?: string | null;
   } = {};
 
   const targetType = input.type !== undefined ? parseType(input.type) : transaction.type;
@@ -485,6 +504,17 @@ export async function update(
     data.viaPersonalAccount = Boolean(input.viaPersonalAccount);
   }
 
+  if (input.paidByEntityId !== undefined) {
+    const entity = await prisma.entity.findUniqueOrThrow({
+      where: { id: transaction.entityId },
+      select: { id: true, kind: true },
+    });
+    data.paidByEntityId = await resolvePaidByEntityId(resolvedScope, {
+      entity,
+      paidByEntityId: input.paidByEntityId,
+    });
+  }
+
   if (input.categoryId !== undefined) {
     if (typeof input.categoryId !== 'string' || !input.categoryId) {
       throw new ValidationError('Informe a categoria');
@@ -508,13 +538,17 @@ export async function update(
     }
   }
 
-  return prisma.transaction.update({
-    where: { id },
-    data,
-    include: {
-      category: { select: { id: true, name: true, slug: true } },
-      splits: true,
-    },
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.transaction.update({
+      where: { id },
+      data,
+      include: {
+        category: { select: { id: true, name: true, slug: true } },
+        splits: true,
+      },
+    });
+    await syncTransactionSettlement(updated.id, tx);
+    return updated;
   });
 }
 
@@ -541,9 +575,12 @@ export async function remove(userId: string | undefined, id: string, scope?: Wor
       data: { deletedAt: now },
     });
   } else {
-    await prisma.transaction.update({
-      where: { id },
-      data: { deletedAt: now },
+    await prisma.$transaction(async (tx) => {
+      await tx.transaction.update({
+        where: { id },
+        data: { deletedAt: now },
+      });
+      await syncTransactionSettlement(id, tx);
     });
   }
 }

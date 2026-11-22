@@ -16,6 +16,7 @@ const ProfilePage = lazy(() => import('./pages/ProfilePage.js'));
 const ReviewInboxPage = lazy(() => import('./pages/ReviewInboxPage.js'));
 const EducationPage = lazy(() => import('./pages/EducationPage.js'));
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage.js'));
+const SettlementsPage = lazy(() => import('./pages/SettlementsPage.js'));
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { token, loading, workspace } = useAuth();
@@ -99,6 +100,7 @@ export const App: React.FC = () => {
               <Route path="potes" element={<JarsPage />} />
               <Route path="insights" element={<Navigate to="/" replace />} />
               <Route path="revisao" element={<ReviewInboxPage />} />
+              <Route path="acertos" element={<SettlementsPage />} />
               <Route path="extratos" element={<ReviewInboxPage />} />
               <Route path="openfinance" element={<ReviewInboxPage />} />
               <Route path="open-finance" element={<ReviewInboxPage />} />
