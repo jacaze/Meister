@@ -132,4 +132,19 @@ export const MessagesPtBr = {
   proposalCancelled: `❌ *Proposta cancelada com sucesso\\.* O lançamento foi descartado\\.`,
 
   notUnderstood: `🤔 *Não consegui identificar um lançamento financeiro\\.*\n\nTente algo como: _"Gastei 50 no almoço"_ ou _"Recebi 2500 de serviço via Pix"_\\.`,
+
+  audioUnsupported:
+    `🎙️ *Ainda não entendo áudio\\.* Me mande por texto \\(ex\\.: _"gastei 45 no mercado no pix"_\\) ou uma foto da nota fiscal\\.`,
+
+  documentUnsupported:
+    `📎 *Ainda não consigo ler esse tipo de documento\\.* Me mande o lançamento por texto \\(ex\\.: _"gastei 45 no mercado no pix"_\\) ou uma *foto* da nota fiscal\\.`,
+
+  mediaUnsupported:
+    `🤔 *Esse tipo de mensagem eu ainda não entendo\\.* Eu entendo *texto* \\(ex\\.: _"gastei 45 no mercado no pix"_\\), *foto de nota fiscal* e os comandos de /ajuda\\.`,
+
+  editedUnsupported:
+    `✏️ *Vi que você editou uma mensagem, mas não consigo reprocessar edições\\.* Envie o lançamento como uma nova mensagem\\.`,
+
+  proposalNoLongerAvailable:
+    `⌛ *Essa proposta expirou ou não está mais disponível\\.* Envie o lançamento novamente para gerar outra\\.`,
 };
