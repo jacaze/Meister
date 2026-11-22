@@ -7,6 +7,7 @@ import ConfirmDialog from '../components/ui/ConfirmDialog.js';
 import AnimatedNumber from '../components/ui/AnimatedNumber.js';
 import { formatBRL, parseDecimal } from '../lib/money.js';
 import { useToast } from '../components/ui/Toast.js';
+import { currentMonthRange, monthRange, shiftMonth, rangeAsMonth, periodLabel } from '../lib/period.js';
 import Mel from '../components/brand/Mel.js';
 import {
   Receipt,
@@ -146,8 +147,9 @@ export const TransactionsPage: React.FC = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  // Padrão: mês atual (America/Sao_Paulo). Os cards de resumo valem para este mesmo período.
+  const [startDate, setStartDate] = useState(() => currentMonthRange().start);
+  const [endDate, setEndDate] = useState(() => currentMonthRange().end);
   const [showFilters, setShowFilters] = useState(false);
 
   // UI state
@@ -299,17 +301,28 @@ export const TransactionsPage: React.FC = () => {
     setSearchInput('');
     setSelectedCategory('');
     setSelectedPaymentMethod('');
-    setStartDate('');
-    setEndDate('');
+    const month = currentMonthRange();
+    setStartDate(month.start);
+    setEndDate(month.end);
   };
+
+  const shownMonth = rangeAsMonth(startDate, endDate);
+  const period = periodLabel(startDate, endDate);
+  const goToMonth = (delta: number) => {
+    const base = shownMonth ?? currentMonthRange().start.slice(0, 7);
+    const range = monthRange(shiftMonth(base, delta));
+    setStartDate(range.start);
+    setEndDate(range.end);
+  };
+  const isCurrentPeriod =
+    startDate === currentMonthRange().start && endDate === currentMonthRange().end;
 
   const hasActiveFilters = Boolean(
     typeFilter !== 'todas' ||
     searchInput ||
     selectedCategory ||
     selectedPaymentMethod ||
-    startDate ||
-    endDate
+    !isCurrentPeriod
   );
 
   return (
@@ -338,13 +351,63 @@ export const TransactionsPage: React.FC = () => {
         </button>
       </div>
 
+      {/* Período dos resumos e da lista */}
+      <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Período dos lançamentos">
+        <div className="flex items-center bg-card rounded-2xl border border-ink/8 p-1 shadow-sm">
+          <button
+            type="button"
+            onClick={() => goToMonth(-1)}
+            aria-label="Mês anterior"
+            className="min-h-[44px] min-w-[44px] p-2.5 rounded-xl text-ink hover:bg-field transition flex items-center justify-center"
+          >
+            <CaretLeft size={18} weight="bold" />
+          </button>
+          <span className="px-3 text-sm font-bold text-ink min-w-[10rem] text-center" aria-live="polite">
+            {period}
+          </span>
+          <button
+            type="button"
+            onClick={() => goToMonth(1)}
+            aria-label="Próximo mês"
+            className="min-h-[44px] min-w-[44px] p-2.5 rounded-xl text-ink hover:bg-field transition flex items-center justify-center"
+          >
+            <CaretRight size={18} weight="bold" />
+          </button>
+        </div>
+        {!isCurrentPeriod && (
+          <button
+            type="button"
+            onClick={() => {
+              const month = currentMonthRange();
+              setStartDate(month.start);
+              setEndDate(month.end);
+            }}
+            className="min-h-[44px] px-3 text-xs font-bold text-brand hover:underline"
+          >
+            Mês atual
+          </button>
+        )}
+        {(startDate || endDate) && (
+          <button
+            type="button"
+            onClick={() => {
+              setStartDate('');
+              setEndDate('');
+            }}
+            className="min-h-[44px] px-3 text-xs font-bold text-muted hover:text-ink"
+          >
+            Ver todo o período
+          </button>
+        )}
+      </div>
+
       {/* Summary Cards Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Entradas */}
         <div className="card-surface p-4 sm:p-5 flex items-center justify-between">
           <div className="min-w-0">
             <span className="text-[11px] font-bold uppercase tracking-wider text-muted block">
-              Total Receitas
+              Receitas · {period}
             </span>
             <span className="text-xl sm:text-2xl font-extrabold text-success mt-1 block tabular truncate">
               <AnimatedNumber value={summary.totalEntradas} />
@@ -359,7 +422,7 @@ export const TransactionsPage: React.FC = () => {
         <div className="card-surface p-4 sm:p-5 flex items-center justify-between">
           <div className="min-w-0">
             <span className="text-[11px] font-bold uppercase tracking-wider text-muted block">
-              Total Despesas
+              Despesas · {period}
             </span>
             <span className="text-xl sm:text-2xl font-extrabold text-danger mt-1 block tabular truncate">
               <AnimatedNumber value={summary.totalDespesas} />
@@ -374,7 +437,7 @@ export const TransactionsPage: React.FC = () => {
         <div className="card-surface p-4 sm:p-5 flex items-center justify-between">
           <div className="min-w-0">
             <span className="text-[11px] font-bold uppercase tracking-wider text-muted block">
-              Saldo do Período
+              Saldo · {period}
             </span>
             <span
               className={`text-xl sm:text-2xl font-extrabold mt-1 block tabular truncate ${
