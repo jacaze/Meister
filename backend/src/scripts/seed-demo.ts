@@ -1,13 +1,13 @@
 import { pathToFileURL } from 'node:url';
 import bcrypt from 'bcryptjs';
 import prisma from '../config/prisma.js';
-import { ConflictError, LocalDate, Money, SystemClock, ValidationError, type Clock, type WorkspaceScope } from '../shared/index.js';
+import { ConflictError, SystemClock, ValidationError, type Clock, type WorkspaceScope } from '../shared/index.js';
 import { provisionWorkspace, resolveScopeForUser, updateBusinessProfile } from '../modules/workspace/public.js';
 import { listCategories, seedDefaultCategories } from '../modules/catalog/public.js';
 import { createJarPlan } from '../modules/jars/public.js';
 import { ensureDasCharges, getMeiLimit, markDasPaid } from '../modules/fiscal/public.js';
-import { createTransaction } from '../modules/ledger/public.js';
-import { buildDemoScenario, type DemoEntry } from './demo-scenario.js';
+import { createTransaction, deleteTransaction } from '../modules/ledger/public.js';
+import { buildDemoScenario } from './demo-scenario.js';
 
 // Seed de demonstração para o servidor (Docker): roda com `node dist/scripts/seed-demo.js`, sem tsx.
 // Credenciais vêm só do ambiente; nada de usuário/senha no código. Escrita de lançamentos só via ledger.
@@ -152,6 +152,17 @@ async function ensureAccountsAndJars(scope: WorkspaceScope, pjEntityId: string):
   }
 }
 
+// Execuções antigas do seed lançavam o DAS à parte (demo:das:*); remove-as pelo ledger para não duplicar
+async function removeLegacyDemoDasEntries(scope: WorkspaceScope): Promise<void> {
+  const legacy = await prisma.transaction.findMany({
+    where: { workspaceId: scope.workspaceId, sourceRef: { startsWith: 'demo:das:' }, deletedAt: null },
+    select: { id: true },
+  });
+  for (const tx of legacy) {
+    await deleteTransaction(scope, tx.id);
+  }
+}
+
 export async function seedDemo(config: SeedDemoConfig, clock: Clock = new SystemClock()): Promise<SeedDemoSummary> {
   const today = clock.today();
   await seedFiscalParameters(clock);
@@ -181,25 +192,14 @@ export async function seedDemo(config: SeedDemoConfig, clock: Clock = new System
   // DAS do ano até o mês corrente; meses já encerrados entram como pagos
   const charges = await ensureDasCharges(scope, pjEntityId, { clock });
   const currentCompetence = today.yearMonth().toIsoString();
-  const dasEntries: DemoEntry[] = [];
   for (const charge of charges) {
     if (charge.competence >= currentCompetence) continue;
     const dueDate = charge.dueDate.toISOString().slice(0, 10);
     const paidOn = dueDate > today.toIsoDate() ? today.toIsoDate() : dueDate;
-    if (charge.status !== 'pago') {
-      await markDasPaid(scope, { dasId: charge.id, paidOn });
-    }
-    dasEntries.push({
-      key: `demo:das:${charge.competence}`,
-      entity: 'pj',
-      type: 'despesa',
-      categorySlug: 'impostos-das',
-      amount: Money.fromDecimalString(charge.amount.toString()),
-      description: `DAS-MEI ${charge.competence}`,
-      date: LocalDate.fromIsoDate(paidOn),
-      paymentMethod: 'boleto',
-    });
+    // Marcar como pago já lança a despesa DAS no ledger (idempotente por das:<id>); não lançar à parte
+    await markDasPaid(scope, { dasId: charge.id, paidOn });
   }
+  await removeLegacyDemoDasEntries(scope);
 
   // Lançamentos: sempre pelo ledger, idempotentes pelo sourceRef
   const categories = await listCategories(scope);
@@ -209,7 +209,7 @@ export async function seedDemo(config: SeedDemoConfig, clock: Clock = new System
     return found.id;
   };
 
-  const all = [...scenario.entries, ...dasEntries];
+  const all = [...scenario.entries];
   const refs = all.map((e) => e.key);
   const existing = await prisma.transaction.findMany({
     where: { workspaceId: scope.workspaceId, sourceRef: { in: refs }, deletedAt: null },

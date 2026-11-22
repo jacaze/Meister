@@ -79,7 +79,7 @@ export const MarkDasPaidSheet: React.FC<MarkDasPaidSheetProps> = ({
 
       haptic([12, 40, 12]);
       celebrate('small');
-      toast.success('Pagamento de DAS registrado com sucesso!');
+      toast.success('Pagamento de DAS registrado e despesa lançada nos lançamentos.');
       onSaved();
       onClose();
     } catch (err: unknown) {
