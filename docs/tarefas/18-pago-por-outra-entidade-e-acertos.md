@@ -60,3 +60,32 @@ Exemplo do dono: a esposa compra material da **empresa dela** (no exemplo, uma c
 - [ ] Os cenários funcionam de ponta a ponta no ambiente local em mais de uma direção: PF de um pagando pela empresa
       do outro, empresa pagando despesa pessoal, e empresa de um pagando pela empresa do outro.
 - [ ] Tabela do `README.md` desta pasta atualizada.
+
+## Como foi resolvido (2026-11-21) — v1
+
+- **DB** (migration `20261121220000_settlements_paid_by_entity`): `transactions.paid_by_entity_id` (FK `entities`,
+  `SET NULL`) e tabela `settlements` (um acerto por lançamento: devedora, credora, valor `Decimal(14,2)`, status
+  `aberto | acertado | cancelado`, forma `transferencia | abatimento`, quem e quando acertou).
+  Escolhi **entidade pagadora** em vez de "conta pagadora": novos usuários nem têm `FinancialAccount`, e o acerto é
+  entre entidades. A conta continua ligada pelo Open Finance (`BankAccount.entityId`).
+- **Regra pura** `ledger/domain/SettlementRule.ts`: despesa de A paga por B → A deve a B; receita de A que caiu em B →
+  B deve a A; sem pagador, mesmo pagador, transferência ou zero → nada. Testada com propriedades (fast-check).
+- **`syncTransactionSettlement`** roda depois de criar, editar, restaurar ou apagar lançamento nos dois caminhos
+  (`services/transactionService.ts` dentro da mesma transação de banco; `ledger` create/update/delete logo após gravar,
+  idempotente). Editar reabre acerto já feito se os termos mudarem; apagar remove o aberto e marca o feito como `cancelado`.
+- **Compatibilidade:** `viaPersonalAccount = true` em lançamento de negócio sem pagador explícito vira pagador = PF.
+  Lançamentos antigos com `viaPersonalAccount` **não** foram migrados para acertos (histórico mantido como estava).
+- **Open Finance:** a aprovação usa a entidade da conta de origem como pagadora; aprovar em outra entidade gera o acerto.
+  `GET /api/imports` passa a devolver `accountEntityId`.
+- **Rotas:** `GET /api/settlements?status=` (itens + saldo líquido por par), `POST /api/settlements/:id/settle { via }`,
+  `POST /api/settlements/:id/reopen`. Pagador de outro workspace → 404.
+- **Frontend:** "Pago com o dinheiro de" / "Recebido na conta de" no modal de lançamento (substitui a caixinha
+  "Passou pela conta pessoal"), "Gasto de / Receita de" por item na Caixa de Revisão com aviso de acerto, e tela
+  **Acertos** (`/acertos`, no menu quando há mais de uma entidade) com saldo por par, "Transferi", "Abater" e "Desfazer".
+
+### Pendente (próxima etapa)
+
+- **Saldo de caixa por entidade** refletindo de onde o dinheiro saiu (hoje relatórios e painel continuam pela entidade dona).
+- **Marcar como acertado não cria a transferência** no ledger (as transferências são entre `FinancialAccount`, que
+  usuários novos não têm). Hoje o acerto só registra a forma.
+- Insight de "mistura PF/PJ" ainda lê `viaPersonalAccount`, não os acertos.
