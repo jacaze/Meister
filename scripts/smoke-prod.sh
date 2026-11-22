@@ -44,6 +44,7 @@ POSTGRES_PASSWORD=smoke_prod_postgres_secret_value_123
 POSTGRES_DB=meister_smoke
 JWT_SECRET=smoke_prod_jwt_secret_value_with_minimum_32_characters
 INTERNAL_TICK_SECRET=smoke_prod_tick_secret_value_with_minimum_32_characters
+PLUGGY_WEBHOOK_SECRET=smoke_prod_pluggy_webhook_secret_value_minimum_32_chars
 PLUGGY_CLIENT_ID=
 PLUGGY_CLIENT_SECRET=
 EOF
@@ -157,14 +158,14 @@ for (const h of forbidden) {
   }
 }
 NODE
-echo "OK [1/8] GET / -> 200 HTML, cabeçalhos validados, sem COOP/COEP/CSP."
+echo "OK [1/9] GET / -> 200 HTML, cabeçalhos validados, sem COOP/COEP/CSP."
 
 # Check 2: Fallback SPA
 SPA_HTML="$TMP_DIR/spa.html"
 SPA_STATUS="$(curl "${CURL_COMMON[@]}" -o "$SPA_HTML" -w '%{http_code}' "${BASE_URL}/rota-qualquer-do-spa")"
 [ "$SPA_STATUS" = "200" ] || { echo "ERRO: GET /rota-qualquer-do-spa retornou HTTP $SPA_STATUS" >&2; exit 1; }
 cmp -s "$ROOT_HTML" "$SPA_HTML" || { echo "ERRO: Fallback SPA difere de GET /" >&2; exit 1; }
-echo "OK [2/8] GET /rota-qualquer-do-spa -> 200 idêntico ao /index.html."
+echo "OK [2/9] GET /rota-qualquer-do-spa -> 200 idêntico ao /index.html."
 
 # Check 3: Service Worker com Cache-Control: no-cache
 SW_HEADERS="$TMP_DIR/sw.headers"
@@ -174,7 +175,7 @@ if ! grep -qi '^cache-control:.*no-cache' "$SW_HEADERS"; then
   echo "ERRO: GET /sw.js sem Cache-Control: no-cache" >&2
   exit 1
 fi
-echo "OK [3/8] GET /sw.js -> 200 com Cache-Control: no-cache."
+echo "OK [3/9] GET /sw.js -> 200 com Cache-Control: no-cache."
 
 # Check 4: /health/ready, /health/live, /health sem cabeçalhos duplicados com Helmet
 HEALTH_HEADERS="$TMP_DIR/health.headers"
@@ -216,7 +217,7 @@ LIVE_STATUS="$(curl "${CURL_COMMON[@]}" -o /dev/null -w '%{http_code}' "${BASE_U
 [ "$LIVE_STATUS" = "200" ] || { echo "ERRO: GET /health/live retornou HTTP $LIVE_STATUS" >&2; exit 1; }
 ROOT_HEALTH_STATUS="$(curl "${CURL_COMMON[@]}" -o /dev/null -w '%{http_code}' "${BASE_URL}/health")"
 [ "$ROOT_HEALTH_STATUS" = "200" ] || { echo "ERRO: GET /health retornou HTTP $ROOT_HEALTH_STATUS" >&2; exit 1; }
-echo "OK [4/8] /health/ready, /health/live e /health -> 200 sem cabeçalhos duplicados."
+echo "OK [4/9] /health/ready, /health/live e /health -> 200 sem cabeçalhos duplicados."
 
 # Check 5: POST /telegram/webhook sem segredo -> 401/403
 TG_STATUS="$(curl "${CURL_COMMON[@]}" -o /dev/null -w '%{http_code}' -X POST \
@@ -225,7 +226,7 @@ if [ "$TG_STATUS" != "401" ] && [ "$TG_STATUS" != "403" ]; then
   echo "ERRO: POST /telegram/webhook sem segredo retornou HTTP $TG_STATUS (esperado 401 ou 403)" >&2
   exit 1
 fi
-echo "OK [5/8] POST /telegram/webhook sem segredo -> HTTP $TG_STATUS."
+echo "OK [5/9] POST /telegram/webhook sem segredo -> HTTP $TG_STATUS."
 
 # Check 6: Registro + Login + GET /api/openfinance/config em HTTPS
 SMOKE_EMAIL="smoke-prod-$(date +%s)-$$@example.com"
@@ -250,7 +251,7 @@ OF_STATUS="$(curl "${CURL_COMMON[@]}" -o "$OF_BODY" -w '%{http_code}' \
   -H "Authorization: Bearer ${TOKEN}" "${BASE_URL}/api/openfinance/config")"
 [ "$OF_STATUS" = "200" ] || { echo "ERRO: GET /api/openfinance/config retornou HTTP $OF_STATUS" >&2; exit 1; }
 OF_BODY="$OF_BODY" node -e "const d=JSON.parse(require('fs').readFileSync(process.env.OF_BODY,'utf8')); if(d.hasCredentials!==false) throw new Error(JSON.stringify(d));"
-echo "OK [6/8] Registro, login e GET /api/openfinance/config via HTTPS -> HTTP 200."
+echo "OK [6/9] Registro, login e GET /api/openfinance/config via HTTPS -> HTTP 200."
 
 # Check 7: Anti-spoofing de X-Forwarded-For + TRUST_PROXY=uniquelocal (cliente != container proxy)
 PROXY_CID="$(compose_cmd ps -q proxy)"
@@ -286,7 +287,7 @@ if (ip === proxyIp) {
 process.stdout.write(ip);
 NODE
 )"
-echo "OK [7/8] X-Forwarded-For forjado sobrescrito pelo Caddy e TRUST_PROXY ativo (cliente=${IP_RECORDED}, proxy=${PROXY_IP})."
+echo "OK [7/9] X-Forwarded-For forjado sobrescrito pelo Caddy e TRUST_PROXY ativo (cliente=${IP_RECORDED}, proxy=${PROXY_IP})."
 
 # Check 8: /api/internal/* bloqueado externamente no Caddy (404) e serviço cron chama POST /api/internal/tick na rede interna (200)
 TICK_EXT_STATUS="$(curl "${CURL_COMMON[@]}" -o /dev/null -w '%{http_code}' -X POST \
@@ -307,5 +308,26 @@ if printf '%s\n' "$CRON_TICK_OUT" | grep -q 'smoke_prod_tick_secret_value'; then
   echo "ERRO: segredo interno vazou na saída do cron" >&2
   exit 1
 fi
-echo "OK [8/8] /api/internal/tick bloqueado no Caddy (404) e executado via rede interna pelo cron (HTTP 200)."
-echo "SUCESSO: Todos os 8 checks do smoke test de produção passaram em ${BASE_URL}."
+echo "OK [8/9] /api/internal/tick bloqueado no Caddy (404) e executado via rede interna pelo cron (HTTP 200)."
+
+# Check 9: POST /api/openfinance/webhook atravessa o Caddy até a API (401 sem segredo, 202 autenticado com itemId desconhecido)
+PLUGGY_WH_UNAUTH="$(curl "${CURL_COMMON[@]}" -o /dev/null -w '%{http_code}' -X POST \
+  -H 'Content-Type: application/json' \
+  -d '{"event":"item/updated","itemId":"smoke-unknown-item"}' \
+  "${BASE_URL}/api/openfinance/webhook")"
+[ "$PLUGGY_WH_UNAUTH" = "401" ] || {
+  echo "ERRO: POST /api/openfinance/webhook sem segredo via Caddy retornou HTTP $PLUGGY_WH_UNAUTH (esperado 401)" >&2
+  exit 1
+}
+
+PLUGGY_WH_AUTH="$(curl "${CURL_COMMON[@]}" -o /dev/null -w '%{http_code}' -X POST \
+  -H 'Content-Type: application/json' \
+  -H 'X-Webhook-Secret: smoke_prod_pluggy_webhook_secret_value_minimum_32_chars' \
+  -d '{"event":"item/updated","itemId":"smoke-unknown-item"}' \
+  "${BASE_URL}/api/openfinance/webhook")"
+[ "$PLUGGY_WH_AUTH" = "202" ] || {
+  echo "ERRO: POST /api/openfinance/webhook autenticado via Caddy retornou HTTP $PLUGGY_WH_AUTH (esperado 202)" >&2
+  exit 1
+}
+echo "OK [9/9] POST /api/openfinance/webhook via Caddy -> HTTP 401 sem segredo e HTTP 202 autenticado."
+echo "SUCESSO: Todos os 9 checks do smoke test de produção passaram em ${BASE_URL}."
