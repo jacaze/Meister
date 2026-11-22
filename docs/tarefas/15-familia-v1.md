@@ -2,8 +2,8 @@
 
 **Prioridade:** 🟢 épico (diferencial do produto; Fase 5 do planejamento)
 **Donos:** DB → QA → Backend → Frontend
-**Status:** PENDENTE. Depende das tarefas **17** (perfil e entidades por pessoa) e **18** (de quem é o gasto × quem pagou,
-e acertos). Começar pela fase 0 (desenho) e validar com o dono antes de codar.
+**Status:** fase 0 (desenho) FEITA e validada: ver **`docs/familia.md`**, que manda sobre este arquivo. Próximo: fase 1
+(schema). As tarefas 17 e 18, das quais esta dependia, estão mescladas.
 
 ## A ideia, nas palavras do dono
 
