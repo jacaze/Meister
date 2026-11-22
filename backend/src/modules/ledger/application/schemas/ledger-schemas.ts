@@ -47,6 +47,7 @@ export const httpCreateTransactionSchema = z.object({
   transactionDate: z.string().min(1),
   entityId: z.string().optional(),
   viaPersonalAccount: z.boolean().optional(),
+  paidByEntityId: z.string().uuid().nullable().optional(),
   sourceRef: z.string().max(255).nullable().optional(),
 });
 
@@ -58,6 +59,7 @@ export const httpUpdateTransactionSchema = z.object({
   paymentMethod: z.enum(['dinheiro', 'pix', 'cartao_credito', 'cartao_debito', 'boleto', 'outro', '']).nullable().optional(),
   transactionDate: z.string().min(1).optional(),
   viaPersonalAccount: z.boolean().optional(),
+  paidByEntityId: z.string().uuid().nullable().optional(),
 });
 
 export const createTransferSchema = z.object({
