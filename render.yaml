@@ -7,7 +7,7 @@ services:
     name: meister-api
     runtime: docker
     plan: free
-    region: oregon
+    region: virginia
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     # /health/live NAO toca no banco: evita manter o Neon acordado 24h (limite de 100 CU-h/mes).
@@ -67,6 +67,7 @@ services:
     rootDir: frontend
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
+    region: virginia
     autoDeployTrigger: commit
     envVars:
       - key: NODE_VERSION
@@ -77,12 +78,11 @@ services:
       # Esconde os perfis "Família" do onboarding enquanto a função não existe.
       - key: VITE_FEATURE_FAMILIA
         value: "false"
+      # URL da API (ex.: https://meister-api.onrender.com), SEM /api e SEM barra final.
+      # O navegador chama a API direto (CORS_ORIGINS da API deve ser a URL deste site).
+      - key: VITE_API_URL
+        sync: false
     routes:
-      # O frontend chama baseURL relativo /api; o rewrite proxia para a API (mesma origem para o navegador).
-      # Se o nome meister-api ja existir no Render, a URL ganha sufixo: ajuste o destino abaixo.
-      - type: rewrite
-        source: /api/*
-        destination: https://meister-api.onrender.com/api/*
       # Fallback SPA (so se aplica quando nao existe arquivo no caminho)
       - type: rewrite
         source: /*

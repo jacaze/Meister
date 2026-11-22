@@ -30,9 +30,17 @@ for k in ["DATABASE_URL", "JWT_SECRET", "INTERNAL_TICK_SECRET", "APP_URL", "CORS
     if k not in keys:
         errs.append(f"variável obrigatória ausente: {k}")
 rules = [(r["source"], r["destination"]) for r in web.get("routes", [])]
-if rules[:2] != [("/api/*", rules[0][1]), ("/*", "/index.html")] or not rules[0][1].endswith("/api/*"):
-    errs.append("routes do static site devem ser /api/* -> API e /* -> /index.html (nessa ordem)")
+if rules != [("/*", "/index.html")]:
+    errs.append("routes do static site devem ser apenas o fallback SPA /* -> /index.html (a API é chamada direto via VITE_API_URL, sem rewrite /api)")
+if "VITE_API_URL" not in {e["key"] for e in web.get("envVars", [])}:
+    errs.append("meister-web precisa da variável VITE_API_URL (sync: false)")
+for e in web.get("envVars", []):
+    if e["key"] == "VITE_API_URL" and e.get("sync") is not False:
+        errs.append("VITE_API_URL deve ser sync: false (preenchida pelo dono)")
+for s_ in (api, web):
+    if s_.get("region") != "virginia":
+        errs.append(f"{s_['name']} deve usar region virginia (mesma do Neon US East)")
 if errs:
     print("\n".join("ERRO: " + e for e in errs)); sys.exit(1)
-print("OK: render.yaml válido (free, sem segredos, rotas e variáveis obrigatórias).")
+print("OK: render.yaml válido (free, sem segredos, fallback SPA, VITE_API_URL e variáveis obrigatórias).")
 PY

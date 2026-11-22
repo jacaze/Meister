@@ -14,6 +14,9 @@ ENV VITE_PLUGGY_INCLUDE_SANDBOX=$VITE_PLUGGY_INCLUDE_SANDBOX
 # Variável de build: mostra os perfis "Família" no onboarding (função em construção; padrão desligado)
 ARG VITE_FEATURE_FAMILIA=false
 ENV VITE_FEATURE_FAMILIA=$VITE_FEATURE_FAMILIA
+# Opcional: URL da API (sem /api e sem barra final) para build fora do compose; vazio = /api relativo
+ARG VITE_API_URL=
+ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build
 
 FROM caddy:2.11-alpine AS runtime

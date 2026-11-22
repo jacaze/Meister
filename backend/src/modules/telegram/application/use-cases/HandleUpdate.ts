@@ -9,6 +9,7 @@ import { getJarsStatus } from '../../../jars/public.js';
 import { listTransactions } from '../../../ledger/public.js';
 import { MessagesPtBr, escapeMarkdownV2, formatBrl } from '../../domain/messages.pt-BR.js';
 import { decodeProposalCallback, encodeProposalCallback } from '../../domain/callback-data.js';
+import { DomainError } from '../../../../shared/errors.js';
 import type { MessagingChannel } from '../ports/messaging-channel.js';
 import { linkChat } from './LinkChat.js';
 import { unlinkChat } from './GetLinkStatus.js';
@@ -30,6 +31,14 @@ export interface TelegramUpdate {
     readonly text?: string;
     readonly photo?: readonly TelegramPhotoSize[];
     readonly caption?: string;
+    readonly document?: { readonly file_id: string; readonly mime_type?: string };
+    readonly audio?: unknown;
+    readonly voice?: unknown;
+  };
+  readonly edited_message?: {
+    readonly message_id: number;
+    readonly from?: { readonly id: number; readonly is_bot: boolean };
+    readonly chat: { readonly id: number | string; readonly type: string };
   };
   readonly callback_query?: {
     readonly id: string;
@@ -37,6 +46,15 @@ export interface TelegramUpdate {
     readonly message?: { readonly message_id: number; readonly chat: { readonly id: number | string } };
     readonly data?: string;
   };
+}
+
+/** Erros de negócio (ex.: proposta expirada) são mostrados; inesperados viram mensagem genérica. */
+function proposalErrorText(err: unknown): string {
+  if (err instanceof DomainError) {
+    return `⚠️ ${escapeMarkdownV2(err.message)}`;
+  }
+  console.error('[HandleUpdate] Falha inesperada ao responder callback de proposta');
+  return MessagesPtBr.proposalNoLongerAvailable;
 }
 
 export async function handleTelegramUpdate(
@@ -48,6 +66,7 @@ export async function handleTelegramUpdate(
   // 1. Deduplication with inbound_updates table
   const rawChatId = String(
     update.message?.chat.id ??
+    update.edited_message?.chat.id ??
     update.callback_query?.message?.chat.id ??
     'unknown'
   );
@@ -55,6 +74,12 @@ export async function handleTelegramUpdate(
     ? 'callback'
     : update.message?.photo
     ? 'photo'
+    : update.message?.voice || update.message?.audio
+    ? 'voice'
+    : update.message?.document
+    ? 'document'
+    : update.message && typeof update.message.text !== 'string'
+    ? 'other'
     : update.message?.text?.startsWith('/')
     ? 'command'
     : 'text';
@@ -143,18 +168,31 @@ export async function handleTelegramUpdate(
           MessagesPtBr.proposalConfirmed(res)
         );
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Erro ao confirmar proposta.';
-        await channel.sendText(chatId, `⚠️ ${escapeMarkdownV2(message)}`);
+        await channel.sendText(chatId, proposalErrorText(err));
       }
     } else if (parsed.action === 'x') {
       try {
         await cancelProposal(scope, parsed.proposalId);
         await channel.editMessageText(chatId, messageId, MessagesPtBr.proposalCancelled);
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Erro ao cancelar proposta.';
-        await channel.sendText(chatId, `⚠️ ${escapeMarkdownV2(message)}`);
+        await channel.sendText(chatId, proposalErrorText(err));
       }
     }
+    return;
+  }
+
+  // 2b. Mensagem editada: não reprocessamos (evita lançamento duplicado), mas avisamos o usuário.
+  if (!update.message && update.edited_message) {
+    const edited = update.edited_message;
+    if (edited.from?.is_bot) return;
+    const editedChatId = String(edited.chat.id);
+    const editedLink = await prisma.telegramLink.findFirst({
+      where: { chatId: editedChatId, status: 'ativo' },
+    });
+    await channel.sendText(
+      editedChatId,
+      editedLink ? MessagesPtBr.editedUnsupported : MessagesPtBr.welcomeUnlinked('meister_financas_bot')
+    );
     return;
   }
 
@@ -174,7 +212,14 @@ export async function handleTelegramUpdate(
   });
 
   // Handle Photo Messages (Receipts & Invoices)
-  if (msg.photo && msg.photo.length > 0) {
+  const photoFileId =
+    msg.photo && msg.photo.length > 0
+      ? msg.photo[msg.photo.length - 1]?.file_id
+      : msg.document?.mime_type?.startsWith('image/')
+      ? msg.document.file_id
+      : undefined;
+
+  if (photoFileId) {
     if (!link) {
       await channel.sendText(chatId, MessagesPtBr.welcomeUnlinked('meister_financas_bot'));
       return;
@@ -187,12 +232,7 @@ export async function handleTelegramUpdate(
 
     await channel.sendText(chatId, `🔍 *Analisando nota fiscal / comprovante\\.\\.\\.*`);
 
-    const highestRes = msg.photo[msg.photo.length - 1];
-    if (!highestRes) {
-      return;
-    }
-
-    const file = await channel.downloadFile(highestRes.file_id);
+    const file = await channel.downloadFile(photoFileId);
     if (!file) {
       await channel.sendText(chatId, `⚠️ *Não foi possível baixar a imagem enviada\\.* Tente novamente\\.`);
       return;
@@ -239,7 +279,7 @@ export async function handleTelegramUpdate(
           ambiguous: [],
           status: 'aberta',
           source: 'nota_fiscal',
-          sourceRef: `tg:photo:${highestRes.file_id}`,
+          sourceRef: `tg:photo:${photoFileId}`,
           expiresAt: new Date(Date.now() + 15 * 60 * 1000),
         },
       });
@@ -285,6 +325,19 @@ export async function handleTelegramUpdate(
 
   const rawText = msg.text;
   if (typeof rawText !== 'string') {
+    // Áudio, voz, documento, figurinha, vídeo, localização etc.: nunca ficar mudo.
+    if (!link) {
+      await channel.sendText(chatId, MessagesPtBr.welcomeUnlinked('meister_financas_bot'));
+      return;
+    }
+    await channel.sendText(
+      chatId,
+      msg.voice || msg.audio
+        ? MessagesPtBr.audioUnsupported
+        : msg.document
+        ? MessagesPtBr.documentUnsupported
+        : MessagesPtBr.mediaUnsupported
+    );
     return;
   }
 
