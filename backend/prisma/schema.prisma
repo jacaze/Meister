@@ -39,34 +39,35 @@ enum TransferType {
 }
 
 model User {
-  id             String      @id @default(uuid())
-  name           String
-  email          String      @unique
-  passwordHash   String      @map("password_hash")
-  accountType    AccountType @default(pessoa_fisica) @map("account_type")
-  failedAttempts Int         @default(0) @map("failed_attempts")
-  lockUntil      DateTime?   @map("lock_until")
-  timezone       String      @default("America/Sao_Paulo")
-  status         String      @default("ativo")
-  emailVerifiedAt DateTime?  @map("email_verified_at")
-  createdAt      DateTime    @default(now()) @map("created_at")
-  deletedAt      DateTime?   @map("deleted_at")
+  id              String      @id @default(uuid())
+  name            String
+  email           String      @unique
+  passwordHash    String      @map("password_hash")
+  accountType     AccountType @default(pessoa_fisica) @map("account_type")
+  failedAttempts  Int         @default(0) @map("failed_attempts")
+  lockUntil       DateTime?   @map("lock_until")
+  timezone        String      @default("America/Sao_Paulo")
+  status          String      @default("ativo")
+  emailVerifiedAt DateTime?   @map("email_verified_at")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  deletedAt       DateTime?   @map("deleted_at")
 
-  memberships    WorkspaceMember[]
-  sessions       Session[]
-  emailTokens    EmailToken[]
-  categories     Category[]
-  transactions   Transaction[]
-  telegramLinks  TelegramLink[]
-  linkTokens     TelegramLinkToken[]
-  proposals      Proposal[]
-  insights       Insight[]
-  insightFeedbacks InsightFeedback[]
+  memberships        WorkspaceMember[]
+  sessions           Session[]
+  emailTokens        EmailToken[]
+  categories         Category[]
+  transactions       Transaction[]
+  telegramLinks      TelegramLink[]
+  linkTokens         TelegramLinkToken[]
+  proposals          Proposal[]
+  insights           Insight[]
+  insightFeedbacks   InsightFeedback[]
   insightPreferences InsightPreference[]
   lessonProgresses   LessonProgress[]
   nudgeLogs          NudgeLog[]
   consents           UserConsent[]
   auditLogs          AuditLog[]
+  ownedEntities      Entity[]            @relation("EntityOwner")
 
   @@map("users")
 }
@@ -92,7 +93,7 @@ model Session {
 model EmailToken {
   id        String    @id @default(uuid())
   userId    String    @map("user_id")
-  kind      String    // verify | reset
+  kind      String // verify | reset
   tokenHash String    @map("token_hash")
   expiresAt DateTime  @map("expires_at")
   usedAt    DateTime? @map("used_at")
@@ -105,27 +106,30 @@ model EmailToken {
 }
 
 model Workspace {
-  id        String   @id @default(uuid())
-  name      String
-  plan      String   @default("free")
-  createdAt DateTime @default(now()) @map("created_at")
+  id                    String    @id @default(uuid())
+  name                  String
+  plan                  String    @default("free")
+  // individual | negocio | familia | familia_negocio; nulo até o onboarding (tarefa 17)
+  profile               String?
+  onboardingCompletedAt DateTime? @map("onboarding_completed_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
 
-  members              WorkspaceMember[]
-  entities             Entity[]
-  categories           Category[]
-  transactions         Transaction[]
-  financialAccounts    FinancialAccount[]
-  categorizationRules  CategorizationRule[]
-  jarPlans             JarPlan[]
-  dasCharges           DasCharge[]
-  fiscalReceipts       FiscalReceipt[]
-  telegramLinks        TelegramLink[]
-  proposals            Proposal[]
-  transactionAudits    TransactionAudit[]
-  insights             Insight[]
-  bankConnections      BankConnection[]
-  nudgeLogs            NudgeLog[]
-  auditLogs            AuditLog[]
+  members             WorkspaceMember[]
+  entities            Entity[]
+  categories          Category[]
+  transactions        Transaction[]
+  financialAccounts   FinancialAccount[]
+  categorizationRules CategorizationRule[]
+  jarPlans            JarPlan[]
+  dasCharges          DasCharge[]
+  fiscalReceipts      FiscalReceipt[]
+  telegramLinks       TelegramLink[]
+  proposals           Proposal[]
+  transactionAudits   TransactionAudit[]
+  insights            Insight[]
+  bankConnections     BankConnection[]
+  nudgeLogs           NudgeLog[]
+  auditLogs           AuditLog[]
 
   @@map("workspaces")
 }
@@ -146,18 +150,20 @@ model WorkspaceMember {
 model Entity {
   id          String    @id @default(uuid())
   workspaceId String    @map("workspace_id")
-  kind        String    // pf | pj
+  kind        String // pf | pj | autonomo
+  ownerUserId String?   @map("owner_user_id") // pessoa dona da PF/negócio (família, tarefas 15 e 17)
   name        String
   cnpj        String?   @unique
   legalName   String?   @map("legal_name")
   tradeName   String?   @map("trade_name")
   openedOn    DateTime? @map("opened_on") @db.Date
-  activity    String?   // comercio | servicos | misto
+  activity    String? // comercio | servicos | misto
   isMei       Boolean   @default(false) @map("is_mei")
   active      Boolean   @default(true)
   createdAt   DateTime  @default(now()) @map("created_at")
 
   workspace         Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner             User?              @relation("EntityOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
   transactions      Transaction[]
   financialAccounts FinancialAccount[]
   dasCharges        DasCharge[]
@@ -166,6 +172,7 @@ model Entity {
   insights          Insight[]
 
   @@index([workspaceId, active])
+  @@index([ownerUserId])
   @@map("entities")
 }
 
@@ -196,7 +203,7 @@ model FinancialAccount {
   id             String   @id @default(uuid())
   workspaceId    String   @map("workspace_id")
   entityId       String   @map("entity_id")
-  kind           String   // caixa | banco | cartao
+  kind           String // caixa | banco | cartao
   name           String
   institution    String?
   source         String   @default("manual") // manual | pluggy
@@ -230,33 +237,33 @@ model CategorizationRule {
 }
 
 model Transaction {
-  id                 String             @id @default(uuid())
-  workspaceId        String             @map("workspace_id")
-  entityId           String             @map("entity_id")
-  userId             String?            @map("user_id")
-  financialAccountId String?            @map("financial_account_id")
-  categoryId         String?            @map("category_id")
+  id                 String            @id @default(uuid())
+  workspaceId        String            @map("workspace_id")
+  entityId           String            @map("entity_id")
+  userId             String?           @map("user_id")
+  financialAccountId String?           @map("financial_account_id")
+  categoryId         String?           @map("category_id")
   type               TransactionType
-  direction          String?            // in | out
+  direction          String? // in | out
   description        String
-  amount             Decimal            @db.Decimal(14, 2)
-  paymentMethod      PaymentMethod?     @map("payment_method")
-  transactionDate    DateTime           @map("transaction_date") @db.Date
-  origin             TransactionOrigin  @default(manual)
-  status             String             @default("confirmado") // confirmado | pendente_revisao
-  externalProvider   String?            @map("external_provider")
-  externalId         String?            @map("external_id")
-  transferGroupId    String?            @map("transfer_group_id")
-  transferType       TransferType?      @map("transfer_type")
+  amount             Decimal           @db.Decimal(14, 2)
+  paymentMethod      PaymentMethod?    @map("payment_method")
+  transactionDate    DateTime          @map("transaction_date") @db.Date
+  origin             TransactionOrigin @default(manual)
+  status             String            @default("confirmado") // confirmado | pendente_revisao
+  externalProvider   String?           @map("external_provider")
+  externalId         String?           @map("external_id")
+  transferGroupId    String?           @map("transfer_group_id")
+  transferType       TransferType?     @map("transfer_type")
   counterparty       String?
   notes              String?
-  sourceRef          String?            @map("source_ref")
-  viaPersonalAccount Boolean            @default(false) @map("via_personal_account")
-  aiConfidence       Decimal?           @map("ai_confidence") @db.Decimal(5, 4)
-  createdBy          String?            @map("created_by")
-  createdAt          DateTime           @default(now()) @map("created_at")
-  updatedAt          DateTime           @default(now()) @updatedAt @map("updated_at")
-  deletedAt          DateTime?          @map("deleted_at")
+  sourceRef          String?           @map("source_ref")
+  viaPersonalAccount Boolean           @default(false) @map("via_personal_account")
+  aiConfidence       Decimal?          @map("ai_confidence") @db.Decimal(5, 4)
+  createdBy          String?           @map("created_by")
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @default(now()) @updatedAt @map("updated_at")
+  deletedAt          DateTime?         @map("deleted_at")
 
   workspace        Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   entity           Entity             @relation(fields: [entityId], references: [id], onDelete: Cascade)
@@ -293,7 +300,7 @@ model TransactionAudit {
   workspaceId   String   @map("workspace_id")
   transactionId String   @map("transaction_id")
   actor         String
-  action        String   // create | update | delete
+  action        String // create | update | delete
   before        Json?
   after         Json?
   at            DateTime @default(now())
@@ -322,7 +329,7 @@ model DasCharge {
   id          String    @id @default(uuid())
   workspaceId String    @map("workspace_id")
   entityId    String    @map("entity_id")
-  competence  String    // YYYY-MM
+  competence  String // YYYY-MM
   dueDate     DateTime  @map("due_date") @db.Date
   amount      Decimal   @db.Decimal(14, 2)
   status      String    @default("pendente") // pendente | pago | atrasado
@@ -343,7 +350,7 @@ model LimitAlert {
   id       String   @id @default(uuid())
   entityId String   @map("entity_id")
   year     Int
-  band     String   // atencao | excedido | desenquadramento
+  band     String // atencao | excedido | desenquadramento
   sentAt   DateTime @default(now()) @map("sent_at")
 
   entity Entity @relation(fields: [entityId], references: [id], onDelete: Cascade)
@@ -357,13 +364,13 @@ model JarPlan {
   workspaceId String   @map("workspace_id")
   entityId    String   @map("entity_id")
   name        String
-  template    String   // mei-empresa | seis-potes | 50-30-20 | personalizado
+  template    String // mei-empresa | seis-potes | 50-30-20 | personalizado
   baseMode    String   @default("mes_atual") @map("base_mode") // mes_atual | mes_anterior | media_3_meses
   active      Boolean  @default(true)
   createdAt   DateTime @default(now()) @map("created_at")
 
-  workspace  Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  entity     Entity               @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  workspace  Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  entity     Entity              @relation(fields: [entityId], references: [id], onDelete: Cascade)
   jars       Jar[]
   categories JarCategory[]
   snapshots  JarPeriodSnapshot[]
@@ -409,7 +416,7 @@ model JarCategory {
 model JarPeriodSnapshot {
   planId      String   @map("plan_id")
   jarId       String   @map("jar_id")
-  period      String   // YYYY-MM
+  period      String // YYYY-MM
   allocated   Decimal  @db.Decimal(14, 2)
   used        Decimal  @db.Decimal(14, 2)
   carriedOver Decimal  @default(0.00) @map("carried_over") @db.Decimal(14, 2)
@@ -425,8 +432,8 @@ model JarPeriodSnapshot {
 model JarAlert {
   id     String   @id @default(uuid())
   jarId  String   @map("jar_id")
-  period String   // YYYY-MM
-  band   String   // atencao | estourado
+  period String // YYYY-MM
+  band   String // atencao | estourado
   sentAt DateTime @default(now()) @map("sent_at")
 
   jar Jar @relation(fields: [jarId], references: [id], onDelete: Cascade)
@@ -486,7 +493,7 @@ model InboundUpdate {
   id          String    @id @default(uuid())
   updateId    BigInt    @unique @map("update_id")
   chatId      String    @map("chat_id")
-  kind        String    // text | photo | voice | callback | command
+  kind        String // text | photo | voice | callback | command
   status      String    @default("recebida") // recebida | processando | processada | erro | ignorada
   attempts    Int       @default(0)
   lockedUntil DateTime? @map("locked_until")
@@ -499,19 +506,19 @@ model InboundUpdate {
 }
 
 model Proposal {
-  id                     String    @id @default(uuid())
-  workspaceId            String    @map("workspace_id")
-  userId                 String    @map("user_id")
+  id                     String   @id @default(uuid())
+  workspaceId            String   @map("workspace_id")
+  userId                 String   @map("user_id")
   draft                  Json
-  confidence             Decimal   @db.Decimal(5, 4)
+  confidence             Decimal  @db.Decimal(5, 4)
   ambiguous              Json?
-  pendingQuestion        Json?     @map("pending_question")
-  status                 String    @default("aberta") // aberta | confirmada | cancelada | expirada
-  source                 String    @default("texto") // texto | foto | nfce | audio | web
-  sourceRef              String?   @map("source_ref")
-  expiresAt              DateTime  @map("expires_at")
-  confirmedTransactionId String?   @map("confirmed_transaction_id")
-  createdAt              DateTime  @default(now()) @map("created_at")
+  pendingQuestion        Json?    @map("pending_question")
+  status                 String   @default("aberta") // aberta | confirmada | cancelada | expirada
+  source                 String   @default("texto") // texto | foto | nfce | audio | web
+  sourceRef              String?  @map("source_ref")
+  expiresAt              DateTime @map("expires_at")
+  confirmedTransactionId String?  @map("confirmed_transaction_id")
+  createdAt              DateTime @default(now()) @map("created_at")
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -523,7 +530,7 @@ model Proposal {
 model AiRun {
   id            String   @id @default(uuid())
   proposalId    String?  @map("proposal_id")
-  kind          String   // text | audio | image
+  kind          String // text | audio | image
   model         String
   promptVersion String   @map("prompt_version")
   inputHash     String   @map("input_hash")
@@ -547,8 +554,8 @@ model Insight {
   entityId        String?   @map("entity_id")
   detectorId      String    @map("detector_id")
   detectorVersion String    @default("1.0") @map("detector_version")
-  period          String    // e.g. "2026-11"
-  severity        String    // info | atencao | alerta
+  period          String // e.g. "2026-11"
+  severity        String // info | atencao | alerta
   confidence      String    @default("alta") // alta | estimativa
   metrics         Json
   actions         Json?
@@ -577,8 +584,8 @@ model InsightFeedback {
   id        String   @id @default(uuid())
   insightId String   @map("insight_id")
   userId    String   @map("user_id")
-  value     String   // util | inutil
-  reason    String?  // nao_e_util | errado | repetitivo | outro
+  value     String // util | inutil
+  reason    String? // nao_e_util | errado | repetitivo | outro
   createdAt DateTime @default(now()) @map("created_at")
 
   insight Insight @relation(fields: [insightId], references: [id], onDelete: Cascade)
@@ -625,14 +632,14 @@ model BankConnection {
 }
 
 model BankAccount {
-  id                 String    @id @default(uuid())
-  connectionId       String    @map("connection_id")
-  externalId         String?   @map("external_id")
-  kind               String    @default("conta_corrente") // conta_corrente | cartao_credito | poupanca
-  name               String    @default("Conta Principal")
-  financialAccountId String?   @map("financial_account_id")
-  entityId           String?   @map("entity_id")
-  createdAt          DateTime  @default(now()) @map("created_at")
+  id                 String   @id @default(uuid())
+  connectionId       String   @map("connection_id")
+  externalId         String?  @map("external_id")
+  kind               String   @default("conta_corrente") // conta_corrente | cartao_credito | poupanca
+  name               String   @default("Conta Principal")
+  financialAccountId String?  @map("financial_account_id")
+  entityId           String?  @map("entity_id")
+  createdAt          DateTime @default(now()) @map("created_at")
 
   connection   BankConnection    @relation(fields: [connectionId], references: [id], onDelete: Cascade)
   transactions BankTransaction[]
@@ -641,23 +648,23 @@ model BankAccount {
 }
 
 model BankTransaction {
-  id                    String    @id @default(uuid())
-  connectionId          String    @map("connection_id")
-  bankAccountId         String?   @map("bank_account_id")
-  provider              String    @default("ofx") // pluggy | ofx | csv
-  externalId            String    @map("external_id")
-  direction             String    // in | out
-  amount                Decimal   @db.Decimal(14, 2)
-  occurredOn            DateTime  @map("occurred_on") @db.Date
+  id                    String   @id @default(uuid())
+  connectionId          String   @map("connection_id")
+  bankAccountId         String?  @map("bank_account_id")
+  provider              String   @default("ofx") // pluggy | ofx | csv
+  externalId            String   @map("external_id")
+  direction             String // in | out
+  amount                Decimal  @db.Decimal(14, 2)
+  occurredOn            DateTime @map("occurred_on") @db.Date
   description           String
   counterpart           String?
   raw                   Json?
-  status                String    @default("nova") // nova | casada | ignorada | importada | removida
-  suggestedCategoryId   String?   @map("suggested_category_id")
-  isTransferSuspect     Boolean   @default(false) @map("is_transfer_suspect")
-  matchedTransactionId  String?   @map("matched_transaction_id")
-  importedTransactionId String?   @map("imported_transaction_id")
-  createdAt             DateTime  @default(now()) @map("created_at")
+  status                String   @default("nova") // nova | casada | ignorada | importada | removida
+  suggestedCategoryId   String?  @map("suggested_category_id")
+  isTransferSuspect     Boolean  @default(false) @map("is_transfer_suspect")
+  matchedTransactionId  String?  @map("matched_transaction_id")
+  importedTransactionId String?  @map("imported_transaction_id")
+  createdAt             DateTime @default(now()) @map("created_at")
 
   connection  BankConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
   bankAccount BankAccount?   @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
@@ -692,15 +699,15 @@ model LessonProgress {
 }
 
 model NudgeLog {
-  id          String    @id @default(uuid())
-  userId      String    @map("user_id")
-  workspaceId String    @map("workspace_id")
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  workspaceId String   @map("workspace_id")
   trigger     String
-  lessonSlug  String    @map("lesson_slug")
-  channel     String    @default("web") // web | telegram
-  dedupeKey   String    @unique @map("dedupe_key")
-  feedback    String?   // util | inutil
-  sentAt      DateTime  @default(now()) @map("sent_at")
+  lessonSlug  String   @map("lesson_slug")
+  channel     String   @default("web") // web | telegram
+  dedupeKey   String   @unique @map("dedupe_key")
+  feedback    String? // util | inutil
+  sentAt      DateTime @default(now()) @map("sent_at")
 
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -716,7 +723,7 @@ model NudgeLog {
 model UserConsent {
   id        String   @id @default(uuid())
   userId    String   @map("user_id")
-  kind      String   // terms | privacy | ai_processing | open_finance
+  kind      String // terms | privacy | ai_processing | open_finance
   version   String   @default("1.0")
   accepted  Boolean  @default(true)
   ipAddress String?  @map("ip_address")

@@ -53,6 +53,7 @@ export async function authRoutes(
         userId: newUser.id,
         accountType: newUser.accountType,
         workspaceName: `Workspace de ${newUser.name}`,
+        completeOnboarding: accountType !== undefined,
       });
 
       await seedDefaultCategories({

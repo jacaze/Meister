@@ -1,5 +1,5 @@
 import React, { lazy } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext.js';
 import ToastProvider from './components/ui/Toast.js';
 import ErrorBoundary from './components/common/ErrorBoundary.js';
@@ -15,9 +15,11 @@ const ReportsPage = lazy(() => import('./pages/ReportsPage.js'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage.js'));
 const ReviewInboxPage = lazy(() => import('./pages/ReviewInboxPage.js'));
 const EducationPage = lazy(() => import('./pages/EducationPage.js'));
+const OnboardingPage = lazy(() => import('./pages/OnboardingPage.js'));
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { token, loading } = useAuth();
+  const { token, loading, workspace } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -30,6 +32,11 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   if (!token) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Conta nova escolhe o caso antes de usar o app (tarefa 17)
+  if (workspace && workspace.workspace.onboardingCompleted === false && location.pathname !== '/boas-vindas') {
+    return <Navigate to="/boas-vindas" replace />;
   }
 
   return <>{children}</>;
@@ -63,6 +70,18 @@ export const App: React.FC = () => {
                 <PublicRoute>
                   <AuthPage />
                 </PublicRoute>
+              }
+            />
+
+            {/* Onboarding: fora do layout, mas protegido */}
+            <Route
+              path="/boas-vindas"
+              element={
+                <ProtectedRoute>
+                  <React.Suspense fallback={null}>
+                    <OnboardingPage />
+                  </React.Suspense>
+                </ProtectedRoute>
               }
             />
 

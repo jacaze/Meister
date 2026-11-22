@@ -757,4 +757,27 @@ describe('Frontend & Telegram Real Payloads Contract Suite (PostgreSQL 16)', () 
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({ id: account.id, entityId: pjEntityId });
   });
+
+  it('18. OnboardingPage.tsx — POST /api/onboarding e DELETE /api/workspace/businesses/:id', async () => {
+    const auth = { authorization: `Bearer ${token}` };
+    // A tela envia { profile, businesses: [{ type, name }] } com nomes já aparados
+    const onboarding = await app.inject({
+      method: 'POST',
+      url: '/api/onboarding',
+      headers: auth,
+      payload: { profile: 'negocio', businesses: [{ type: 'autonomo', name: 'Contrato Autônomo' }] },
+    });
+    expect(onboarding.statusCode).toBe(200);
+
+    const autonomo = await prisma.entity.findFirstOrThrow({
+      where: { workspaceId, kind: 'autonomo', name: 'Contrato Autônomo', active: true },
+    });
+    const archive = await app.inject({
+      method: 'DELETE',
+      url: `/api/workspace/businesses/${autonomo.id}`,
+      headers: auth,
+    });
+    expect(archive.statusCode).toBe(200);
+  });
 });
+

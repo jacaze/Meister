@@ -155,6 +155,20 @@ describe('OpenFinance — entidade de cada conta bancária', () => {
     expect(accounts.every((a) => a.entityId === pessoa.pf)).toBe(true);
   });
 
+  it('PF + autônomo (sem PJ): também pergunta de quem é a conta', async () => {
+    const autonomo = await signUp('autonomo', 'pessoa_fisica');
+    const onboarding = await call(autonomo, 'POST', '/api/onboarding', {
+      profile: 'negocio',
+      businesses: [{ type: 'autonomo', name: 'Aulas particulares' }],
+    });
+    expect(onboarding.statusCode).toBe(200);
+
+    const { res } = await connect(autonomo, 'autonomo-novo');
+
+    expect(res.statusCode).toBe(201);
+    expect((res.json().accounts as Array<{ entityId: string | null }>).every((a) => a.entityId === null)).toBe(true);
+  });
+
   it('PATCH define a entidade, aparece na lista de conexões e sobrevive à sincronização', async () => {
     const { res } = await connect(mei, 'mei-patch');
     const [conta] = res.json().accounts as Array<{ id: string }>;

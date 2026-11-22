@@ -5,6 +5,8 @@ export interface ProvisionWorkspaceInput {
   readonly userId: string;
   readonly accountType?: 'mei' | 'pessoa_fisica';
   readonly workspaceName?: string;
+  // Falso no cadastro pela tela nova: o perfil é escolhido depois, no onboarding (tarefa 17)
+  readonly completeOnboarding?: boolean;
 }
 
 export interface ProvisionWorkspaceResult {
@@ -20,11 +22,14 @@ export async function provisionWorkspace(
 ): Promise<ProvisionWorkspaceResult> {
   const name = input.workspaceName?.trim() || 'Meu Workspace';
   const isMei = input.accountType === 'mei';
+  const completeOnboarding = input.completeOnboarding ?? true;
 
   const workspace = await client.workspace.create({
     data: {
       name,
       plan: 'free',
+      profile: completeOnboarding ? (isMei ? 'negocio' : 'individual') : null,
+      onboardingCompletedAt: completeOnboarding ? new Date() : null,
       members: {
         create: {
           userId: input.userId,
@@ -36,6 +41,7 @@ export async function provisionWorkspace(
           {
             kind: 'pf',
             name: 'Pessoal',
+            ownerUserId: input.userId,
             active: true,
           },
           ...(isMei
@@ -44,6 +50,7 @@ export async function provisionWorkspace(
                   kind: 'pj',
                   name: 'Meu MEI',
                   isMei: true,
+                  ownerUserId: input.userId,
                   active: true,
                 },
               ]

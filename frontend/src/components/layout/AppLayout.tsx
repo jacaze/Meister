@@ -92,7 +92,7 @@ export const AppLayout: React.FC = () => {
                     transition={spring}
                   />
                 )}
-                {ent.kind === 'pj' ? 'PJ' : 'PF'}
+                {ent.kind === 'pj' ? 'PJ' : ent.kind === 'autonomo' ? 'AUT' : 'PF'}
                 {!compact && <span className="font-medium opacity-70"> · {ent.name}</span>}
               </button>
             );

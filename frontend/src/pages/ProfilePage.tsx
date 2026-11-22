@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
@@ -251,6 +252,12 @@ export const ProfilePage: React.FC = () => {
               <span className="inline-block mt-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-field text-brand uppercase tracking-wider border border-ink/5">
                 {user?.accountType === 'mei' ? 'Conta MEI (PJ + PF)' : 'Pessoa Física'}
               </span>
+              <Link
+                to="/boas-vindas"
+                className="ml-2 inline-flex items-center min-h-[32px] text-xs font-bold text-brand hover:underline"
+              >
+                Mudar meu caso e negócios
+              </Link>
             </div>
           </div>
 
