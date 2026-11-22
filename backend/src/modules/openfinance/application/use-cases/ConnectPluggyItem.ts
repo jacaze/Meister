@@ -128,7 +128,7 @@ export async function connectPluggyItem(
     throw err;
   }
 
-  // Conta nova: entidade informada, ou PF quando não há PJ; com PJ fica sem entidade até o usuário dizer de quem é
+  // Conta nova: entidade informada, ou PF quando ela é a única; com mais entidades fica sem dono até o usuário dizer
   if (input.entityId) {
     const entity = await prisma.entity.findFirst({
       where: { id: input.entityId, workspaceId: scope.workspaceId, active: true },
@@ -136,8 +136,11 @@ export async function connectPluggyItem(
     });
     if (!entity) throw new NotFoundError('Entidade não encontrada.');
   }
+  const activeEntities = await prisma.entity.count({
+    where: { workspaceId: scope.workspaceId, active: true },
+  });
   const newAccountEntityId: string | null =
-    input.entityId ?? (scope.defaultEntityIds.pj ? null : scope.defaultEntityIds.pf);
+    input.entityId ?? (activeEntities > 1 ? null : scope.defaultEntityIds.pf);
   const accountsResult: ConnectedBankAccount[] = [];
 
   let importedTransactionsCount = 0;
