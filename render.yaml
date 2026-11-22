@@ -74,6 +74,9 @@ services:
       # Variavel de build do frontend (PR #23): habilita o sandbox da Pluggy na demo.
       - key: VITE_PLUGGY_INCLUDE_SANDBOX
         value: "true"
+      # Esconde os perfis "Família" do onboarding enquanto a função não existe.
+      - key: VITE_FEATURE_FAMILIA
+        value: "false"
     routes:
       # O frontend chama baseURL relativo /api; o rewrite proxia para a API (mesma origem para o navegador).
       # Se o nome meister-api ja existir no Render, a URL ganha sufixo: ajuste o destino abaixo.

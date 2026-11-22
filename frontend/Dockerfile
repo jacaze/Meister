@@ -11,6 +11,9 @@ COPY src ./src/
 # Variável de build (embutida no bundle): liga o banco de testes da Pluggy na demo hospedada
 ARG VITE_PLUGGY_INCLUDE_SANDBOX=false
 ENV VITE_PLUGGY_INCLUDE_SANDBOX=$VITE_PLUGGY_INCLUDE_SANDBOX
+# Variável de build: mostra os perfis "Família" no onboarding (função em construção; padrão desligado)
+ARG VITE_FEATURE_FAMILIA=false
+ENV VITE_FEATURE_FAMILIA=$VITE_FEATURE_FAMILIA
 RUN npm run build
 
 FROM caddy:2.11-alpine AS runtime

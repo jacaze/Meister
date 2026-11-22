@@ -2,6 +2,16 @@ import React, { useEffect, useState, useCallback } from 'react';
 import api from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
 import { useToast } from '../components/ui/Toast.js';
+import { hasPjEntity } from '../lib/reviewCopy.js';
+import {
+  askErrorMessage,
+  askPlaceholder,
+  EMPTY_INSIGHTS_TEXT,
+  formatEvidenceAmount,
+  formatIsoDateBR,
+  quickQuestions,
+  severityLabel,
+} from '../lib/insightsCopy.js';
 import {
   Lightbulb,
   ArrowsClockwise,
@@ -62,11 +72,14 @@ interface AskResult {
 }
 
 export const InsightsPage: React.FC = () => {
-  const { activeEntityId } = useAuth();
+  const { activeEntityId, workspace } = useAuth();
+  const hasPj = hasPjEntity(workspace?.entities);
   const toast = useToast();
   const [insights, setInsights] = useState<Insight[]>([]);
   const [digest, setDigest] = useState<MonthlyDigest | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [severityFilter, setSeverityFilter] = useState<'todos' | 'alerta' | 'atencao' | 'info'>('todos');
 
@@ -85,6 +98,7 @@ export const InsightsPage: React.FC = () => {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setLoadError(false);
     try {
       const [insightsRes, digestRes] = await Promise.all([
         api.get('/insights', { params: { entityId: activeEntityId } }),
@@ -94,6 +108,7 @@ export const InsightsPage: React.FC = () => {
       setDigest(digestRes.data);
     } catch (err) {
       console.error('Erro ao buscar dados de insights:', err);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -105,11 +120,13 @@ export const InsightsPage: React.FC = () => {
 
   const handleRunDetectors = async () => {
     setRunning(true);
+    setActionError(null);
     try {
       await api.post('/insights/run', { entityId: activeEntityId });
       await fetchData();
     } catch (err) {
       console.error('Erro ao reprocessar detectores:', err);
+      setActionError('Não foi possível atualizar as análises agora. Tente novamente.');
     } finally {
       setRunning(false);
     }
@@ -122,14 +139,11 @@ export const InsightsPage: React.FC = () => {
     setAskLoading(true);
     setAskResult(null);
     try {
-      const res = await api.post('/insights/ask', { question: q });
+      const res = await api.post('/insights/ask', { question: q, entityId: activeEntityId });
       setAskResult(res.data);
       if (queryText) setQuestion(queryText);
-    } catch (err: any) {
-      setAskResult({
-        answer: err.response?.data?.message || 'Falha ao processar a pergunta. Tente novamente.',
-        intent: 'erro',
-      });
+    } catch (err) {
+      setAskResult({ answer: askErrorMessage(err), intent: 'erro' });
     } finally {
       setAskLoading(false);
     }
@@ -141,6 +155,7 @@ export const InsightsPage: React.FC = () => {
       setInsights((prev) => prev.filter((i) => i.id !== id));
     } catch (err) {
       console.error('Erro ao dispensar insight:', err);
+      setActionError('Não foi possível dispensar esta observação. Tente novamente.');
     }
   };
 
@@ -150,6 +165,7 @@ export const InsightsPage: React.FC = () => {
       toast.info(value === 'util' ? 'Obrigado pelo feedback!' : 'Feedback registrado. Vamos calibrar as próximas análises.');
     } catch (err) {
       console.error('Erro ao enviar feedback:', err);
+      setActionError('Não foi possível registrar seu feedback. Tente novamente.');
     }
   };
 
@@ -160,6 +176,7 @@ export const InsightsPage: React.FC = () => {
       setSelectedExplain(res.data);
     } catch (err) {
       console.error('Erro ao explicar insight:', err);
+      setActionError('Não foi possível carregar a explicação. Tente novamente.');
     } finally {
       setExplainLoading(false);
     }
@@ -180,7 +197,9 @@ export const InsightsPage: React.FC = () => {
             Insights & Dicas Financeiras
           </h1>
           <p className="text-sm text-muted mt-1">
-            Análises automáticas sobre seu faturamento, limites e hábitos de consumo.
+            {hasPj
+              ? 'Análises automáticas sobre seu faturamento, limites e hábitos de consumo.'
+              : 'Análises automáticas sobre suas receitas, despesas e hábitos de consumo.'}
           </p>
         </div>
 
@@ -193,6 +212,13 @@ export const InsightsPage: React.FC = () => {
           {running ? 'Analisando histórico...' : 'Atualizar Análises'}
         </button>
       </div>
+
+      {actionError && (
+        <p role="alert" className="p-3 rounded-2xl bg-danger/10 border border-danger/30 text-xs font-semibold text-danger flex items-center gap-2">
+          <WarningCircle size={16} weight="bold" />
+          {actionError}
+        </p>
+      )}
 
       {/* Monthly Digest Card ("Seu mês em 3 pontos") */}
       {digest && (
@@ -209,7 +235,7 @@ export const InsightsPage: React.FC = () => {
               </div>
 
               {/* Numbers */}
-              <div className="flex items-center gap-6">
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
                 <div>
                   <span className="text-[10px] text-muted uppercase block">Receitas</span>
                   <span className="text-sm font-bold text-success">{digest.totalIncome}</span>
@@ -252,14 +278,16 @@ export const InsightsPage: React.FC = () => {
             e.preventDefault();
             handleAsk();
           }}
-          className="flex gap-2"
+          className="flex flex-col sm:flex-row gap-2"
         >
           <input
             type="text"
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            placeholder="Ex: Quanto gastei com alimentação este mês? / Como está meu limite MEI?"
-            className="flex-1 px-4 py-3 bg-canvas border border-ink/8 rounded-2xl text-sm text-ink focus:outline-none focus:border-primary transition"
+            aria-label="Sua pergunta sobre as finanças"
+            maxLength={1000}
+            placeholder={askPlaceholder(hasPj)}
+            className="flex-1 min-w-0 px-4 py-3 bg-canvas border border-ink/8 rounded-2xl text-sm text-ink focus:outline-none focus:border-primary transition"
           />
           <button
             type="submit"
@@ -272,13 +300,7 @@ export const InsightsPage: React.FC = () => {
 
         {/* Quick Question Pills */}
         <div className="flex flex-wrap gap-2 pt-1">
-          {[
-            'Qual é o meu saldo atual em caixa?',
-            'Como está o meu limite anual do MEI?',
-            'Qual é a situação das minhas guias de DAS?',
-            'Como estão os meus potes financeiros?',
-            'Quanto gastei com mercadorias e insumos este mês?',
-          ].map((pill, idx) => (
+          {quickQuestions(hasPj).map((pill, idx) => (
             <button
               key={idx}
               type="button"
@@ -310,24 +332,25 @@ export const InsightsPage: React.FC = () => {
       {/* Active Insights Feed */}
       <div className="space-y-4">
         {/* Severity Filters */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <h3 className="text-lg font-bold text-ink flex items-center gap-2">
             <BellRinging size={20} className="text-brand" weight="duotone" />
             Observações Detectadas ({filteredInsights.length})
           </h3>
 
-          <div className="flex items-center gap-1.5 bg-card p-1 rounded-2xl border border-ink/5">
+          <div className="flex flex-wrap items-center gap-1.5 bg-card p-1 rounded-2xl border border-ink/5">
             {(['todos', 'alerta', 'atencao', 'info'] as const).map((sev) => (
               <button
                 key={sev}
                 onClick={() => setSeverityFilter(sev)}
+                aria-pressed={severityFilter === sev}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition capitalize ${
                   severityFilter === sev
                     ? 'bg-primary text-on-primary'
                     : 'text-muted hover:text-ink'
                 }`}
               >
-                {sev === 'todos' ? 'Todos' : sev === 'atencao' ? 'Atenção' : sev}
+                {sev === 'todos' ? 'Todos' : severityLabel(sev)}
               </button>
             ))}
           </div>
@@ -338,13 +361,30 @@ export const InsightsPage: React.FC = () => {
             <ArrowsClockwise size={36} className="animate-spin text-brand mb-2 mx-auto" weight="bold" />
             <p className="text-sm font-medium">Buscando observações financeiras...</p>
           </div>
+        ) : loadError ? (
+          <div role="alert" className="p-12 rounded-3xl bg-card border border-danger/30 text-center space-y-3">
+            <WarningCircle size={36} className="text-danger mx-auto" weight="duotone" />
+            <h4 className="text-base font-bold text-ink">Não foi possível carregar os insights</h4>
+            <p className="text-xs text-muted max-w-md mx-auto">Verifique sua conexão e tente de novo.</p>
+            <button
+              type="button"
+              onClick={fetchData}
+              className="px-4 py-2.5 rounded-2xl bg-primary text-on-primary text-xs font-bold"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        ) : insights.length === 0 ? (
+          <div className="p-12 rounded-3xl bg-card border border-ink/5 text-center space-y-2">
+            <Lightbulb size={36} className="text-brand mx-auto" weight="duotone" />
+            <h4 className="text-base font-bold text-ink">Nada por aqui ainda</h4>
+            <p className="text-xs text-muted max-w-md mx-auto">{EMPTY_INSIGHTS_TEXT}</p>
+          </div>
         ) : filteredInsights.length === 0 ? (
           <div className="p-12 rounded-3xl bg-card border border-ink/5 text-center space-y-2">
             <CheckCircle size={36} className="text-success mx-auto" weight="duotone" />
-            <h4 className="text-base font-bold text-ink">Tudo sob controle!</h4>
-            <p className="text-xs text-muted max-w-md mx-auto">
-              Nenhuma anomalia, gasto incomum ou estouro de pote foi detectado para os filtros selecionados.
-            </p>
+            <h4 className="text-base font-bold text-ink">Nenhuma observação neste filtro</h4>
+            <p className="text-xs text-muted max-w-md mx-auto">Escolha outro nível de severidade para ver as demais.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -367,7 +407,7 @@ export const InsightsPage: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <span className={`px-2.5 py-1 rounded-xl text-[10px] font-extrabold uppercase border flex items-center gap-1.5 ${badgeBg}`}>
                         {isAlert ? <WarningCircle size={14} weight="bold" /> : isWarning ? <Warning size={14} weight="bold" /> : <Info size={14} weight="bold" />}
-                        {ins.severity}
+                        {severityLabel(ins.severity)}
                       </span>
                       <span className="text-[10px] text-muted font-medium">
                         {new Date(ins.createdAt).toLocaleDateString('pt-BR')}
@@ -408,6 +448,7 @@ export const InsightsPage: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <button
                         title="Útil"
+                        aria-label="Marcar como útil"
                         onClick={() => handleFeedback(ins.id, 'util')}
                         className="p-1.5 rounded-lg text-muted hover:text-success hover:bg-ink/4 transition"
                       >
@@ -415,6 +456,7 @@ export const InsightsPage: React.FC = () => {
                       </button>
                       <button
                         title="Não é útil"
+                        aria-label="Marcar como não útil"
                         onClick={() => handleFeedback(ins.id, 'inutil')}
                         className="p-1.5 rounded-lg text-muted hover:text-danger hover:bg-ink/4 transition"
                       >
@@ -422,6 +464,7 @@ export const InsightsPage: React.FC = () => {
                       </button>
                       <button
                         title="Dispensar"
+                        aria-label="Dispensar observação"
                         onClick={() => handleDismiss(ins.id)}
                         className="p-1.5 rounded-lg text-muted hover:text-ink hover:bg-ink/4 transition"
                       >
@@ -439,15 +482,16 @@ export const InsightsPage: React.FC = () => {
       {/* "Por que estou vendo isso?" Modal */}
       {selectedExplain && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-card border border-ink/8 rounded-3xl w-full max-w-lg p-6 md:p-8 shadow-2xl relative space-y-4">
+          <div role="dialog" aria-modal="true" aria-labelledby="explain-title" className="bg-card border border-ink/8 rounded-3xl w-full max-w-lg max-h-[90dvh] overflow-y-auto p-6 md:p-8 shadow-2xl relative space-y-4">
             <button
               onClick={() => setSelectedExplain(null)}
+              aria-label="Fechar"
               className="absolute top-6 right-6 text-muted hover:text-ink p-1 rounded-full hover:bg-field transition"
             >
               <X size={20} weight="bold" />
             </button>
 
-            <h3 className="text-lg font-bold text-ink flex items-center gap-2">
+            <h3 id="explain-title" className="text-lg font-bold text-ink flex items-center gap-2 pr-8">
               <ChartLineUp size={20} className="text-brand" weight="duotone" />
               Por que você está vendo esta observação?
             </h3>
@@ -483,9 +527,9 @@ export const InsightsPage: React.FC = () => {
                     >
                       <div className="space-y-0.5">
                         <span className="text-ink font-medium block">{tx.description}</span>
-                        <span className="text-[10px] text-muted">{tx.date}</span>
+                        <span className="text-[10px] text-muted">{formatIsoDateBR(tx.date)}</span>
                       </div>
-                      <span className="font-bold text-ink">R$ {tx.amount.toFixed(2)}</span>
+                      <span className="font-bold text-ink">{formatEvidenceAmount(tx.amount)}</span>
                     </div>
                   ))}
                 </div>
