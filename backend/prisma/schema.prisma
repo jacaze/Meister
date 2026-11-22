@@ -68,6 +68,8 @@ model User {
   consents           UserConsent[]
   auditLogs          AuditLog[]
   ownedEntities      Entity[]            @relation("EntityOwner")
+  sentInvites        WorkspaceInvite[]   @relation("InviteSender")
+  fiscalReceipts     FiscalReceipt[]
 
   @@map("users")
 }
@@ -112,10 +114,13 @@ model Workspace {
   // individual | negocio | familia | familia_negocio; nulo até o onboarding (tarefa 17)
   profile               String?
   onboardingCompletedAt DateTime? @map("onboarding_completed_at")
+  // Workspace antigo de quem entrou numa família fica arquivado, vazio (docs/familia.md §4)
+  archivedAt            DateTime? @map("archived_at")
   createdAt             DateTime  @default(now()) @map("created_at")
 
   members             WorkspaceMember[]
   settlements         Settlement[]
+  invites             WorkspaceInvite[]
   entities            Entity[]
   categories          Category[]
   transactions        Transaction[]
@@ -151,7 +156,9 @@ model WorkspaceMember {
 model Entity {
   id          String    @id @default(uuid())
   workspaceId String    @map("workspace_id")
-  kind        String // pf | pj | autonomo
+  kind        String // pf | pj | autonomo | casa
+  // pessoal: só o dono vê os dados; compartilhada: toda a família vê (docs/familia.md §3.2)
+  visibility  String    @default("pessoal")
   ownerUserId String?   @map("owner_user_id") // pessoa dona da PF/negócio (família, tarefas 15 e 17)
   name        String
   cnpj        String?   @unique
@@ -169,6 +176,7 @@ model Entity {
   paidTransactions  Transaction[]      @relation("TransactionPaidBy")
   debts             Settlement[]       @relation("SettlementDebtor")
   credits           Settlement[]       @relation("SettlementCreditor")
+  fiscalReceipts    FiscalReceipt[]
   financialAccounts FinancialAccount[]
   dasCharges        DasCharge[]
   limitAlerts       LimitAlert[]
@@ -213,6 +221,7 @@ model FinancialAccount {
   source         String   @default("manual") // manual | pluggy
   externalId     String?  @map("external_id")
   openingBalance Decimal  @default(0.00) @map("opening_balance") @db.Decimal(14, 2)
+  visibility     String   @default("pessoal") // pessoal | compartilhada
   createdAt      DateTime @default(now()) @map("created_at")
 
   workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -460,9 +469,14 @@ model FiscalReceipt {
   source      String    @default("ia") // sefaz | ia | qr_offline
   items       Json?
   discount    Decimal?  @db.Decimal(14, 2)
+  // Para filtrar por pessoa/entidade na família; antes só tinha workspace
+  entityId    String?   @map("entity_id")
+  userId      String?   @map("user_id")
   createdAt   DateTime  @default(now()) @map("created_at")
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  entity    Entity?   @relation(fields: [entityId], references: [id], onDelete: SetNull)
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@unique([workspaceId, accessKey])
   @@map("fiscal_receipts")
@@ -647,6 +661,8 @@ model BankAccount {
   name               String   @default("Conta Principal")
   financialAccountId String?  @map("financial_account_id")
   entityId           String?  @map("entity_id")
+  // compartilhada: a Caixa de Revisão da conta aparece para toda a família (docs/familia.md §3.2)
+  visibility         String   @default("pessoal")
   createdAt          DateTime @default(now()) @map("created_at")
 
   connection   BankConnection    @relation(fields: [connectionId], references: [id], onDelete: Cascade)
@@ -784,4 +800,26 @@ model Settlement {
   @@index([workspaceId, status])
   @@index([debtorEntityId, creditorEntityId])
   @@map("settlements")
+}
+
+// Convite para entrar no workspace da família (docs/familia.md §3.4). O token só existe no link; aqui fica o hash.
+model WorkspaceInvite {
+  id               String    @id @default(uuid())
+  workspaceId      String    @map("workspace_id")
+  email            String
+  role             String    @default("editor") // editor | viewer
+  tokenHash        String    @unique @map("token_hash")
+  status           String    @default("pendente") // pendente | aceito | expirado | cancelado
+  expiresAt        DateTime  @map("expires_at")
+  invitedByUserId  String?   @map("invited_by_user_id")
+  acceptedByUserId String?   @map("accepted_by_user_id")
+  acceptedAt       DateTime? @map("accepted_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy User?     @relation("InviteSender", fields: [invitedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, status])
+  @@index([email])
+  @@map("workspace_invites")
 }
