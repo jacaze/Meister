@@ -40,6 +40,7 @@ antes e critério de pronto.
 | 16 | [Família v2: contribuição proporcional à renda](16-familia-v2-proporcional.md) | — | 🟢 | BLOQUEADA até 15 |
 | 17 | [Perfil no primeiro acesso: o app pergunta o caso e se autoconfigura](17-onboarding-por-perfil.md) | DB → QA → Backend → Frontend | 🟡 | FEITA |
 | 18 | [De quem é o gasto × com o que foi pago, e acertos](18-pago-por-outra-entidade-e-acertos.md) | DB → QA → Backend → Frontend | 🟡 | FEITA (v1; saldo de caixa por entidade pendente) |
+| 19 | Sandbox da Pluggy no build da demo hospedada (`VITE_PLUGGY_INCLUDE_SANDBOX`) | Frontend + DevOps | 🟡 | FEITA |
 
 ### Por que cada bloqueio
 

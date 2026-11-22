@@ -92,6 +92,18 @@ O stack de produção (`docker-compose.yml` + `docker-compose.prod.yml`) executa
 
 ---
 
+### Demo hospedada: banco de testes da Pluggy (sandbox)
+
+O build de produção esconde o sandbox da Pluggy por padrão. Para a demo (banca), ligue-o no `.env` do servidor **e reconstrua o frontend**, porque a variável é embutida no bundle em tempo de build:
+
+```bash
+# .env
+VITE_PLUGGY_INCLUDE_SANDBOX=true
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build frontend
+```
+
+Com a flag ligada, o widget lista o **Pluggy Bank** (usuário/senha de teste da Pluggy) e a tela mostra o aviso "Ambiente de demonstração". Nunca conecte conta bancária real no servidor da demo. Em produção real deixe `false` (padrão). O backend não filtra conectores: o `POST /connect_token` da Pluggy não recebe opção de sandbox, quem decide é o widget.
+
 ## 3. Certificados HTTPS (Let's Encrypt) e Renovação
 
 - **Emissão e renovação automáticas:** o Caddy solicita o certificado TLS via ACME (HTTP-01 / TLS-ALPN-01) automaticamente no primeiro acesso usando `DOMAIN` e o **renova em segundo plano** antes do vencimento (por volta de 2/3 da validade de 90 dias). Não há cron externo necessário.

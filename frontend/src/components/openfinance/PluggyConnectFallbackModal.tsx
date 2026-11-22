@@ -6,6 +6,7 @@ import Mel from '../brand/Mel.js';
 import { Bank, CircleNotch, WarningCircle } from '../ui/icons.js';
 import { useToast } from '../ui/Toast.js';
 import { celebrate, haptic } from '../../lib/celebrate.js';
+import { pluggyConfig } from '../../lib/pluggyConfig.js';
 import type { AccountToClassify } from './ClassifyAccountsSheet.js';
 
 interface PluggyConnectFallbackModalProps {
@@ -74,6 +75,17 @@ export const PluggyConnectFallbackModal: React.FC<PluggyConnectFallbackModalProp
       footer={footer}
     >
       <div className="space-y-4 py-2">
+        {pluggyConfig.showDemoNotice && (
+          <div
+            role="note"
+            className="p-3.5 bg-primary-soft/60 border border-primary/20 rounded-2xl text-xs font-semibold text-ink-soft flex items-start gap-2"
+          >
+            <Bank size={18} weight="duotone" className="text-brand shrink-0" />
+            <span>
+              Ambiente de demonstração: use o banco de testes <strong>Pluggy Bank</strong>. Não conecte contas bancárias reais.
+            </span>
+          </div>
+        )}
         {error && (
           <div className="p-3.5 bg-danger/10 border border-danger/30 rounded-2xl text-xs font-semibold text-danger flex items-center gap-2">
             <WarningCircle size={18} weight="bold" />
@@ -95,7 +107,7 @@ export const PluggyConnectFallbackModal: React.FC<PluggyConnectFallbackModalProp
             <div className="w-full h-full min-h-[440px]">
               <PluggyConnect
                 connectToken={connectToken}
-                includeSandbox={Boolean(import.meta.env.DEV)}
+                includeSandbox={pluggyConfig.includeSandbox}
                 onSuccess={async (data: any) => {
                   const itemId = data?.item?.id || data?.itemId;
                   if (itemId) {

@@ -95,6 +95,8 @@ const HOST_OR_INFRA_ONLY = new Set([
   'DOMAIN',
   'PROXY_HTTP_PORT',
   'PROXY_HTTPS_PORT',
+  // Variável de build do frontend (build arg do Dockerfile), não é lida pela API
+  'VITE_PLUGGY_INCLUDE_SANDBOX',
 ]);
 
 // Variáveis presentes no .env.example para e-mail transacional ainda não implementado no backend
