@@ -6,7 +6,9 @@ import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
 import { z } from 'zod';
 import prisma from './config/prisma.js';
-import { type AppEnv, parseEnv, registerCorrelationAndErrorHandler } from './shared/index.js';
+import { type AppEnv, type Clock, parseEnv, registerCorrelationAndErrorHandler } from './shared/index.js';
+import type { BankingAggregator } from './modules/openfinance/public.js';
+import type { TickLock } from './modules/scheduler/public.js';
 import authRoutes from './routes/authRoutes.js';
 import categoryRoutes from './routes/categoryRoutes.js';
 import transactionRoutes from './routes/transactionRoutes.js';
@@ -24,10 +26,14 @@ import { complianceRoutes } from './routes/complianceRoutes.js';
 import { assistantRoutes } from './routes/assistantRoutes.js';
 import { telegramRoutes, telegramWebhookRoute } from './routes/telegramRoutes.js';
 import { settlementRoutes } from './routes/settlementRoutes.js';
+import internalRoutes from './routes/internalRoutes.js';
 
 export interface BuildAppOptions {
   env?: AppEnv;
   logger?: boolean;
+  clock?: Clock;
+  bankingAggregator?: BankingAggregator;
+  tickLock?: TickLock;
 }
 
 export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
@@ -91,6 +97,15 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await fastify.register(assistantRoutes, { prefix: '/api' });
   await fastify.register(telegramRoutes, { prefix: '/api' });
   await fastify.register(telegramWebhookRoute);
+  await fastify.register(internalRoutes, {
+    prefix: '/api',
+    internalTickSecret: env.INTERNAL_TICK_SECRET,
+    timeZone: env.DEFAULT_TIMEZONE,
+    openFinanceSyncIntervalHours: env.OPENFINANCE_SYNC_INTERVAL_HOURS,
+    clock: options.clock,
+    bankingAggregator: options.bankingAggregator,
+    tickLock: options.tickLock,
+  });
 
   fastify.get('/health', async () => ({
     status: 'ok',

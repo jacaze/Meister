@@ -87,6 +87,7 @@ const envSchema = z
       (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
       z.string().url('PLUGGY_BASE_URL deve ser uma URL completa (ex.: https://api.pluggy.ai)').optional()
     ),
+    OPENFINANCE_SYNC_INTERVAL_HOURS: z.coerce.number().int().min(1).max(168).default(12),
     INTERNAL_TICK_SECRET: z.string().optional().default(''),
     DEMO_MODE: z
       .string()
