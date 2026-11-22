@@ -89,6 +89,11 @@ const envSchema = z
     ),
     OPENFINANCE_SYNC_INTERVAL_HOURS: z.coerce.number().int().min(1).max(168).default(12),
     INTERNAL_TICK_SECRET: z.string().optional().default(''),
+    // Seed de demonstração (node dist/scripts/seed-demo.js): sem valor padrão, validadas pelo próprio script
+    DEMO_USER_EMAIL: z.string().optional(),
+    DEMO_USER_PASSWORD: z.string().optional(),
+    DEMO_USER_NAME: z.string().optional(),
+    SEED_DEMO: z.string().optional(),
     DEMO_MODE: z
       .string()
       .optional()

@@ -18,6 +18,7 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:test:prepare": "tsx scripts/prepare-test-db.ts",
     "db:seed": "tsx prisma/seed.ts",
+    "seed:demo:prod": "node dist/scripts/seed-demo.js --confirm",
     "tunnel": "tsx scripts/ngrok-tunnel.ts",
     "telegram:webhook": "tsx scripts/telegram-webhook.ts"
   },
