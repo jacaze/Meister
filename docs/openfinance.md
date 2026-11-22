@@ -67,7 +67,7 @@ Detalhes que importam:
 
 - **Dono do item:** uma conexão nova só é criada se o `clientUserId` do item for o usuário autenticado e o
   item não estiver em outro workspace. Item de outro usuário, sem dono ou inexistente responde **404**.
-- **De quem é cada conta:** conta nova entra sem entidade quando o workspace tem PJ; com só PF, vai direto para a PF.
+- **De quem é cada conta:** conta nova entra sem entidade quando o workspace tem mais de uma entidade (PJ, autônomo...); com só a PF, vai direto para ela.
   A resposta do `connect-item` traz `accounts` e o app pergunta "De quem são estas contas?". Aprovar item de conta sem
   entidade responde 400 `ACCOUNT_ENTITY_REQUIRED`. Trocar a entidade depois afeta só o que ainda está na Caixa de Revisão.
 - **Duplicatas:** transação já importada (mesmo `provider` + `externalId`) é pulada.

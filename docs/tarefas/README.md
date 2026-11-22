@@ -38,7 +38,7 @@ antes e critério de pronto.
 | 14 | [Perguntar se cada conta bancária é PF ou PJ ao conectar](14-openfinance-pf-ou-pj-ao-conectar.md) | QA → Backend → Frontend | 🔴 | FEITA |
 | 15 | [Família v1: convite do cônjuge, contas pessoais/compartilhadas e visão do casal](15-familia-v1.md) | DB → QA → Backend → Frontend | 🟢 épico | BLOQUEADA até 17 e 18 |
 | 16 | [Família v2: contribuição proporcional à renda](16-familia-v2-proporcional.md) | — | 🟢 | BLOQUEADA até 15 |
-| 17 | [Perfil no primeiro acesso: o app pergunta o caso e se autoconfigura](17-onboarding-por-perfil.md) | DB → QA → Backend → Frontend | 🟡 | PENDENTE |
+| 17 | [Perfil no primeiro acesso: o app pergunta o caso e se autoconfigura](17-onboarding-por-perfil.md) | DB → QA → Backend → Frontend | 🟡 | FEITA |
 | 18 | [De quem é o gasto × com o que foi pago, e acertos](18-pago-por-outra-entidade-e-acertos.md) | DB → QA → Backend → Frontend | 🟡 | PENDENTE |
 
 ### Por que cada bloqueio

@@ -48,3 +48,22 @@ separadas do pessoal (útil para carnê-leão/IR), **sem** regras de MEI (sem li
 - [ ] As quatro situações criam as entidades da tabela; dá para mudar depois.
 - [ ] Autônomo não entra em limite MEI nem DAS.
 - [ ] Tabela do `README.md` desta pasta atualizada.
+
+## Como foi resolvido (2026-11-21)
+
+- **DB** (migration `20261121200000_onboarding_profile_entity_owner`, só expansão): `workspaces.profile`,
+  `workspaces.onboarding_completed_at`, `entities.owner_user_id` (FK para `users`, `ON DELETE SET NULL`, com índice).
+  Backfill: workspaces existentes ficam configurados (`negocio` se têm PJ, senão `individual`) e cada entidade ganha o dono
+  do workspace. `Entity.kind` aceita `autonomo` (coluna texto, sem enum).
+- **Cadastro compatível:** quem envia `accountType` (clientes antigos, testes) já sai configurado. A tela nova não envia
+  e o onboarding fica pendente; o app redireciona para `/boas-vindas` até concluir.
+- **`POST /api/onboarding`** `{ profile, businesses: [{ type: 'mei' | 'pj' | 'autonomo', name }] }` (só o dono):
+  `businesses` são os negócios a **adicionar** (sem duplicar por tipo + nome). Perfis com negócio exigem ao menos um.
+  Cria categorias de negócio e mantém `user.accountType` coerente (`mei` se houver PJ MEI ativa).
+- **`DELETE /api/workspace/businesses/:id`**: arquiva (`active = false`), nunca apaga; PF não arquiva (400).
+- **Autônomo:** `isMei = false`, então fica fora de limite MEI e DAS, que já filtravam por `isMei`.
+- **Conexão bancária (tarefa 14):** pergunta de quem é a conta sempre que houver mais de uma entidade ativa
+  (antes só olhava a PJ, e PF + autônomo ia direto para a PF).
+- **Frontend:** página `/boas-vindas` com as quatro situações e a lista de negócios (adicionar e arquivar); o cadastro
+  não pergunta mais MEI/PF; seletor do topo mostra `AUT` para autônomo; atalho no Perfil para refazer.
+- **Família:** só registra o perfil; o convite do cônjuge é a tarefa 15.
