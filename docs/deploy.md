@@ -90,6 +90,22 @@ O stack de produção (`docker-compose.yml` + `docker-compose.prod.yml`) executa
    ./scripts/smoke-prod.sh
    ```
 
+7. **Dados de demonstração (opcional, para apresentação):**
+   O seed compilado (`backend/src/scripts/seed-demo.ts` -> `dist/scripts/seed-demo.js`) roda dentro do container, sem `tsx`. Ele grava os parâmetros fiscais (a migration não os insere; sem eles o limite sai como "estimado"), cria o usuário da demo e um MEI aberto no ano corrente (limite proporcional), 12 meses de histórico da PF, receitas e despesas da PJ desde a abertura, potes, DAS (meses encerrados pagos) e receita acumulada de **75% do limite proporcional**, para que um lançamento pelo Telegram dispare o alerta de 80%. Todos os lançamentos passam por `ledger.CreateTransaction`; as datas são relativas a "hoje" em `America/Sao_Paulo`.
+
+   As credenciais **não têm valor padrão**: o script recusa rodar sem `DEMO_USER_EMAIL` e `DEMO_USER_PASSWORD` (mínimo de 10 caracteres) e sem a confirmação `--confirm` (ou `SEED_DEMO=1`). Passe-as na hora, sem gravar a senha no `.env`:
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm \
+     -e DEMO_USER_EMAIL='demo@seudominio.com.br' \
+     -e DEMO_USER_PASSWORD='uma-senha-forte-so-para-a-demo' \
+     api node dist/scripts/seed-demo.js --confirm
+   ```
+   - **Idempotente:** rodar de novo não duplica nada (cada lançamento tem `sourceRef` estável `demo:...`).
+   - **Recomeçar do zero:** acrescente `--reset --confirm-reset`. Apaga só o usuário da demo e o workspace em que ele é a única pessoa; nenhum outro workspace é tocado.
+   - Recusa assumir um e-mail que já exista sem MEI (para não alterar a conta de uma pessoa real).
+   - Em dev, `npx prisma db seed` usa o mesmo módulo: semeia os parâmetros fiscais e, se `DEMO_USER_EMAIL`/`DEMO_USER_PASSWORD` estiverem no ambiente, a demo.
+   - O log mostra só contagens e o percentual do limite; nunca e-mail, senha ou valores.
+
 ---
 
 ### Demo hospedada: banco de testes da Pluggy (sandbox)

@@ -99,6 +99,15 @@ const HOST_OR_INFRA_ONLY = new Set([
   'VITE_PLUGGY_INCLUDE_SANDBOX',
 ]);
 
+// Variáveis só de scripts avulsos (seed de demo, via `docker compose run -e ...`): ficam em env.ts/.env.example
+// para documentação, mas NÃO devem entrar no ambiente da API em execução (evita a senha da demo no container).
+const SCRIPT_ONLY = new Set([
+  'DEMO_USER_EMAIL',
+  'DEMO_USER_PASSWORD',
+  'DEMO_USER_NAME',
+  'SEED_DEMO',
+]);
+
 // Variáveis presentes no .env.example para e-mail transacional ainda não implementado no backend
 const UNIMPLEMENTED_EMAIL_VARS = new Set([
   'EMAIL_PROVIDER',
@@ -146,7 +155,9 @@ function validateComposeEnv(label, jsonPath, { expectProd }) {
   const apiEnv = loadApiEnv(jsonPath);
   const errors = [];
 
-  const missingFromEnvTs = envTsVars.filter((v) => !Object.prototype.hasOwnProperty.call(apiEnv, v));
+  const missingFromEnvTs = envTsVars.filter(
+    (v) => !SCRIPT_ONLY.has(v) && !Object.prototype.hasOwnProperty.call(apiEnv, v)
+  );
   if (missingFromEnvTs.length > 0) {
     errors.push(
       `Variáveis de backend/src/shared/env.ts ausentes em ${label} (${missingFromEnvTs.length}):\n` +
@@ -158,6 +169,7 @@ function validateComposeEnv(label, jsonPath, { expectProd }) {
     (v) =>
       !HOST_OR_INFRA_ONLY.has(v) &&
       !UNIMPLEMENTED_EMAIL_VARS.has(v) &&
+      !SCRIPT_ONLY.has(v) &&
       !Object.prototype.hasOwnProperty.call(apiEnv, v)
   );
   if (missingFromExample.length > 0) {
@@ -174,6 +186,13 @@ function validateComposeEnv(label, jsonPath, { expectProd }) {
     errors.push(
       `Variáveis de e-mail não implementadas no backend não devem constar em ${label}:\n` +
         unexpectedEmailVars.map((v) => `  - ${v}`).join('\n')
+    );
+  }
+
+  const leakedScriptVars = [...SCRIPT_ONLY].filter((v) => Object.prototype.hasOwnProperty.call(apiEnv, v));
+  if (leakedScriptVars.length > 0) {
+    errors.push(
+      `Variáveis só de script não devem constar em ${label}:\n` + leakedScriptVars.map((v) => `  - ${v}`).join('\n')
     );
   }
 
