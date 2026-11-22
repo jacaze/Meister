@@ -119,6 +119,7 @@ export async function importStatement(
     amount: String(c.amount),
     occurredOn: c.occurredOn.toISOString().slice(0, 10),
     description: c.description,
+    bankAccountId: c.bankAccountId,
   }));
 
   const suspects = TransferDetector.findSuspectPairs(candidates);

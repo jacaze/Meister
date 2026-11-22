@@ -69,18 +69,78 @@ Data;Descrição;Valor
     expect(txs[1]!.description).toBe('Almoço comercial Restaurante');
   });
 
-  it('detects suspect transfer pairs between own accounts within 1 day', () => {
-    const candidates = [
-      { id: '1', direction: 'out' as const, amount: '500.00', occurredOn: '2026-11-04', description: 'Pix enviado para conta PF' },
-      { id: '2', direction: 'in' as const, amount: '500.00', occurredOn: '2026-11-04', description: 'Pix recebido de PJ' },
-      { id: '3', direction: 'out' as const, amount: '120.00', occurredOn: '2026-11-04', description: 'Supermercado' },
-    ];
+  describe('TransferDetector (transferência entre contas próprias)', () => {
+    const c = (
+      id: string,
+      direction: 'in' | 'out',
+      amount: string,
+      bankAccountId: string | null,
+      occurredOn = '2026-11-04',
+    ) => ({ id, direction, amount, occurredOn, description: 'Pix', bankAccountId });
 
-    const pairs = TransferDetector.findSuspectPairs(candidates);
-    expect(pairs).toHaveLength(1);
-    expect(pairs[0]!.outId).toBe('1');
-    expect(pairs[0]!.inId).toBe('2');
-    expect(pairs[0]!.amount).toBe('500.00');
+    it('pareia saída e entrada de contas DIFERENTES com mesmo valor em até 1 dia', () => {
+      const pairs = TransferDetector.findSuspectPairs([
+        { ...c('1', 'out', '500.00', 'conta-pf'), description: 'Pix enviado para conta PF' },
+        { ...c('2', 'in', '500.00', 'conta-pj'), description: 'Pix recebido de PJ' },
+        { ...c('3', 'out', '120.00', 'conta-pf'), description: 'Supermercado' },
+      ]);
+      expect(pairs).toHaveLength(1);
+      expect(pairs[0]!.outId).toBe('1');
+      expect(pairs[0]!.inId).toBe('2');
+      expect(pairs[0]!.amount).toBe('500.00');
+    });
+
+    it('NÃO pareia saída e entrada da MESMA conta (pagamento a um terceiro e recebimento de outro)', () => {
+      const pairs = TransferDetector.findSuspectPairs([
+        c('1', 'in', '15.00', 'conta-a', '2026-11-03'),
+        c('2', 'out', '15.00', 'conta-a', '2026-11-04'),
+      ]);
+      expect(pairs).toEqual([]);
+    });
+
+    it('NÃO pareia quando a conta de qualquer lado é desconhecida (null)', () => {
+      expect(
+        TransferDetector.findSuspectPairs([c('1', 'out', '15.00', null), c('2', 'in', '15.00', 'conta-b')]),
+      ).toEqual([]);
+      expect(
+        TransferDetector.findSuspectPairs([c('1', 'out', '15.00', 'conta-a'), c('2', 'in', '15.00', null)]),
+      ).toEqual([]);
+      expect(
+        TransferDetector.findSuspectPairs([c('1', 'out', '15.00', null), c('2', 'in', '15.00', null)]),
+      ).toEqual([]);
+    });
+
+    it('com a entrada da mesma conta primeiro, ainda pareia com a entrada de outra conta', () => {
+      const pairs = TransferDetector.findSuspectPairs([
+        c('out', 'out', '15.00', 'conta-a'),
+        c('in-mesma', 'in', '15.00', 'conta-a'),
+        c('in-outra', 'in', '15.00', 'conta-b'),
+      ]);
+      expect(pairs).toHaveLength(1);
+      expect(pairs[0]!.inId).toBe('in-outra');
+    });
+
+    it('compara valores em centavos: "15" e "15.00" são o mesmo valor, e o par sai normalizado', () => {
+      const pairs = TransferDetector.findSuspectPairs([
+        c('1', 'out', '15', 'conta-a'),
+        c('2', 'in', '15.00', 'conta-b'),
+      ]);
+      expect(pairs).toHaveLength(1);
+      expect(pairs[0]!.amount).toBe('15.00');
+      expect(pairs[0]!.reason).toContain('R$ 15,00');
+    });
+
+    it('não pareia valores diferentes nem datas a mais de 1,5 dia', () => {
+      expect(
+        TransferDetector.findSuspectPairs([c('1', 'out', '15.00', 'a'), c('2', 'in', '15.01', 'b')]),
+      ).toEqual([]);
+      expect(
+        TransferDetector.findSuspectPairs([
+          c('1', 'out', '15.00', 'a', '2026-11-01'),
+          c('2', 'in', '15.00', 'b', '2026-11-04'),
+        ]),
+      ).toEqual([]);
+    });
   });
 
   it('reads Pluggy configuration from environment and creates connect token', async () => {
