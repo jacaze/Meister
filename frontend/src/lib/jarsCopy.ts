@@ -1,13 +1,7 @@
 /** Textos e regras de exibição da tela de potes. */
 
-interface EntityLike {
-  readonly kind: string;
-}
-
-/** Mesma regra de `reviewCopy.hasPjEntity`: PJ = entidade com kind 'pj'. */
-export function hasPjEntity(entities: readonly EntityLike[] | undefined | null): boolean {
-  return (entities ?? []).some((e) => e.kind === 'pj');
-}
+// Regra única de "tem PJ" (entidade kind 'pj'), compartilhada com a Fila de Revisão.
+export { hasPjEntity } from './reviewCopy.ts';
 
 interface JarRule {
   readonly percent?: number | null;
