@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'motion/react';
-import { CircleNotch, Envelope, EyeSlash, HandWaving, Lightning, LockKey, Sparkle, Storefront, User, UserCircle, WarningCircle } from '../components/ui/icons.js';
+import { CircleNotch, Envelope, EyeSlash, HandWaving, Lightning, LockKey, Sparkle, User, WarningCircle } from '../components/ui/icons.js';
 import MotionIcon from '../components/ui/MotionIcon.js';
 import { useAuth } from '../context/AuthContext.js';
 import Mel, { type MelMood } from '../components/brand/Mel.js';
@@ -17,7 +17,6 @@ export const AuthPage: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [accountType, setAccountType] = useState<'mei' | 'pessoa_fisica'>('mei');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [passwordFocus, setPasswordFocus] = useState(false);
@@ -48,7 +47,7 @@ export const AuthPage: React.FC = () => {
           setLoading(false);
           return;
         }
-        await register(name.trim(), email.trim(), password, accountType);
+        await register(name.trim(), email.trim(), password);
         celebrate('big');
       } else {
         await login(email.trim(), password);
@@ -181,35 +180,6 @@ export const AuthPage: React.FC = () => {
                       className={fieldCls}
                     />
                   </label>
-
-                  <div className="grid grid-cols-2 gap-2.5" role="radiogroup" aria-label="Tipo de conta">
-                    {[
-                      { value: 'mei' as const, label: 'Sou MEI', hint: 'PJ + PF', icon: Storefront },
-                      { value: 'pessoa_fisica' as const, label: 'Pessoa física', hint: 'Só PF', icon: UserCircle },
-                    ].map((opt) => {
-                      const active = accountType === opt.value;
-                      const I = opt.icon;
-                      return (
-                        <motion.button
-                          key={opt.value}
-                          type="button"
-                          role="radio"
-                          aria-checked={active}
-                          whileTap={{ scale: 0.96 }}
-                          onClick={() => setAccountType(opt.value)}
-                          className={`flex items-center gap-2.5 rounded-2xl p-3 text-left ring-2 transition ${
-                            active ? 'bg-primary-soft ring-primary' : 'bg-canvas ring-ink/5'
-                          }`}
-                        >
-                          <I size={26} weight={active ? 'duotone' : 'regular'} className={active ? 'text-brand' : 'text-muted'} />
-                          <span className="leading-tight">
-                            <span className="block text-sm font-extrabold text-ink">{opt.label}</span>
-                            <span className="text-xs text-muted">{opt.hint}</span>
-                          </span>
-                        </motion.button>
-                      );
-                    })}
-                  </div>
                 </motion.div>
               )}
             </AnimatePresence>

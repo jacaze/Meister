@@ -11,7 +11,7 @@ export interface User {
 
 export interface Entity {
   id: string;
-  kind: 'pf' | 'pj';
+  kind: 'pf' | 'pj' | 'autonomo';
   name: string;
   cnpj?: string | null;
   legalName?: string | null;
@@ -20,6 +20,7 @@ export interface Entity {
   activity?: 'comercio' | 'servicos' | 'misto' | null;
   isMei: boolean;
   profileComplete: boolean;
+  ownerUserId?: string | null;
 }
 
 export interface WorkspaceOverview {
@@ -27,6 +28,8 @@ export interface WorkspaceOverview {
     id: string;
     name: string;
     plan: string;
+    profile?: string | null;
+    onboardingCompleted?: boolean;
     createdAt: string;
   };
   role: string;
@@ -45,7 +48,8 @@ interface AuthContextType {
   activeEntityId: string | undefined;
   setActiveEntityId: (id: string | undefined) => void;
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string, accountType: 'mei' | 'pessoa_fisica') => Promise<void>;
+  register: (name: string, email: string, password: string) => Promise<void>;
+  refreshUser: () => Promise<void>;
   logout: () => void;
   refreshWorkspace: () => Promise<void>;
 }
@@ -94,8 +98,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await fetchWorkspace();
   };
 
-  const register = async (name: string, email: string, password: string, accountType: 'mei' | 'pessoa_fisica') => {
-    await api.post('/register', { name, email, password, accountType });
+  // Recarrega o usuário (ex.: accountType muda quando o onboarding cria ou arquiva um MEI)
+  const refreshUser = async () => {
+    const res = await api.get('/me');
+    localStorage.setItem('meister_user', JSON.stringify(res.data));
+    setUser(res.data);
+  };
+
+  // O caso (MEI, autônomo, família...) é escolhido depois, no onboarding
+  const register = async (name: string, email: string, password: string) => {
+    await api.post('/register', { name, email, password });
     await login(email, password);
   };
 
@@ -123,6 +135,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setActiveEntityId,
         login,
         register,
+        refreshUser,
         logout,
         refreshWorkspace,
       }}
