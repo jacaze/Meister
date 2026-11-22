@@ -1,6 +1,6 @@
 # Família no MEIster — desenho (tarefa 15, fase 0)
 
-**Status:** validado pelo dono em 2026-11-21 (decisões na §9). Fase 1 (schema) feita; fases 2 a 8 pendentes.
+**Status:** validado pelo dono em 2026-11-21 (decisões na §9). Fases 1 (schema) e 2 (escopo) feitas; fases 3 a 8 pendentes.
 **Base:** `develop` em `2058df8` (tarefas 14, 17 e 18 já mescladas).
 
 ## 1. A ideia
@@ -162,7 +162,7 @@ abertos com atalho para a tela Acertos. Remover um membro segue a mesma regra.
 | Fase | PR | Dono |
 |---|---|---|
 | 1 ✅ | Schema: `Entity.visibility`, `BankAccount/FinancialAccount.visibility`, `kind: 'casa'`, `workspace_invites`, `FiscalReceipt.entityId` (expansão + backfill: tudo existente = pessoal) — **feita** (migration `20261122000000_familia_visibilidade_convites`) | DB |
-| 2 | Escopo com `visibleEntityIds` + filtro único + testes de caracterização (sem mudar comportamento de quem está sozinho) | Backend |
+| 2 ✅ | Escopo com `visibleEntityIds` + filtro único + testes de caracterização (sem mudar comportamento de quem está sozinho) — **feita** | Backend |
 | 3 | Convites e aceite com migração de dados | Backend |
 | 4 | Privacidade em todas as rotas + **Gate B** | Backend + QA |
 | 5 | Tela Casa (`/api/family/overview`) | Backend |
@@ -184,3 +184,25 @@ Cada fase com teste que falha antes, Gate 0 verde e, nas fases 3, 4 e 7, Gate B.
 
 Nenhum código lê esses campos ainda: o comportamento do app não muda. Os `CHECK` existem só no banco (o Prisma não os
 representa), então o `migrate diff` continua sem diferença.
+
+## 12. Fase 2 — escopo por pessoa
+
+- `WorkspaceScope` ganhou `visibleEntityIds` e `ownEntityIds`, **obrigatórios**: cada lugar que monta um escopo precisa
+  decidir. Cadastro: vê e é dono de tudo que criou. Escopo de sistema (tick, webhook): vê as entidades ativas, dono de nenhuma.
+- Regras puras em `backend/src/shared/visibility.ts`: `computeEntityAccess`, `pickDefaultEntities`, `canSeeEntity` e
+  `transactionVisibilityWhere` (filtro único de lançamentos, regra 2 da §3.2). **Ainda não aplicado nas consultas**: isso é a fase 4.
+- `defaultEntityIds` passa a ser a PF/PJ **da própria pessoa**. Antes, um cônjuge editor recebia a PJ do outro como padrão.
+- Pessoal sem dono (dado de quem usava sozinho antes da família) fica visível a todos os membros.
+- Resolução do workspace (`ResolveScope`):
+  - cabeçalho `x-workspace-id` é **pedido explícito**: 404 se a pessoa não participa. **Antes criava um workspace novo a
+    cada requisição** com id alheio ou inventado (explica os ~1.400 workspaces para 19 usuários vistos no banco de dev);
+  - `wid` do token é **preferência**: ignorado se o workspace estiver arquivado;
+  - sem pedido: o primeiro workspace não arquivado.
+- `authMiddleware` só converte em 401 a falha do token; erros da resolução (404) passam com o código certo.
+
+### Pré-requisitos descobertos para as próximas fases
+
+- **`BankConnection` não registra quem conectou.** Conta ainda sem entidade (tarefa 14) não tem dono: sem um
+  `created_by_user_id` na conexão, a Caixa de Revisão de um banco recém-conectado pela esposa não tem como ficar só com ela.
+  Mudança de schema necessária antes da fase 4.
+- **Telegram resolve pelo workspace padrão** (`HandleUpdate`, `LinkChat`). Na fase 8, usar o `workspaceId` do vínculo.
