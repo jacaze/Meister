@@ -5,6 +5,9 @@ import { formatBRL, parseDecimal } from '../lib/money.js';
 import { useToast } from '../components/ui/Toast.js';
 import Mel from '../components/brand/Mel.js';
 import HoneyJarGraphic from '../components/jars/HoneyJarGraphic.js';
+import {
+  hasPjEntity, jarRuleLabel, baseModeLabel, isDefaultSuggestedPlan, suggestedPlanNotice, suggestedNoticeStorageKey,
+} from '../lib/jarsCopy.js';
 import ConfigurePlanSheet, { type JarTemplate } from '../components/jars/ConfigurePlanSheet.js';
 import MapCategoriesSheet from '../components/jars/MapCategoriesSheet.js';
 import {
@@ -100,6 +103,33 @@ export const JarsPage: React.FC = () => {
   }, [workspace, activeEntityId]);
 
   const entityKind = (currentEntity?.kind as 'pj' | 'pf') || 'pj';
+  // Mesma regra de reviewCopy.hasPjEntity: PJ = entidade kind 'pj' no workspace.
+  const hasPj = hasPjEntity(workspace?.entities);
+
+  // Aviso "divisão sugerida": some quando a pessoa confirma ou salva o plano (preferência de tela, não sensível).
+  const [ackedPlanId, setAckedPlanId] = useState<string | null>(null);
+  const planId = statusData?.planId;
+  useEffect(() => {
+    if (!planId) return;
+    try {
+      setAckedPlanId(localStorage.getItem(suggestedNoticeStorageKey(planId)) ? planId : null);
+    } catch {
+      setAckedPlanId(null);
+    }
+  }, [planId]);
+  const acknowledgeSuggestion = () => {
+    if (!planId) return;
+    try {
+      localStorage.setItem(suggestedNoticeStorageKey(planId), '1');
+    } catch {
+      /* armazenamento indisponível: o aviso só reaparece na próxima visita */
+    }
+    setAckedPlanId(planId);
+  };
+  const showSuggestedNotice =
+    Boolean(statusData) &&
+    ackedPlanId !== planId &&
+    isDefaultSuggestedPlan(statusData?.templateSlug, currentEntity?.kind);
 
   const categoryMap = useMemo(() => {
     const map = new Map<string, Category>();
@@ -214,19 +244,6 @@ export const JarsPage: React.FC = () => {
 
   const semPoteAmount = parseFloat(statusData?.semPoteUsado || '0');
 
-  const getBaseModeLabel = (mode?: string) => {
-    switch (mode) {
-      case 'mes_atual':
-        return 'Faturamento deste mês (tempo real)';
-      case 'mes_anterior':
-        return 'Faturamento do mês anterior';
-      case 'media_3_meses':
-        return 'Média dos últimos 3 meses';
-      default:
-        return mode || 'Faturamento';
-    }
-  };
-
   const isCurrentMonthActive = currentMonth === getCurrentIsoMonth();
 
   return (
@@ -302,7 +319,7 @@ export const JarsPage: React.FC = () => {
               <p className="text-xs text-muted">
                 Base:{' '}
                 <span className="font-semibold text-ink-soft">
-                  {getBaseModeLabel(statusData.baseMode)} ({formatBRL(statusData.base)})
+                  {baseModeLabel(statusData.baseMode, hasPj)} ({formatBRL(statusData.base)})
                 </span>
               </p>
             </div>
@@ -330,14 +347,47 @@ export const JarsPage: React.FC = () => {
         </div>
       )}
 
+      {/* Plano criado automaticamente: explica a divisão sugerida */}
+      {showSuggestedNotice && statusData && (
+        <div role="status" className="p-4 bg-primary-soft/60 border border-primary/30 rounded-3xl flex items-start gap-3.5">
+          <Mel size={40} mood="alert" />
+          <div className="space-y-3 min-w-0">
+            <p className="text-xs text-ink-soft leading-relaxed">{suggestedPlanNotice(statusData.jars)}</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setIsPlanSheetOpen(true)}
+                className="min-h-[44px] px-4 py-2 rounded-2xl bg-primary text-on-primary text-xs font-bold hover:bg-primary-deep transition"
+              >
+                Ajustar divisão
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsMapSheetOpen(true)}
+                className="min-h-[44px] px-4 py-2 rounded-2xl border border-ink/10 bg-canvas text-ink text-xs font-bold hover:bg-field transition"
+              >
+                Vincular categorias
+              </button>
+              <button
+                type="button"
+                onClick={acknowledgeSuggestion}
+                className="min-h-[44px] px-4 py-2 rounded-2xl text-xs font-bold text-muted hover:text-ink transition"
+              >
+                Entendi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Alerta de Base Insuficiente */}
       {statusData?.baseInsuficiente && (
         <div className="p-4 bg-primary-soft/60 border border-primary/30 rounded-3xl flex items-start gap-3.5">
           <Mel size={40} mood="alert" />
           <div className="space-y-1">
-            <p className="text-xs font-bold text-brand">Base de faturamento zerada neste período</p>
+            <p className="text-xs font-bold text-brand">Base de {hasPj ? 'faturamento' : 'renda'} zerada neste período</p>
             <p className="text-xs text-ink-soft leading-relaxed">
-              O faturamento base registrado foi de R$ 0,00. Os potes percentuais permanecerão com limite zero até que receitas sejam confirmadas para abastecê-los.
+              {hasPj ? 'O faturamento' : 'A renda'} base registrad{hasPj ? 'o' : 'a'} foi de R$ 0,00. Os potes percentuais permanecerão com limite zero até que receitas sejam confirmadas para abastecê-los.
             </p>
           </div>
         </div>
@@ -455,12 +505,7 @@ export const JarsPage: React.FC = () => {
               : 'bg-success';
 
             // Alinhamento sem erro de '%' em valor fixo
-            const ruleLabel =
-              jar.percent !== null && jar.percent !== undefined
-                ? `${jar.percent}% do faturamento`
-                : jar.fixedAmount
-                ? `${formatBRL(jar.fixedAmount)} fixo`
-                : 'Meta personalizada';
+            const ruleLabel = jarRuleLabel(jar, hasPj, formatBRL);
 
             return (
               <div
@@ -610,8 +655,12 @@ export const JarsPage: React.FC = () => {
         currentPlanName={statusData?.planName}
         planId={statusData?.planId}
         currentTemplateSlug={statusData?.templateSlug}
+        hasPj={hasPj}
         currentBaseMode={statusData?.baseMode}
-        onSaved={() => fetchJarsStatus(true)}
+        onSaved={() => {
+          acknowledgeSuggestion();
+          void fetchJarsStatus(true);
+        }}
       />
 
       {/* Sheet de Mapeamento de Categorias */}

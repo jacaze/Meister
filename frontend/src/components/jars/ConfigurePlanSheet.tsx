@@ -32,6 +32,8 @@ interface ConfigurePlanSheetProps {
   readonly currentPlanName?: string;
   readonly planId?: string;
   readonly currentTemplateSlug?: string;
+  /** Sem PJ no workspace, os textos falam em "renda" em vez de "faturamento". */
+  readonly hasPj?: boolean;
   readonly currentBaseMode?: string;
   readonly onSaved: () => void;
 }
@@ -44,6 +46,7 @@ export const ConfigurePlanSheet: React.FC<ConfigurePlanSheetProps> = ({
   templates,
   planId,
   currentTemplateSlug,
+  hasPj = true,
   currentBaseMode,
   onSaved,
 }) => {
@@ -260,18 +263,18 @@ export const ConfigurePlanSheet: React.FC<ConfigurePlanSheetProps> = ({
             {([
               {
                 id: 'mes_anterior',
-                title: 'Faturamento do Mês Anterior (Mais Recomendado)',
+                title: `${hasPj ? 'Faturamento' : 'Renda'} do Mês Anterior (Mais Recomendado)`,
                 desc: 'Você gasta este mês apenas o dinheiro que realmente já entrou e confirmou no mês passado.',
               },
               {
                 id: 'mes_atual',
-                title: 'Faturamento do Mês Atual (Tempo Real)',
+                title: `${hasPj ? 'Faturamento' : 'Renda'} do Mês Atual (Tempo Real)`,
                 desc: 'Os potes aumentam proporcionalmente a cada receita recebida durante o mês em curso.',
               },
               {
                 id: 'media_3_meses',
                 title: 'Média Móvel dos Últimos 3 Meses',
-                desc: 'Ideal para negócios com faturamento sazonal ou que oscilam muito de mês a mês.',
+                desc: hasPj ? 'Ideal para negócios com faturamento sazonal ou que oscilam muito de mês a mês.' : 'Ideal para quem tem renda que oscila muito de mês a mês.',
               },
             ] as const).map((mode) => {
               const isSelected = selectedBaseMode === mode.id;

@@ -5,8 +5,8 @@ export interface EntityKindLike {
 }
 
 /** Há empresa (MEI ou outra PJ) no workspace? Pessoa física e autônomo sem CNPJ não contam. */
-export function hasPjEntity(entities: readonly EntityKindLike[]): boolean {
-  return entities.some((entity) => entity.kind === 'pj');
+export function hasPjEntity(entities: readonly EntityKindLike[] | undefined | null): boolean {
+  return (entities ?? []).some((entity) => entity.kind === 'pj');
 }
 
 export interface CopyBlock {
