@@ -10,6 +10,10 @@ export interface WorkspaceScope {
     readonly pf: string;
     readonly pj?: string;
   };
+  // Família (docs/familia.md §3.3): entidades cujos dados a pessoa vê, e das quais ela é dona.
+  // Obrigatórios para que cada lugar que monta um escopo decida explicitamente.
+  readonly visibleEntityIds: readonly string[];
+  readonly ownEntityIds: readonly string[];
 }
 
 export function assertAuthenticated(userId: string | undefined | null): asserts userId is string {

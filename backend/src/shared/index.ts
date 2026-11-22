@@ -9,3 +9,4 @@ export * from './pagination.js';
 export * from './http-error-handler.js';
 export * from './slug.js';
 export * from './cnpj.js';
+export * from './visibility.js';

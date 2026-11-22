@@ -30,5 +30,8 @@ export function systemScopeFor(
     actorUserId: INTERNAL_TICK_ACTOR_ID,
     role: 'owner',
     defaultEntityIds: pj ? { pf, pj } : { pf },
+    // Rotina de sistema enxerga todas as entidades ativas e não é dona de nenhuma
+    visibleEntityIds: activeEntities.map((entity) => entity.id),
+    ownEntityIds: [],
   };
 }

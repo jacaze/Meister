@@ -261,6 +261,9 @@ describe('Scheduler — systemScopeFor', () => {
       actorUserId: 'system:internal-tick',
       role: 'owner',
       defaultEntityIds: { pf: 'pf-1', pj: 'pj-1' },
+      // Rotina de sistema vê só as entidades ativas (a inativa pj-old fica de fora) e não é dona de nenhuma
+      visibleEntityIds: ['pj-1', 'auto-1', 'pf-1'],
+      ownEntityIds: [],
     });
   });
 

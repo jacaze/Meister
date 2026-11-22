@@ -12,6 +12,8 @@ export async function authMiddleware(
     throw new UnauthorizedError('Token não informado');
   }
 
+  let userId: string | undefined;
+  let tokenWorkspaceId: string | undefined;
   try {
     const payload = await request.jwtVerify<{
       sub?: string;
@@ -20,22 +22,24 @@ export async function authMiddleware(
       email?: string;
       wid?: string;
     }>();
-
-    const userId = payload.userId ?? payload.sub ?? payload.id;
-
-    if (!userId || typeof userId !== 'string') {
-      throw new UnauthorizedError('Token inválido');
-    }
-
-    request.userId = userId;
-    const requestedWorkspaceId = (request.headers['x-workspace-id'] as string) || payload.wid;
-    request.scope = await resolveScopeForUser(userId, requestedWorkspaceId);
-  } catch (err) {
-    if (err instanceof UnauthorizedError) {
-      throw err;
-    }
+    userId = payload.userId ?? payload.sub ?? payload.id;
+    tokenWorkspaceId = payload.wid;
+  } catch {
     throw new UnauthorizedError('Token inválido ou expirado');
   }
+
+  if (!userId || typeof userId !== 'string') {
+    throw new UnauthorizedError('Token inválido');
+  }
+
+  request.userId = userId;
+  // Cabeçalho = pedido explícito (404 se não participa); wid do token = só preferência
+  const headerWorkspaceId = request.headers['x-workspace-id'];
+  request.scope = await resolveScopeForUser(
+    userId,
+    typeof headerWorkspaceId === 'string' && headerWorkspaceId ? headerWorkspaceId : undefined,
+    tokenWorkspaceId
+  );
 }
 
 export default authMiddleware;

@@ -296,6 +296,8 @@ describe('Shared Kernel — Ids, Env, Scope, Events, Pagination & Errors', () =>
       actorUserId: 'u1',
       role: 'viewer' as const,
       defaultEntityIds: { pf: 'e1' },
+      visibleEntityIds: ['e1'],
+      ownEntityIds: ['e1'],
     };
     expect(() => assertCanWrite(viewerScope)).toThrow(ForbiddenError);
     expect(() => assertOwner(viewerScope)).toThrow(ForbiddenError);

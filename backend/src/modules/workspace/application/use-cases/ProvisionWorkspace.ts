@@ -74,6 +74,9 @@ export async function provisionWorkspace(
       pf: pf.id,
       ...(pj ? { pj: pj.id } : {}),
     },
+    // Quem acabou de se cadastrar é dono de tudo que foi criado
+    visibleEntityIds: workspace.entities.map((e) => e.id),
+    ownEntityIds: workspace.entities.map((e) => e.id),
   };
 
   return {

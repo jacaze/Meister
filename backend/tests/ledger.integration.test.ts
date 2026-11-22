@@ -97,6 +97,8 @@ describe('Ledger & Transactions Hardening Integration Suite (PostgreSQL 16)', ()
         pf: pfEntity.id,
         pj: pjEntity.id,
       },
+      visibleEntityIds: [pfEntity.id, pjEntity.id],
+      ownEntityIds: [pfEntity.id, pjEntity.id],
     };
 
     return { token, wsId, pfEntity, pjEntity, accPf, accPj, catReceita, catDespesa, scope };

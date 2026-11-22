@@ -114,6 +114,8 @@ Data;Descrição;Valor
         actorUserId: 'usr-1',
         role: 'owner' as const,
         defaultEntityIds: { pf: 'pf-1', pj: 'pj-1' },
+        visibleEntityIds: ['pf-1', 'pj-1'],
+        ownEntityIds: ['pf-1', 'pj-1'],
       };
 
       const tokenRes = await createConnectToken(scope, { aggregator: fakeAggregator });

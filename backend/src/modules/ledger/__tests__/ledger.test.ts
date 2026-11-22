@@ -21,6 +21,8 @@ describe('Ledger Module — Unit & Domain Hardening', () => {
       pf: 'entity-pf-1',
       pj: 'entity-pj-1',
     },
+    visibleEntityIds: ['entity-pf-1', 'entity-pj-1'],
+    ownEntityIds: ['entity-pf-1', 'entity-pj-1'],
   };
 
   describe('🔴 Bug 3: ListTransactions com saldo líquido negativo', () => {
