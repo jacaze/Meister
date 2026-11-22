@@ -71,6 +71,7 @@ components:
             - alreadyExisted
             - markedOverdue
             - errors
+            - deferred
           properties:
             created:
               type: integer
@@ -84,6 +85,9 @@ components:
             errors:
               type: integer
               minimum: 0
+            deferred:
+              type: integer
+              minimum: 0
         openfinance:
           type: object
           additionalProperties: false
@@ -91,6 +95,7 @@ components:
             - synced
             - skipped
             - errors
+            - deferred
           properties:
             synced:
               type: integer
@@ -99,6 +104,9 @@ components:
               type: integer
               minimum: 0
             errors:
+              type: integer
+              minimum: 0
+            deferred:
               type: integer
               minimum: 0
     ErrorResponse:

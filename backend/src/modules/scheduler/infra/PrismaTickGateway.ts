@@ -23,7 +23,7 @@ export class PrismaTickGateway implements TickGateway {
         bankConnections: {
           where: { provider: 'pluggy' },
           select: { id: true, provider: true, itemId: true, status: true, lastSyncAt: true },
-          orderBy: { createdAt: 'asc' },
+          orderBy: [{ lastSyncAt: { sort: 'asc', nulls: 'first' } }, { createdAt: 'asc' }],
         },
       },
     });

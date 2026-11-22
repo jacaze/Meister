@@ -18,6 +18,7 @@ export interface InternalRoutesOptions {
   readonly internalTickSecret: string;
   readonly timeZone: string;
   readonly openFinanceSyncIntervalHours: number;
+  readonly tickTimeBudgetMs?: number;
   readonly clock?: Clock;
   readonly bankingAggregator?: BankingAggregator;
   readonly tickLock?: TickLock;
@@ -55,6 +56,7 @@ export async function internalRoutes(
       clock,
       timeZone: options.timeZone,
       syncIntervalHours: options.openFinanceSyncIntervalHours,
+      timeBudgetMs: options.tickTimeBudgetMs,
       logger: request.log,
     });
 

@@ -106,6 +106,7 @@ describe('Rotina interna /api/internal/tick (Tarefa 08)', () => {
   async function openTestApp(options: {
     secret?: string;
     syncIntervalHours?: number;
+    tickTimeBudgetMs?: number;
     clock?: FakeClock;
     bankingAggregator?: BankingAggregator;
   } = {}): Promise<FastifyInstance> {
@@ -117,6 +118,7 @@ describe('Rotina interna /api/internal/tick (Tarefa 08)', () => {
           : {}),
       }),
       logger: false,
+      tickTimeBudgetMs: options.tickTimeBudgetMs,
       clock: options.clock,
       bankingAggregator: options.bankingAggregator,
     });
@@ -186,6 +188,20 @@ describe('Rotina interna /api/internal/tick (Tarefa 08)', () => {
     });
     expect(resWrongDiffLen.statusCode).toBe(401);
 
+    const resWhitespaceHeader = await app.inject({
+      method: 'POST',
+      url: '/api/internal/tick',
+      headers: { 'x-internal-secret': '   ' },
+    });
+    expect(resWhitespaceHeader.statusCode).toBe(401);
+
+    const resTrimmedHeader = await app.inject({
+      method: 'POST',
+      url: '/api/internal/tick',
+      headers: { 'x-internal-secret': `  ${VALID_SECRET}  ` },
+    });
+    expect(resTrimmedHeader.statusCode).toBe(200);
+
     // Sem Bearer token e simulando X-Forwarded-For externo: deve autorizar apenas pelo X-Internal-Secret
     const resValid = await app.inject({
       method: 'POST',
@@ -198,8 +214,8 @@ describe('Rotina interna /api/internal/tick (Tarefa 08)', () => {
     expect(resValid.statusCode).toBe(200);
     expect(resValid.json()).toMatchObject({
       workspacesProcessed: 0,
-      das: { created: 0, alreadyExisted: 0, markedOverdue: 0, errors: 0 },
-      openfinance: { synced: 0, skipped: 0, errors: 0 },
+      das: { created: 0, alreadyExisted: 0, markedOverdue: 0, errors: 0, deferred: 0 },
+      openfinance: { synced: 0, skipped: 0, errors: 0, deferred: 0 },
     });
   });
 
@@ -479,6 +495,7 @@ describe('Rotina interna /api/internal/tick (Tarefa 08)', () => {
       synced: 2,
       skipped: 2,
       errors: 0,
+      deferred: 0,
     });
     expect(fake.syncItemCalls.sort()).toEqual(['item-due-13h', 'item-erro-retry']);
     expect(fake.syncItemCalls).not.toContain('item-recent-1h');
@@ -541,6 +558,7 @@ describe('Rotina interna /api/internal/tick (Tarefa 08)', () => {
       synced: 1,
       skipped: 0,
       errors: 0,
+      deferred: 0,
     });
 
     const updatedConn = await prisma.bankConnection.findUniqueOrThrow({ where: { id: conn.id } });
@@ -682,6 +700,7 @@ describe('Rotina interna /api/internal/tick (Tarefa 08)', () => {
         synced: 1,
         skipped: 0,
         errors: 0,
+        deferred: 0,
       });
 
       // Após o término, o lock foi liberado no Postgres
@@ -692,4 +711,105 @@ describe('Rotina interna /api/internal/tick (Tarefa 08)', () => {
     },
     25_000
   );
+
+  it('orçamento de tempo e ordenação global: prioriza null e erro entre workspaces e evita starvation na execução seguinte', async () => {
+    const baseNow = new Date();
+    const clock = new FakeClock(baseNow);
+    const thirteenHoursAgo = new Date(baseNow.getTime() - 13 * 60 * 60 * 1000);
+    const twoHoursAgo = new Date(baseNow.getTime() - 2 * 60 * 60 * 1000);
+
+    const ws1 = await prisma.workspace.create({ data: { name: 'WS 1 (13h atrás)' } });
+    await prisma.entity.create({
+      data: { workspaceId: ws1.id, kind: 'pf', name: 'PF 1', isMei: false, active: true },
+    });
+    await prisma.bankConnection.create({
+      data: {
+        workspaceId: ws1.id,
+        provider: 'pluggy',
+        itemId: 'item-ws1-13h',
+        institution: 'Banco 1',
+        status: 'ativa',
+        lastSyncAt: thirteenHoursAgo,
+      },
+    });
+
+    const ws2 = await prisma.workspace.create({ data: { name: 'WS 2 (erro)' } });
+    await prisma.entity.create({
+      data: { workspaceId: ws2.id, kind: 'pf', name: 'PF 2', isMei: false, active: true },
+    });
+    await prisma.bankConnection.create({
+      data: {
+        workspaceId: ws2.id,
+        provider: 'pluggy',
+        itemId: 'item-ws2-erro',
+        institution: 'Banco 2',
+        status: 'erro',
+        lastSyncAt: twoHoursAgo,
+        lastError: 'Erro anterior',
+      },
+    });
+
+    const ws3 = await prisma.workspace.create({ data: { name: 'WS 3 (null)' } });
+    await prisma.entity.create({
+      data: { workspaceId: ws3.id, kind: 'pf', name: 'PF 3', isMei: false, active: true },
+    });
+    await prisma.bankConnection.create({
+      data: {
+        workspaceId: ws3.id,
+        provider: 'pluggy',
+        itemId: 'item-ws3-null',
+        institution: 'Banco 3',
+        status: 'ativa',
+        lastSyncAt: null,
+      },
+    });
+
+    const syncOrder: string[] = [];
+    const baseFake = createFakeAggregator();
+    const budgetAggregator: BankingAggregator = {
+      ...baseFake.aggregator,
+      async fetchAccounts(itemId: string) {
+        syncOrder.push(itemId);
+        // Cada sync consome 600ms no relógio simulado; com orçamento de 1000ms entram 2 e o 3º fica adiado
+        clock.advanceMs(600);
+        return baseFake.aggregator.fetchAccounts(itemId);
+      },
+    };
+
+    const app = await openTestApp({
+      clock,
+      syncIntervalHours: 12,
+      tickTimeBudgetMs: 1000,
+      bankingAggregator: budgetAggregator,
+    });
+
+    const firstRes = await app.inject({
+      method: 'POST',
+      url: '/api/internal/tick',
+      headers: { 'x-internal-secret': VALID_SECRET },
+    });
+    expect(firstRes.statusCode).toBe(200);
+    expect(syncOrder).toEqual(['item-ws3-null', 'item-ws2-erro']);
+    expect(firstRes.json().openfinance).toEqual({
+      synced: 2,
+      skipped: 0,
+      errors: 0,
+      deferred: 1,
+    });
+
+    // Segundo tick em seguida: os dois já sincronizados têm lastSyncAt recente e são pulados; ws1 sincroniza
+    const secondRes = await app.inject({
+      method: 'POST',
+      url: '/api/internal/tick',
+      headers: { 'x-internal-secret': VALID_SECRET },
+    });
+    expect(secondRes.statusCode).toBe(200);
+    expect(syncOrder).toEqual(['item-ws3-null', 'item-ws2-erro', 'item-ws1-13h']);
+    expect(secondRes.json().openfinance).toEqual({
+      synced: 1,
+      skipped: 2,
+      errors: 0,
+      deferred: 0,
+    });
+  });
 });

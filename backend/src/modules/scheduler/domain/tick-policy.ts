@@ -30,12 +30,49 @@ export function verifyInternalSecret(
   if (expected.length === 0) {
     return 'disabled';
   }
-  if (typeof providedHeader !== 'string' || providedHeader.length === 0) {
+  if (typeof providedHeader !== 'string') {
     return 'unauthorized';
   }
-  return constantTimeEquals(sha256Hex(providedHeader), sha256Hex(expected))
+  const provided = providedHeader.trim();
+  if (provided.length === 0) {
+    return 'unauthorized';
+  }
+  return constantTimeEquals(sha256Hex(provided), sha256Hex(expected))
     ? 'authorized'
     : 'unauthorized';
+}
+
+function connectionSyncPriority(
+  connection: Pick<ConnectionSyncCandidate, 'status' | 'lastSyncAt'>
+): number {
+  if (connection.status === 'erro' && connection.lastSyncAt === null) {
+    return 0;
+  }
+  if (connection.lastSyncAt === null) {
+    return 1;
+  }
+  if (connection.status === 'erro') {
+    return 2;
+  }
+  return 3;
+}
+
+/**
+ * Orders due bank connections across all workspaces so never-synced (null) and failed ('erro')
+ * connections run first, followed by oldest lastSyncAt ascending (prevents starvation).
+ */
+export function compareConnectionsForSync(
+  a: Pick<ConnectionSyncCandidate, 'status' | 'lastSyncAt'>,
+  b: Pick<ConnectionSyncCandidate, 'status' | 'lastSyncAt'>
+): number {
+  const prioDiff = connectionSyncPriority(a) - connectionSyncPriority(b);
+  if (prioDiff !== 0) {
+    return prioDiff;
+  }
+  if (a.lastSyncAt === null || b.lastSyncAt === null) {
+    return 0;
+  }
+  return a.lastSyncAt.getTime() - b.lastSyncAt.getTime();
 }
 
 /**

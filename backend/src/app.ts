@@ -34,6 +34,7 @@ export interface BuildAppOptions {
   clock?: Clock;
   bankingAggregator?: BankingAggregator;
   tickLock?: TickLock;
+  tickTimeBudgetMs?: number;
 }
 
 export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
@@ -102,6 +103,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     internalTickSecret: env.INTERNAL_TICK_SECRET,
     timeZone: env.DEFAULT_TIMEZONE,
     openFinanceSyncIntervalHours: env.OPENFINANCE_SYNC_INTERVAL_HOURS,
+    tickTimeBudgetMs: options.tickTimeBudgetMs,
     clock: options.clock,
     bankingAggregator: options.bankingAggregator,
     tickLock: options.tickLock,

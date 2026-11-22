@@ -6,6 +6,7 @@ import {
   ValidationError,
 } from '../../../shared/index.js';
 import {
+  compareConnectionsForSync,
   isConnectionDueForSync,
   isDasChargeOverdue,
   verifyInternalSecret,
@@ -30,9 +31,10 @@ describe('Scheduler — tick-policy (domínio)', () => {
       expect(verifyInternalSecret(undefined, '')).toBe('disabled');
     });
 
-    it('retorna unauthorized quando header está ausente, vazio ou é array', () => {
+    it('retorna unauthorized quando header está ausente, vazio, só espaços ou é array', () => {
       expect(verifyInternalSecret(undefined, 'segredo-forte-32-caracteres-aqui')).toBe('unauthorized');
       expect(verifyInternalSecret('', 'segredo-forte-32-caracteres-aqui')).toBe('unauthorized');
+      expect(verifyInternalSecret('   \t\n  ', 'segredo-forte-32-caracteres-aqui')).toBe('unauthorized');
       expect(verifyInternalSecret(['segredo-forte-32-caracteres-aqui'], 'segredo-forte-32-caracteres-aqui')).toBe(
         'unauthorized'
       );
@@ -45,11 +47,44 @@ describe('Scheduler — tick-policy (domínio)', () => {
       expect(verifyInternalSecret(`${configured}extra`, configured)).toBe('unauthorized');
     });
 
-    it('retorna authorized quando header coincide com o segredo configurado (após trim no env)', () => {
+    it('retorna authorized quando header coincide com o segredo configurado após trim em ambos', () => {
       expect(verifyInternalSecret('segredo-valido-123', 'segredo-valido-123')).toBe('authorized');
       expect(verifyInternalSecret('segredo-valido-123', '  segredo-valido-123  ')).toBe('authorized');
-      // Header com espaços extras não coincide se env não tiver esses espaços
-      expect(verifyInternalSecret(' segredo-valido-123 ', 'segredo-valido-123')).toBe('unauthorized');
+      expect(verifyInternalSecret('  segredo-valido-123\n', 'segredo-valido-123')).toBe('authorized');
+      expect(verifyInternalSecret('\t segredo-valido-123 ', '  segredo-valido-123  ')).toBe('authorized');
+    });
+  });
+
+  describe('compareConnectionsForSync', () => {
+    const tOld = new Date('2026-11-20T10:00:00.000Z');
+    const tNew = new Date('2026-11-21T10:00:00.000Z');
+
+    it('prioriza erro+null < ativa+null < erro (mais antiga primeiro) < ativa (mais antiga primeiro)', () => {
+      const items = [
+        { id: 'ativa-new', status: 'ativa', lastSyncAt: tNew },
+        { id: 'ativa-old', status: 'ativa', lastSyncAt: tOld },
+        { id: 'erro-new', status: 'erro', lastSyncAt: tNew },
+        { id: 'erro-old', status: 'erro', lastSyncAt: tOld },
+        { id: 'ativa-null', status: 'ativa', lastSyncAt: null },
+        { id: 'erro-null', status: 'erro', lastSyncAt: null },
+      ];
+
+      const sorted = [...items].sort(compareConnectionsForSync);
+      expect(sorted.map((x) => x.id)).toEqual([
+        'erro-null',
+        'ativa-null',
+        'erro-old',
+        'erro-new',
+        'ativa-old',
+        'ativa-new',
+      ]);
+
+      expect(
+        compareConnectionsForSync({ status: 'ativa', lastSyncAt: null }, { status: 'ativa', lastSyncAt: null })
+      ).toBe(0);
+      expect(
+        compareConnectionsForSync({ status: 'ativa', lastSyncAt: tOld }, { status: 'ativa', lastSyncAt: tOld })
+      ).toBe(0);
     });
   });
 
@@ -380,14 +415,16 @@ describe('Scheduler — runInternalTick (orquestração)', () => {
         alreadyExisted: 5,
         markedOverdue: 1,
         errors: 1,
+        deferred: 0,
       },
       openfinance: {
         synced: 2,
         skipped: 1,
         errors: 2,
+        deferred: 0,
       },
     });
-    expect(syncedConnections).toEqual(['conn-a-ok', 'conn-b-err']);
+    expect(syncedConnections).toEqual(['conn-b-err', 'conn-a-ok']);
 
     const errorLogs = logEntries.filter((e) => e.level === 'error');
     expect(errorLogs).toEqual([
@@ -398,12 +435,12 @@ describe('Scheduler — runInternalTick (orquestração)', () => {
       },
       {
         level: 'error',
-        meta: { workspaceId: 'ws-a', connectionId: 'conn-a-fail', errorCode: 'UNKNOWN_ERROR' },
+        meta: { workspaceId: 'ws-b', connectionId: 'conn-b-unknown', errorCode: 'UNKNOWN_ERROR' },
         msg: 'Falha ao sincronizar conexão Open Finance no tick interno',
       },
       {
         level: 'error',
-        meta: { workspaceId: 'ws-b', connectionId: 'conn-b-unknown', errorCode: 'UNKNOWN_ERROR' },
+        meta: { workspaceId: 'ws-a', connectionId: 'conn-a-fail', errorCode: 'UNKNOWN_ERROR' },
         msg: 'Falha ao sincronizar conexão Open Finance no tick interno',
       },
     ]);
@@ -477,5 +514,202 @@ describe('Scheduler — runInternalTick (orquestração)', () => {
     });
     expect(res2.das.errors).toBe(1);
     expect(res2.openfinance.errors).toBe(1);
+    expect(res2.das.deferred).toBe(0);
+    expect(res2.openfinance.deferred).toBe(0);
+  });
+
+  it('rejeita timeBudgetMs inválido sem adquirir lock', async () => {
+    let locked = false;
+    const lock: TickLock = {
+      async withLock<T>(fn: () => Promise<T>): Promise<TickLockResult<T>> {
+        locked = true;
+        return { acquired: true, value: await fn() };
+      },
+    };
+    const gateway: TickGateway = {
+      async listWorkspacesForTick() {
+        return [];
+      },
+      async syncWorkspaceDas() {
+        return { created: 0, alreadyExisted: 0, markedOverdue: 0 };
+      },
+      async syncPluggyConnection() {},
+    };
+
+    for (const invalidBudget of [0, -50, Number.NaN, Number.POSITIVE_INFINITY]) {
+      await expect(
+        runInternalTick({
+          lock,
+          gateway,
+          clock: new FakeClock(),
+          timeZone: 'America/Sao_Paulo',
+          syncIntervalHours: 12,
+          timeBudgetMs: invalidBudget,
+        })
+      ).rejects.toThrow(ValidationError);
+    }
+    expect(locked).toBe(false);
+  });
+
+  it('ordena conexões globalmente (null e erro primeiro, depois lastSyncAt asc) e adia restante ao atingir timeBudgetMs no Open Finance', async () => {
+    const clock = new FakeClock('2026-11-21T15:00:00.000Z');
+    const thirtyHoursAgo = new Date(clock.now().getTime() - 30 * 60 * 60 * 1000);
+    const fifteenHoursAgo = new Date(clock.now().getTime() - 15 * 60 * 60 * 1000);
+    const twoHoursAgo = new Date(clock.now().getTime() - 2 * 60 * 60 * 1000);
+
+    const lock: TickLock = {
+      async withLock<T>(fn: () => Promise<T>): Promise<TickLockResult<T>> {
+        return { acquired: true, value: await fn() };
+      },
+    };
+
+    const logs: Array<{ level: string; meta: Record<string, unknown>; msg: string }> = [];
+    const logger: TickLogger = {
+      info: (meta, msg) => logs.push({ level: 'info', meta, msg }),
+      warn: (meta, msg) => logs.push({ level: 'warn', meta, msg }),
+      error: (meta, msg) => logs.push({ level: 'error', meta, msg }),
+    };
+
+    const order: string[] = [];
+    const workspaces: WorkspaceTickRecord[] = [
+      {
+        id: 'ws-1',
+        entities: [{ id: 'pf-1', kind: 'pf', isMei: false, active: true }],
+        bankConnections: [
+          { id: 'c1-15h', provider: 'pluggy', itemId: 'i1', status: 'ativa', lastSyncAt: fifteenHoursAgo },
+        ],
+      },
+      {
+        id: 'ws-2',
+        entities: [{ id: 'pf-2', kind: 'pf', isMei: false, active: true }],
+        bankConnections: [
+          { id: 'c2-30h', provider: 'pluggy', itemId: 'i2', status: 'ativa', lastSyncAt: thirtyHoursAgo },
+          { id: 'c2-erro', provider: 'pluggy', itemId: 'i3', status: 'erro', lastSyncAt: twoHoursAgo },
+        ],
+      },
+      {
+        id: 'ws-3',
+        entities: [{ id: 'pf-3', kind: 'pf', isMei: false, active: true }],
+        bankConnections: [
+          { id: 'c3-null', provider: 'pluggy', itemId: 'i4', status: 'ativa', lastSyncAt: null },
+        ],
+      },
+    ];
+
+    const gateway: TickGateway = {
+      async listWorkspacesForTick() {
+        return workspaces;
+      },
+      async syncWorkspaceDas() {
+        return { created: 0, alreadyExisted: 0, markedOverdue: 0 };
+      },
+      async syncPluggyConnection(_scope, connectionId) {
+        order.push(connectionId);
+        // Cada sincronização consome 350ms; budget de 1000ms comporta 3 chamadas (1050ms >= 1000ms) e adia a 4ª
+        clock.advanceMs(350);
+      },
+    };
+
+    const res = await runInternalTick({
+      lock,
+      gateway,
+      clock,
+      timeZone: 'America/Sao_Paulo',
+      syncIntervalHours: 12,
+      timeBudgetMs: 1000,
+      logger,
+    });
+
+    expect(order).toEqual(['c3-null', 'c2-erro', 'c2-30h']);
+    expect(res).toEqual({
+      executedAt: '2026-11-21T15:00:00.000Z',
+      workspacesProcessed: 3,
+      das: { created: 0, alreadyExisted: 0, markedOverdue: 0, errors: 0, deferred: 0 },
+      openfinance: { synced: 3, skipped: 0, errors: 0, deferred: 1 },
+    });
+
+    const warnLogs = logs.filter((l) => l.level === 'warn');
+    expect(warnLogs).toEqual([
+      {
+        level: 'warn',
+        meta: {
+          elapsedMs: 1050,
+          timeBudgetMs: 1000,
+          dasDeferred: 0,
+          openfinanceDeferred: 1,
+        },
+        msg: 'Orçamento de tempo do tick interno atingido; itens restantes adiados',
+      },
+    ]);
+  });
+
+  it('adia DAS e Open Finance quando timeBudgetMs estoura ainda na fase DAS', async () => {
+    const clock = new FakeClock('2026-11-21T15:00:00.000Z');
+    const lock: TickLock = {
+      async withLock<T>(fn: () => Promise<T>): Promise<TickLockResult<T>> {
+        return { acquired: true, value: await fn() };
+      },
+    };
+    const warnLogs: Array<Record<string, unknown>> = [];
+    const logger: TickLogger = {
+      info: () => {},
+      warn: (meta) => warnLogs.push(meta),
+      error: () => {},
+    };
+    const dasCalls: string[] = [];
+    let syncedCount = 0;
+
+    const gateway: TickGateway = {
+      async listWorkspacesForTick() {
+        return [
+          {
+            id: 'ws-1',
+            entities: [{ id: 'pf-1', kind: 'pf', isMei: false, active: true }],
+            bankConnections: [{ id: 'c1', provider: 'pluggy', itemId: 'i1', status: 'ativa', lastSyncAt: null }],
+          },
+          {
+            id: 'ws-2',
+            entities: [{ id: 'pf-2', kind: 'pf', isMei: false, active: true }],
+            bankConnections: [{ id: 'c2', provider: 'pluggy', itemId: 'i2', status: 'ativa', lastSyncAt: null }],
+          },
+        ];
+      },
+      async syncWorkspaceDas(scope) {
+        dasCalls.push(scope.workspaceId);
+        // Exatamente igual ao budget (500ms >= 500ms) -> deve parar antes de ws-2 e adiar Open Finance
+        clock.advanceMs(500);
+        return { created: 1, alreadyExisted: 0, markedOverdue: 0 };
+      },
+      async syncPluggyConnection() {
+        syncedCount += 1;
+      },
+    };
+
+    const res = await runInternalTick({
+      lock,
+      gateway,
+      clock,
+      timeZone: 'America/Sao_Paulo',
+      syncIntervalHours: 12,
+      timeBudgetMs: 500,
+      logger,
+    });
+
+    expect(dasCalls).toEqual(['ws-1']);
+    expect(syncedCount).toBe(0);
+    expect(res).toEqual({
+      executedAt: '2026-11-21T15:00:00.000Z',
+      workspacesProcessed: 1,
+      das: { created: 1, alreadyExisted: 0, markedOverdue: 0, errors: 0, deferred: 1 },
+      openfinance: { synced: 0, skipped: 0, errors: 0, deferred: 2 },
+    });
+    expect(warnLogs).toEqual([
+      {
+        elapsedMs: 500,
+        timeBudgetMs: 500,
+        dasDeferred: 1,
+        openfinanceDeferred: 2,
+      },
+    ]);
   });
 });
