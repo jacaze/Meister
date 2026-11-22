@@ -6,6 +6,7 @@ import {
 } from '../components/openfinance/BankConnectionsCard.js';
 import ClassifyAccountsSheet, { type AccountToClassify } from '../components/openfinance/ClassifyAccountsSheet.js';
 import { accountsWithoutEntity, entityLabel } from '../lib/bankAccountEntity.js';
+import { hasPjEntity, transferSuspectCopy } from '../lib/reviewCopy.js';
 import { settlementHint } from '../lib/settlementHint.js';
 import { useAuth } from '../context/AuthContext.js';
 import { PluggyConfigModal } from '../components/openfinance/PluggyConfigModal.js';
@@ -230,6 +231,7 @@ export const ReviewInboxPage: React.FC = () => {
   // Transações elegíveis para aprovação em lote (exclui suspeitas de transferência interna)
   const eligibleItems = items.filter((it) => !it.isTransferSuspect);
   const suspectItems = items.filter((it) => it.isTransferSuspect);
+  const suspectCopy = transferSuspectCopy(suspectItems.length, hasPjEntity(entities));
 
   const confirmBatchApprove = async () => {
     if (eligibleItems.length === 0) {
@@ -387,12 +389,8 @@ export const ReviewInboxPage: React.FC = () => {
           <div className="p-4 bg-primary-soft/60 border border-primary/30 rounded-2xl flex items-start gap-3">
             <WarningCircle size={20} className="text-brand shrink-0 mt-0.5" weight="bold" />
             <div className="text-xs text-ink-soft space-y-1">
-              <p className="font-bold text-brand">
-                {suspectItems.length} transação(ões) identificada(s) como possível transferência interna
-              </p>
-              <p className="leading-relaxed">
-                Transações entre sua conta PJ e conta física (PF) são destacadas para que você as revise individualmente. Elas não são incluídas no botão "Aprovar Todos" para evitar distorção do seu faturamento bruto MEI.
-              </p>
+              <p className="font-bold text-brand">{suspectCopy.title}</p>
+              <p className="leading-relaxed">{suspectCopy.description}</p>
             </div>
           </div>
         )}

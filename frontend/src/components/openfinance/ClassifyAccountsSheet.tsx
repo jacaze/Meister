@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { classifyAccountsSubtitle, hasPjEntity } from '../../lib/reviewCopy.js';
 import api from '../../api/client.js';
 import Sheet from '../ui/Sheet.js';
 import { Bank, CircleNotch, WarningCircle } from '../ui/icons.js';
@@ -101,7 +102,7 @@ export const ClassifyAccountsSheet: React.FC<ClassifyAccountsSheetProps> = ({
       open={open}
       onClose={onClose}
       title="De quem são estas contas?"
-      subtitle="Assim cada lançamento cai no lugar certo: suas finanças pessoais ou a empresa."
+      subtitle={classifyAccountsSubtitle(hasPjEntity(entities))}
       icon={<Bank size={28} weight="duotone" className="text-brand" />}
       footer={footer}
     >
