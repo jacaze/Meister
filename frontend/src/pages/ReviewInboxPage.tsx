@@ -231,6 +231,20 @@ export const ReviewInboxPage: React.FC = () => {
   const eligibleItems = items.filter((it) => !it.isTransferSuspect);
   const suspectItems = items.filter((it) => it.isTransferSuspect);
 
+  // Itens que irão sem categoria escolhida nem sugerida: o backend os lança em "Outras Despesas/Receitas"
+  const uncategorizedExpenses = eligibleItems.filter(
+    (it) => it.direction === 'out' && !(selectedCategories[it.id] || it.suggestedCategoryId)
+  ).length;
+  const uncategorizedIncomes = eligibleItems.filter(
+    (it) => it.direction === 'in' && !(selectedCategories[it.id] || it.suggestedCategoryId)
+  ).length;
+  const uncategorizedWarning = [
+    uncategorizedExpenses > 0 ? `${uncategorizedExpenses} despesa(s) irão para "Outras Despesas"` : '',
+    uncategorizedIncomes > 0 ? `${uncategorizedIncomes} receita(s) irão para "Outras Receitas"` : '',
+  ]
+    .filter(Boolean)
+    .join(' e ');
+
   const confirmBatchApprove = async () => {
     if (eligibleItems.length === 0) {
       setIsBatchConfirmOpen(false);
@@ -599,9 +613,12 @@ export const ReviewInboxPage: React.FC = () => {
         loading={batchLoading}
         title="Aprovar Todos os Lançamentos"
         description={
-          suspectItems.length > 0
+          (suspectItems.length > 0
             ? `Deseja aprovar ${eligibleItems.length} lançamento(s) elegível(is)? Atenção: ${suspectItems.length} transação(ões) com suspeita de transferência foram preservadas para sua revisão manual.`
-            : `Tem certeza de que deseja aprovar todas as ${eligibleItems.length} transações da fila de revisão?`
+            : `Tem certeza de que deseja aprovar todas as ${eligibleItems.length} transações da fila de revisão?`) +
+          (uncategorizedWarning
+            ? ` Sem categoria escolhida ou sugerida: ${uncategorizedWarning}. Revise antes se preferir categorizar.`
+            : '')
         }
         confirmLabel="Sim, aprovar lote"
         cancelLabel="Cancelar"

@@ -8,6 +8,7 @@ import type {
 } from '../ports/BankingAggregator.js';
 import { PluggyClient } from '../../infra/PluggyClient.js';
 import { TransferDetector } from '../../domain/TransferDetector.js';
+import { isPluggyTransferCategory, suggestSlugFromPluggyCategory } from '../../domain/pluggy-category-map.js';
 
 export interface ConnectPluggyItemInput {
   readonly itemId: string;
@@ -94,27 +95,46 @@ export async function connectPluggyItem(
   const categories = await prisma.category.findMany({
     where: { workspaceId: scope.workspaceId },
   });
-  const catSlugMap = new Map<string, string>();
+  // Slug é único só por (tipo, slug): o mapa é por tipo para nunca sugerir categoria de despesa em receita
+  const catIdByTypeSlug = new Map<string, string>();
   for (const c of categories) {
-    catSlugMap.set(c.slug, c.id);
+    catIdByTypeSlug.set(`${c.type}:${c.slug}`, c.id);
   }
 
-  // Helper to suggest category from Pluggy category or description
-  const mapSuggestedCategory = (description: string, pluggyCat?: string): string | undefined => {
+  // Palavras-chave da descrição; devolve slug (nunca id)
+  const keywordSlug = (description: string, pluggyCat?: string): string | undefined => {
     const text = `${description} ${pluggyCat || ''}`.toLowerCase();
     if (/\b(almo[cç]o|restaurante|refei[cç][aã]o|ifood|uber\s*eats|padaria|supermercado|mercado|a[cç]ougue)\b/i.test(text)) {
-      return catSlugMap.get('alimentacao');
+      return 'alimentacao';
     }
     if (/\b(uber|99|combustivel|gasolina|posto|estacionamento|pedagio|passagem)\b/i.test(text)) {
-      return catSlugMap.get('transporte');
+      return 'transporte';
     }
     if (/\b(software|nuvem|aws|google|adobe|hospedagem|internet|celular|telefone|energia|luz|aluguel)\b/i.test(text)) {
-      return catSlugMap.get('operacao') || catSlugMap.get('outras-despesas');
+      return 'outras-despesas';
     }
     if (/\b(cliente|servi[cç]o|consultoria|projeto|honor[aá]rios|venda)\b/i.test(text)) {
-      return catSlugMap.get('prestacao-servicos') || catSlugMap.get('venda-mercadorias');
+      return 'prestacao-servicos';
     }
     return undefined;
+  };
+
+  // Sugestão: palavras-chave; quando nada acha (ou só o genérico "Outras Despesas"), a categoria
+  // da Pluggy mapeada para a categoria padrão. Transferência/PIX sem pista fica sem sugestão.
+  const mapSuggestedCategory = (
+    description: string,
+    direction: 'in' | 'out',
+    pluggyCat?: string
+  ): string | undefined => {
+    if (isPluggyTransferCategory(pluggyCat)) return undefined;
+    const type = direction === 'in' ? 'receita' : 'despesa';
+    const byKeyword = keywordSlug(description, pluggyCat);
+    const keywordId = byKeyword ? catIdByTypeSlug.get(`${type}:${byKeyword}`) : undefined;
+    if (keywordId && byKeyword !== 'outras-despesas') return keywordId;
+
+    const pluggySlug = suggestSlugFromPluggyCategory(pluggyCat, direction);
+    const pluggyId = pluggySlug ? catIdByTypeSlug.get(`${type}:${pluggySlug}`) : undefined;
+    return pluggyId ?? keywordId;
   };
 
   // 4. Busca contas e transações antes de gravar: importação incompleta não grava nada
@@ -223,7 +243,7 @@ export async function connectPluggyItem(
 
       const absAmount = Math.abs(tx.amount).toFixed(2);
       const occurredDate = new Date(tx.date.slice(0, 10));
-      const suggestedCatId = mapSuggestedCategory(tx.description, tx.category);
+      const suggestedCatId = mapSuggestedCategory(tx.description, direction, tx.category);
 
       let created;
       try {

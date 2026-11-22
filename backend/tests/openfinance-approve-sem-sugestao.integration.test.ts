@@ -70,6 +70,9 @@ describe('Open Finance: aprovar lançamento sem categoria sugerida (Integration)
     const categoria = await prisma.category.findUniqueOrThrow({ where: { id: lancamento.categoryId! } });
     expect(categoria.workspaceId).toBe(workspaceId);
     expect(categoria.type).toBe('despesa');
+    // Determinístico: sempre "Outras Despesas" (slug estável), nunca a primeira categoria que o banco devolver
+    expect(categoria.slug).toBe('outras-despesas');
+    expect(categoria.isDefault).toBe(true);
   }
 
   it('aprova um item com categoryId: null (corpo exato do ReviewInboxPage)', async () => {

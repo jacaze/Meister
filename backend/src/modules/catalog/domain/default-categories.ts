@@ -120,3 +120,12 @@ export const DEFAULT_CATEGORIES: readonly DefaultCategoryDefinition[] = [
     entityKind: 'ambas',
   },
 ] as const;
+
+/**
+ * Categorias padrão usadas quando um lançamento chega sem categoria escolhida nem sugerida.
+ * Identificadas pelo slug estável (único por workspace + tipo), nunca pelo nome traduzido.
+ */
+export const FALLBACK_CATEGORY_SLUG: Readonly<Record<'receita' | 'despesa', string>> = {
+  receita: 'outras-receitas',
+  despesa: 'outras-despesas',
+};
