@@ -1,4 +1,4 @@
-// Service Worker MEIster — Cache de assets estáticos e SPA offline resiliente (exclui estritamente /api)
+// Service Worker MEIster — Cache de assets estáticos e SPA offline resiliente (exclui /api e qualquer requisição cross-origin)
 const BUILD_VERSION = '__BUILD_VERSION__';
 const PRECACHE_ASSETS = __PRECACHE_ASSETS__;
 const CACHE_NAME = 'meister-static-' + BUILD_VERSION;
@@ -52,7 +52,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Apenas mesma origem
+  // Apenas mesma origem: com VITE_API_URL a API é cross-origin e nunca passa pelo cache
   if (url.origin !== self.location.origin) {
     return;
   }
