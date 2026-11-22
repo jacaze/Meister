@@ -1,6 +1,7 @@
 import prisma from '../../../../config/prisma.js';
 import { NotFoundError, type WorkspaceScope } from '../../../../shared/index.js';
 import { LessonRegistry } from '../../domain/LessonRegistry.js';
+import { validTransactionsWhere } from '../../../ledger/public.js';
 
 export interface EducationalNudge {
   readonly id: string;
@@ -71,6 +72,7 @@ export async function evaluateNudges(scope: WorkspaceScope): Promise<readonly Ed
       where: {
         workspaceId: scope.workspaceId,
         entityId: pjEntity.id,
+        ...validTransactionsWhere(),
         type: 'receita',
         // Mesmo critério do limite MEI (GetMeiLimit): transferências e "não é renda" não são faturamento
         transferGroupId: null,
@@ -96,6 +98,7 @@ export async function evaluateNudges(scope: WorkspaceScope): Promise<readonly Ed
   const personalInPj = await prisma.transaction.findFirst({
     where: {
       workspaceId: scope.workspaceId,
+      ...validTransactionsWhere(),
       entity: { kind: 'pj' },
       category: { slug: { in: ['moradia', 'lazer', 'saude', 'supermercado'] } },
     },

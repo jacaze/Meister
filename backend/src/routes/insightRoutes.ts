@@ -13,6 +13,7 @@ import {
   askFinancesSchema,
   submitInsightFeedbackSchema,
   runDetectorsBodySchema,
+  digestQuerySchema,
 } from '../modules/insights/application/schemas/insights-schemas.js';
 
 export async function insightRoutes(fastify: FastifyInstance) {
@@ -49,10 +50,12 @@ export async function insightRoutes(fastify: FastifyInstance) {
   fastify.get<{
     Querystring: {
       month?: string;
+      entityId?: string;
     };
   }>('/insights/digest', async (request, reply) => {
     const scope = request.scope!;
-    const result = await buildMonthlyDigest(scope, request.query.month);
+    const query = digestQuerySchema.parse(request.query);
+    const result = await buildMonthlyDigest(scope, query.month, query.entityId);
     return reply.send(result);
   });
 
@@ -65,7 +68,7 @@ export async function insightRoutes(fastify: FastifyInstance) {
     const scope = request.scope!;
     const body = askFinancesSchema.parse(request.body);
 
-    const result = await askFinances(scope, body.question);
+    const result = await askFinances(scope, body.question, body.entityId);
     return reply.send(result);
   });
 

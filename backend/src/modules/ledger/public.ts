@@ -8,3 +8,4 @@ export * from './application/use-cases/CreateTransfer.js';
 export * from './application/use-cases/Settlements.js';
 export * from './application/use-cases/SetTransactionNonIncome.js';
 export * from './application/queries/income-filter.js';
+export * from './application/queries/valid-transactions-filter.js';

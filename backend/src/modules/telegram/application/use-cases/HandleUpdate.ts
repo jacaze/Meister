@@ -382,7 +382,7 @@ export async function handleTelegramUpdate(
     }
     let msgDas = `🏛️ *Guias do DAS (Documento de Arrecadação do MEI)*\n\n`;
     for (const d of dasList.items.slice(0, 3)) {
-      const statusIcon = d.status === 'pago' ? '✅' : d.status === 'vencido' ? '🔴' : '🟡';
+      const statusIcon = d.status === 'pago' ? '✅' : d.status === 'atrasado' ? '🔴' : '🟡';
       msgDas += `${statusIcon} *Competência ${escapeMarkdownV2(d.competence)}*\n` +
         `• Valor: *${escapeMarkdownV2(formatBrl(d.amount))}*\n` +
         `• Vencimento: ${escapeMarkdownV2(d.dueDate)}\n` +

@@ -4,6 +4,8 @@ import { Money } from '../../../../shared/index.js';
 import { PeriodResolver } from '../../domain/PeriodResolver.js';
 import { getMeiLimit, listDas } from '../../../fiscal/public.js';
 import { getJarsStatus } from '../../../jars/public.js';
+import { resolveScopedEntityId } from '../EntityGuard.js';
+import { validTransactionsWhere } from '../../../ledger/public.js';
 
 export interface AskFinancesResult {
   readonly answer: string;
@@ -14,8 +16,11 @@ export interface AskFinancesResult {
 
 export async function askFinances(
   scope: WorkspaceScope,
-  question: string
+  question: string,
+  entityId?: string
 ): Promise<AskFinancesResult> {
+  const scopedEntityId = await resolveScopedEntityId(scope, entityId);
+  const entityWhere = scopedEntityId ? { entityId: scopedEntityId } : {};
   const q = question.toLowerCase().trim();
 
   // 1. Guard against financial product/investment recommendations
@@ -32,13 +37,14 @@ export async function askFinances(
 
   // 2. Limite MEI
   if (/\blimite\b|\bteto\b|\bfaturamento\b|\bquanto\s+posso\s+faturar\b/i.test(q)) {
-    if (!scope.defaultEntityIds.pj) {
+    const limitEntityId = scopedEntityId ?? scope.defaultEntityIds.pj;
+    if (!limitEntityId) {
       return {
         intent: 'limite_mei',
         answer: 'Esta conta não possui uma entidade MEI (PJ) vinculada para consulta de limite anual.',
       };
     }
-    const mei = await getMeiLimit(scope, { entityId: scope.defaultEntityIds.pj });
+    const mei = await getMeiLimit(scope, { entityId: limitEntityId });
     if (!mei) {
       return {
         intent: 'limite_mei',
@@ -59,14 +65,14 @@ export async function askFinances(
 
   // 3. Guia DAS
   if (/\bdas\b|\bimposto\b|\btributo\b/i.test(q)) {
-    const dasList = await listDas(scope);
+    const dasList = await listDas(scope, { entityId: scopedEntityId });
     if (dasList.items.length === 0) {
       return {
         intent: 'das',
         answer: 'Não encontramos guias de DAS cadastradas para o seu MEI.',
       };
     }
-    const pendente = dasList.items.find((d) => d.status === 'pendente' || d.status === 'vencido');
+    const pendente = dasList.items.find((d) => d.status === 'pendente' || d.status === 'atrasado');
     if (pendente) {
       return {
         intent: 'das',
@@ -81,7 +87,7 @@ export async function askFinances(
 
   // 4. Potes Financeiros
   if (/\bpote\b|\bpotes\b|\breserva\b/i.test(q)) {
-    const jarsRes = await getJarsStatus(scope);
+    const jarsRes = await getJarsStatus(scope, { entityId: scopedEntityId });
     if (jarsRes.jars.length === 0) {
       return {
         intent: 'potes',
@@ -102,6 +108,8 @@ export async function askFinances(
     const txs = await prisma.transaction.findMany({
       where: {
         workspaceId: scope.workspaceId,
+        ...entityWhere,
+        ...validTransactionsWhere(),
         type: { in: ['receita', 'despesa'] },
       },
     });
@@ -134,6 +142,8 @@ export async function askFinances(
     where: {
       workspaceId: scope.workspaceId,
       transactionDate: { gte: startDate, lte: endDate },
+      ...entityWhere,
+      ...validTransactionsWhere(),
       type: 'despesa',
     },
     include: { category: true },
