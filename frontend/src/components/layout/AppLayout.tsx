@@ -109,8 +109,8 @@ export const AppLayout: React.FC = () => {
       <HoneyBackground />
 
       {/* ===== Desktop: barra lateral ===== */}
-      <aside className="hidden md:flex sticky top-0 h-dvh w-72 shrink-0 flex-col justify-between glass-bar p-5">
-        <div className="space-y-7">
+      <aside className="hidden md:flex sticky top-0 h-dvh max-h-dvh w-72 shrink-0 flex-col overflow-hidden glass-bar p-5">
+        <div className="shrink-0 space-y-5">
           <button onClick={() => navigate('/')} className="block text-left" aria-label="Ir para o início">
             <Logo size="md" animated tagline />
           </button>
@@ -125,8 +125,10 @@ export const AppLayout: React.FC = () => {
           >
             <Plus size={20} weight="bold" /> Novo lançamento
           </motion.button>
+        </div>
 
-          <LayoutGroup id="side">
+        <LayoutGroup id="side">
+          <div className="relative isolate -mx-2 mt-5 min-h-0 flex-1 overflow-y-auto overscroll-contain px-2">
             <nav className="space-y-1" aria-label="Navegação principal">
               {all.map((item) => {
                 const active = isActive(item.path);
@@ -153,10 +155,10 @@ export const AppLayout: React.FC = () => {
                 );
               })}
             </nav>
-          </LayoutGroup>
-        </div>
+          </div>
+        </LayoutGroup>
 
-        <div className="flex items-center justify-between gap-3 border-t border-ink/5 pt-4">
+        <div className="mt-4 flex shrink-0 items-center justify-between gap-3 border-t border-ink/5 pt-4">
           <button onClick={() => navigate('/perfil')} className="flex min-w-0 items-center gap-3 text-left">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary-soft font-extrabold text-brand ring-2 ring-primary/40">
               {user?.name?.charAt(0).toUpperCase()}
