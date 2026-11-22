@@ -1,7 +1,7 @@
 import type { Detector } from './Detector.js';
 import type { Finding } from '../Finding.js';
 import type { FinancialSnapshot } from '../FinancialSnapshot.js';
-import { Money } from '../../../../shared/index.js';
+import { moneyMetric } from '../metrics.js';
 
 export class PfInPjDetector implements Detector {
   readonly id = 'pf_in_pj';
@@ -14,7 +14,6 @@ export class PfInPjDetector implements Detector {
     }
 
     if (snapshot.pfInPjCount >= 2 || snapshot.pfInPjCents >= 10000n) {
-      const money = Money.fromCents(snapshot.pfInPjCents);
 
       return [
         {
@@ -26,8 +25,8 @@ export class PfInPjDetector implements Detector {
           confidence: 'alta',
           impactAmountCents: snapshot.pfInPjCents,
           metrics: [
-            { key: 'quantidade_lancamentos', kind: 'count', value: snapshot.pfInPjCount, display: `${snapshot.pfInPjCount} despesas` },
-            { key: 'total_pessoal', kind: 'money', value: money.toDecimalString(), display: `R$ ${money.toDecimalString().replace('.', ',')}` },
+            { key: 'quantidade_lancamentos', kind: 'count', value: snapshot.pfInPjCount, display: snapshot.pfInPjCount === 1 ? '1 despesa' : `${snapshot.pfInPjCount} despesas` },
+            moneyMetric('total_pessoal', snapshot.pfInPjCents),
           ],
           actions: [
             { kind: 'review_transactions', label: 'Revisar despesas pessoais na PJ' },

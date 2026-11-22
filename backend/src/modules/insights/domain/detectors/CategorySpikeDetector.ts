@@ -2,7 +2,7 @@ import type { Detector } from './Detector.js';
 import type { Finding } from '../Finding.js';
 import type { FinancialSnapshot } from '../FinancialSnapshot.js';
 import { calculateMedianCents } from '../FinancialSnapshot.js';
-import { Money } from '../../../../shared/index.js';
+import { moneyMetric } from '../metrics.js';
 
 export class CategorySpikeDetector implements Detector {
   readonly id = 'category_spike';
@@ -45,9 +45,6 @@ export class CategorySpikeDetector implements Detector {
       // Threshold: >= +30%
       if (increasePercent >= 30) {
         const severity = increasePercent >= 50 ? 'atencao' : 'info';
-        const currentMoney = Money.fromCents(currentCents);
-        const medianMoney = Money.fromCents(medianCents);
-        const diffMoney = Money.fromCents(diffCents);
 
         findings.push({
           detectorId: this.id,
@@ -59,10 +56,10 @@ export class CategorySpikeDetector implements Detector {
           impactAmountCents: diffCents,
           metrics: [
             { key: 'categoria', kind: 'enum', value: cat.name, display: cat.name },
-            { key: 'gasto_atual', kind: 'money', value: currentMoney.toDecimalString(), display: `R$ ${currentMoney.toDecimalString().replace('.', ',')}` },
-            { key: 'mediana_anterior', kind: 'money', value: medianMoney.toDecimalString(), display: `R$ ${medianMoney.toDecimalString().replace('.', ',')}` },
+            moneyMetric('gasto_atual', currentCents),
+            moneyMetric('mediana_anterior', medianCents),
             { key: 'percentual_aumento', kind: 'percent', value: increasePercent, display: `+${increasePercent}%` },
-            { key: 'diferenca', kind: 'money', value: diffMoney.toDecimalString(), display: `R$ ${diffMoney.toDecimalString().replace('.', ',')}` },
+            moneyMetric('diferenca', diffCents),
           ],
           actions: [
             { kind: 'review_transactions', label: 'Ver lançamentos desta categoria', params: { categoryId: cat.id } },

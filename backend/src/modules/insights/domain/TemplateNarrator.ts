@@ -51,7 +51,7 @@ export class TemplateNarrator {
         const cons = metricMap.get('saldo_cenario_conservador') ?? '';
         const cen = metricMap.get('saldo_cenario_central') ?? '';
         const otim = metricMap.get('saldo_cenario_otimista') ?? '';
-        return `Previsão para o próximo mês (estimativa baseada nos últimos 3 meses): saldo projetado entre ${cons} (conservador) e ${otim} (otimista), com cenário central de ${cen}.`;
+        return `Estimativa para o próximo mês, calculada com o resultado (receitas menos despesas) dos últimos 3 meses fechados: cenário central de ${cen} (média), entre ${cons} (pior mês) e ${otim} (melhor mês).`;
       }
 
       case 'positive_trend': {

@@ -114,7 +114,7 @@ describe('Insights Module — Domain, Detectors & Guards', () => {
     const findings = detector.run(snapshotWithLimit, new Date());
 
     expect(findings.length).toBe(1);
-    expect(findings[0]!.metrics.find((m) => m.key === 'percentual_utilizado')?.display).toBe('85.0%');
+    expect(findings[0]!.metrics.find((m) => m.key === 'percentual_utilizado')?.display).toBe('85,0%');
   });
 
   it('detects PF expenses inside PJ entity', () => {
@@ -167,7 +167,7 @@ describe('Insights Module — Domain, Detectors & Guards', () => {
     const f = findings[0]!;
     expect(f.confidence).toBe('estimativa');
     const text = TemplateNarrator.narrate(f);
-    expect(text).toContain('Previsão para o próximo mês');
+    expect(text).toContain('Estimativa para o próximo mês');
   });
 
   it('enforces policy guards against unauthorized financial advice and length limits', () => {

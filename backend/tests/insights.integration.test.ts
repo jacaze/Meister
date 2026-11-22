@@ -86,8 +86,8 @@ describe('Insights Module Integration Suite (PostgreSQL 16)', () => {
 
     expect(digestRes.statusCode).toBe(200);
     const digest = digestRes.json();
-    expect(digest.totalIncome).toContain('3500,00');
-    expect(digest.totalExpense).toContain('450,00');
+    expect(digest.totalIncome).toContain('R$ 3.500,00');
+    expect(digest.totalExpense).toContain('R$ 450,00');
     expect(digest.isPositive).toBe(true);
     expect(digest.points.length).toBeGreaterThan(0);
 
@@ -101,7 +101,7 @@ describe('Insights Module Integration Suite (PostgreSQL 16)', () => {
 
     expect(askBalanceRes.statusCode).toBe(200);
     expect(askBalanceRes.json().intent).toBe('saldo');
-    expect(askBalanceRes.json().answer).toContain('3050,00');
+    expect(askBalanceRes.json().answer).toContain('R$ 3.050,00');
 
     const askAdviceRes = await app.inject({
       method: 'POST',

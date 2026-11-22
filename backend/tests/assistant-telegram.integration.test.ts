@@ -230,7 +230,8 @@ describe('Assistant & Telegram Integration Suite (PostgreSQL 16)', () => {
     expect(chatProp.kind).toBe('proposal');
     expect(chatProp.proposal.amount).toBe('55.00');
     expect(chatProp.proposal.type).toBe('despesa');
-    expect(chatProp.reply).toContain('55,00');
+    expect(chatProp.reply).toContain('R$ 55,00');
+    expect(chatProp.proposal.description).not.toMatch(/\d/);
 
     // 3. Chat with finance query
     const chatFinRes = await app.inject({

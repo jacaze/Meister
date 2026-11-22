@@ -1,6 +1,6 @@
 import prisma from '../../../../config/prisma.js';
 import type { WorkspaceScope } from '../../../../shared/index.js';
-import { Money } from '../../../../shared/index.js';
+import { Money, formatBRL, formatBRLFromDecimal } from '../../../../shared/index.js';
 import { proposeFromText } from './ProposeFromText.js';
 import { askFinances } from '../../../insights/public.js';
 import { askEducation } from '../../../education/public.js';
@@ -128,11 +128,11 @@ export async function chatAssistant(
   const outcome = await proposeFromText(scope, { text: message });
 
   if (outcome.kind === 'proposal') {
-    const formattedAmount = outcome.draft.amount.replace('.', ',');
+    const formattedAmount = formatBRLFromDecimal(outcome.draft.amount);
     const tipo = outcome.draft.type === 'receita' ? 'Receita' : 'Despesa';
     return {
       kind: 'proposal',
-      reply: `Identifiquei uma proposta de **${tipo}** no valor de **R$ ${formattedAmount}** para "*${outcome.draft.description}*" na categoria **${outcome.draft.categoryName}**. Confirma o lançamento?`,
+      reply: `Identifiquei uma proposta de **${tipo}** no valor de **${formattedAmount}** para "*${outcome.draft.description}*" na categoria **${outcome.draft.categoryName}**. Confirma o lançamento?`,
       proposal: {
         id: outcome.proposalId,
         type: outcome.draft.type,
@@ -223,8 +223,7 @@ export async function chatAssistant(
       if (t.type === 'receita') inCents += c;
       if (t.type === 'despesa') outCents += c;
     }
-    const balanceMoney = Money.fromCents(inCents >= outCents ? inCents - outCents : outCents - inCents);
-    const balanceStr = (inCents >= outCents ? 'R$ ' : '-R$ ') + balanceMoney.toDecimalString().replace('.', ',');
+    const balanceStr = formatBRL(inCents - outCents);
 
     const systemPrompt = `Você é o MEIster Copilot, assistente inteligente e consultor amigável para Microempreendedores Individuais (MEI) no Brasil.
 Contexto do MEI:

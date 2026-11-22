@@ -21,13 +21,19 @@ export async function runDetectors(
   const reader = input.snapshotReader ?? new PrismaFinancialSnapshotReader();
   const detectors = input.detectors ?? createDefaultDetectors();
   const referenceDate = input.referenceDate ?? new Date();
+  const isSystemActor = scope.actorUserId.startsWith('system:');
 
-  // 1. Read Snapshot
+  // 1. Read Snapshot (entidade validada contra o scope: outra/inexistente => 404)
   const snapshot = await reader.readSnapshot(scope, input.entityId, referenceDate);
+
+  // Chaves antigas (sem prefixo de workspace/entidade) colidiam entre entidades e workspaces
+  await prisma.insight.deleteMany({
+    where: { workspaceId: scope.workspaceId, NOT: { dedupeKey: { startsWith: `${scope.workspaceId}:` } } },
+  });
 
   // 2. Fetch User Preferences / Snoozed Detectors
   const preferences = await prisma.insightPreference.findMany({
-    where: { userId: scope.actorUserId },
+    where: { userId: isSystemActor ? '' : scope.actorUserId },
   });
   const snoozedDetectorIds = new Set<string>();
   for (const pref of preferences) {
@@ -68,13 +74,14 @@ export async function runDetectors(
         text = 'Observação identificada sobre suas movimentações recentes.';
       }
 
-      // 5. Deduplicate and Persist
+      // 5. Deduplicate and Persist (chave por workspace + entidade: cada entidade tem seus próprios insights)
+      const dedupeKey = `${scope.workspaceId}:${snapshot.entityId ?? 'workspace'}:${finding.dedupeKey}`;
       try {
         const insight = await prisma.insight.upsert({
-          where: { dedupeKey: finding.dedupeKey },
+          where: { dedupeKey },
           create: {
             workspaceId: scope.workspaceId,
-            userId: scope.actorUserId,
+            userId: isSystemActor ? null : scope.actorUserId,
             entityId: snapshot.entityId,
             detectorId: finding.detectorId,
             detectorVersion: finding.detectorVersion,
@@ -85,7 +92,7 @@ export async function runDetectors(
             actions: JSON.parse(JSON.stringify(finding.actions)),
             narrationText: text,
             narrationSource: 'template',
-            dedupeKey: finding.dedupeKey,
+            dedupeKey,
             status: 'nova',
             expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
           },

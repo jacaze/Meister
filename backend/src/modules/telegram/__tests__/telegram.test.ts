@@ -50,9 +50,38 @@ describe('Telegram Module — Domain & Messages', () => {
     });
 
     expect(formatted).toContain('Papelaria & Cia');
-    expect(formatted).toContain('120,00');
+    expect(formatted).toContain('R$ 120,00');
+    expect(formatted).toContain('04/11/2026');
+    expect(formatted).not.toContain('2026\\-11\\-04');
     expect(formatted).toContain('Mercadorias / Insumos');
     expect(formatted).toContain('Atenção');
-    expect(formatted).toContain('2026\\-11\\-03');
+    expect(formatted).toContain('03/11/2026');
+  });
+
+  it('proposalReady mostra valor com milhar e data dd/mm/aaaa', () => {
+    const text = MessagesPtBr.proposalReady({
+      type: 'receita',
+      amount: '3500.00',
+      description: 'Recebimento de cliente via PIX',
+      categoryName: 'Serviços',
+      date: '2026-12-21',
+      scope: 'pf',
+    });
+    expect(text).toContain('R$ 3\\.500,00');
+    expect(text).toContain('21/12/2026');
+    expect(text).not.toContain('2026\\-12\\-21');
+  });
+
+  it('proposalConfirmed usa percentual com vírgula', () => {
+    const text = MessagesPtBr.proposalConfirmed({
+      description: 'Venda',
+      amount: '67500.00',
+      type: 'receita',
+      impact: { jarName: 'Operação', jarPercentUsed: 75, meiPercentUsed: 80.56 },
+    });
+    expect(text).toContain('R$ 67\\.500,00');
+    expect(text).toContain('75,0%');
+    expect(text).toContain('80,6%');
+    expect(text).not.toContain('75.0');
   });
 });

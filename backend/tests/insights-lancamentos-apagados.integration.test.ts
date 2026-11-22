@@ -72,7 +72,7 @@ describe('Lançamentos apagados fora de insights, resumo, perguntar e nudge (Int
 
     // Resumo do mês (/resumo no Telegram)
     const digest = await buildMonthlyDigest(scope);
-    expect(digest.totalIncome).toBe('R$ 1000,00');
+    expect(digest.totalIncome).toBe('R$ 1.000,00');
     expect(digest.totalExpense).toBe('R$ 100,00');
 
     // Snapshot dos insights
@@ -108,7 +108,8 @@ describe('Lançamentos apagados fora de insights, resumo, perguntar e nudge (Int
     });
     const r = await askFinances(scope, 'Tenho DAS para pagar?');
     expect(r.intent).toBe('das');
-    expect(r.answer).toContain('2020-01');
+    expect(r.answer).toContain('01/2020');
+    expect(r.answer).toContain('20/02/2020');
     expect(r.answer).toContain('ATRASADO');
   });
 
@@ -136,10 +137,10 @@ describe('Lançamentos apagados fora de insights, resumo, perguntar e nudge (Int
       expect(pf.totalIncome).toBe('R$ 200,00');
       expect(pf.totalExpense).toBe('R$ 30,00');
       const pj = (await digest(`?entityId=${pjId}`)).json();
-      expect(pj.totalIncome).toBe('R$ 1000,00');
+      expect(pj.totalIncome).toBe('R$ 1.000,00');
       expect(pj.totalExpense).toBe('R$ 100,00');
       const todos = (await digest('')).json();
-      expect(todos.totalIncome).toBe('R$ 1200,00');
+      expect(todos.totalIncome).toBe('R$ 1.200,00');
       expect(todos.totalExpense).toBe('R$ 130,00');
     });
 

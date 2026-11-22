@@ -35,4 +35,6 @@ export interface TickGateway {
     timeZone: string
   ): Promise<WorkspaceDasTickSummary>;
   syncPluggyConnection(scope: WorkspaceScope, connectionId: string): Promise<void>;
+  /** Atualiza os insights das entidades do workspace (opcional; no máximo 1x/dia por entidade). */
+  refreshWorkspaceInsights?(scope: WorkspaceScope, clock: Clock): Promise<number>;
 }

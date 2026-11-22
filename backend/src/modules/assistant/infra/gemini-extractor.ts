@@ -29,7 +29,8 @@ REGRAS INVIOLÁVEIS:
 ${categoriesDesc}
 Se nenhuma se adequar perfeitamente, retorne null.
 5. "scope": "pj" se parecer gasto/ganho de empresa/MEI ou se for o padrão; "pf" se explicitamente pessoal.
-6. Retorne estritamente um objeto JSON válido no formato do schema.`;
+6. "description" DEVE ser uma descrição curta (até 6 palavras) em português, com a primeira letra maiúscula, sem o valor e sem data (ex.: "Recebimento de cliente via PIX", "Almoço no débito"). Nunca copie a frase inteira do usuário.
+7. Retorne estritamente um objeto JSON válido no formato do schema.`;
 
     const userContent = `<dado_do_usuario>
 ${input.text}

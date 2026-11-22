@@ -2,6 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import authMiddleware from '../middlewares/authMiddleware.js';
 import {
   runDetectors,
+  refreshInsightsIfStale,
+  resolveScopedEntityId,
   listInsights,
   explainInsight,
   dismissInsight,
@@ -31,13 +33,16 @@ export async function insightRoutes(fastify: FastifyInstance) {
     const scope = request.scope!;
     const q = request.query;
 
-    // Run detectors to ensure fresh insights
-    await runDetectors(scope, { entityId: q.entityId }).catch((err) => {
-      request.log.warn(err, '[insightRoutes] runDetectors error');
+    // Entidade fora do scope => 404 antes de qualquer processamento
+    const entityId = await resolveScopedEntityId(scope, q.entityId);
+
+    // Detectores por entidade, no máximo 1x por janela (dedupe pela dedupeKey)
+    await refreshInsightsIfStale(scope, { entityId }).catch((err) => {
+      request.log.warn({ errorName: err instanceof Error ? err.name : 'erro' }, '[insightRoutes] refresh de insights falhou');
     });
 
     const items = await listInsights(scope, {
-      entityId: q.entityId,
+      entityId,
       status: q.status,
       severity: q.severity,
       limit: q.limit ? parseInt(q.limit, 10) : undefined,

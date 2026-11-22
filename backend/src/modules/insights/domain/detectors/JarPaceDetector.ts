@@ -1,7 +1,7 @@
 import type { Detector } from './Detector.js';
 import type { Finding } from '../Finding.js';
 import type { FinancialSnapshot } from '../FinancialSnapshot.js';
-import { Money } from '../../../../shared/index.js';
+import { moneyMetric, percentMetric } from '../metrics.js';
 
 export class JarPaceDetector implements Detector {
   readonly id = 'jar_pace';
@@ -33,8 +33,6 @@ export class JarPaceDetector implements Detector {
       if (projectedPercent <= 100) continue;
 
       const severity = projectedPercent > 120 ? 'alerta' : 'atencao';
-      const alocadoMoney = Money.fromCents(jar.alocadoCents);
-      const usadoMoney = Money.fromCents(jar.usadoCents);
       const excedenteEstimadoCents = (jar.usadoCents * BigInt(snapshot.daysInMonth) / BigInt(snapshot.dayOfMonth)) - jar.alocadoCents;
 
       findings.push({
@@ -47,10 +45,10 @@ export class JarPaceDetector implements Detector {
         impactAmountCents: excedenteEstimadoCents > 0n ? excedenteEstimadoCents : jar.usadoCents,
         metrics: [
           { key: 'pote', kind: 'enum', value: jar.name, display: jar.name },
-          { key: 'percentual_uso', kind: 'percent', value: usagePercent, display: `${usagePercent}%` },
-          { key: 'projecao_fim_mes', kind: 'percent', value: projectedPercent, display: `${projectedPercent}%` },
-          { key: 'valor_usado', kind: 'money', value: usadoMoney.toDecimalString(), display: `R$ ${usadoMoney.toDecimalString().replace('.', ',')}` },
-          { key: 'teto_alocado', kind: 'money', value: alocadoMoney.toDecimalString(), display: `R$ ${alocadoMoney.toDecimalString().replace('.', ',')}` },
+          percentMetric('percentual_uso', usagePercent, 0),
+          percentMetric('projecao_fim_mes', projectedPercent, 0),
+          moneyMetric('valor_usado', jar.usadoCents),
+          moneyMetric('teto_alocado', jar.alocadoCents),
         ],
         actions: [
           { kind: 'open_jar_plan', label: 'Ver plano de potes' },

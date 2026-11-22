@@ -1,14 +1,12 @@
+import { formatBRLFromDecimal, formatDateBR, formatPercent } from '../../../shared/format.js';
+
 export function escapeMarkdownV2(text: string): string {
   // Characters reserved in MarkdownV2: _ * [ ] ( ) ~ ` > # + - = | { } . !
   return text.replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, '\\$&');
 }
 
 export function formatBrl(amount: string | number): string {
-  const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(isNaN(num) ? 0 : num);
+  return formatBRLFromDecimal(amount);
 }
 
 export const MessagesPtBr = {
@@ -63,7 +61,7 @@ export const MessagesPtBr = {
       `💰 *Valor:* *${escapeMarkdownV2(formatBrl(draft.amount))}*\n` +
       `📝 *Descrição:* ${escapeMarkdownV2(draft.description)}\n` +
       `🏷️ *Categoria:* ${escapeMarkdownV2(draft.categoryName)}\n` +
-      `📅 *Data:* ${escapeMarkdownV2(draft.date)}\n` +
+      `📅 *Data:* ${escapeMarkdownV2(formatDateBR(draft.date))}\n` +
       `🏢 *Entidade:* ${escapeMarkdownV2(scopeLabel)}\n\n` +
       `_Deseja confirmar este lançamento?_`
     );
@@ -86,11 +84,11 @@ export const MessagesPtBr = {
 
     if (res.impact?.jarName && res.impact?.jarPercentUsed !== undefined) {
       const warn = res.impact.isJarWarning ? ' ⚠️' : '';
-      msg += `\n📦 *Pote ${escapeMarkdownV2(res.impact.jarName)}:* ${escapeMarkdownV2(res.impact.jarPercentUsed.toFixed(1))}% utilizado${warn}`;
+      msg += `\n📦 *Pote ${escapeMarkdownV2(res.impact.jarName)}:* ${escapeMarkdownV2(formatPercent(res.impact.jarPercentUsed))} utilizado${warn}`;
     }
 
     if (res.impact?.meiPercentUsed !== undefined) {
-      msg += `\n📊 *Termômetro MEI:* ${escapeMarkdownV2(res.impact.meiPercentUsed.toFixed(1))}% do teto anual`;
+      msg += `\n📊 *Termômetro MEI:* ${escapeMarkdownV2(formatPercent(res.impact.meiPercentUsed))} do teto anual`;
     }
 
     return msg;
@@ -108,7 +106,7 @@ export const MessagesPtBr = {
     if (data.issuerName) {
       msg += `🏢 *Estabelecimento:* ${escapeMarkdownV2(data.issuerName)}\n`;
     }
-    msg += `📅 *Data de Emissão:* ${escapeMarkdownV2(data.issuedOn)}\n`;
+    msg += `📅 *Data de Emissão:* ${escapeMarkdownV2(formatDateBR(data.issuedOn))}\n`;
     msg += `💰 *Total da Nota:* *${escapeMarkdownV2(formatBrl(data.total))}*\n\n`;
 
     if (data.splits && data.splits.length > 1) {
@@ -121,7 +119,7 @@ export const MessagesPtBr = {
     }
 
     if (data.duplicate) {
-      msg += `⚠️ *Atenção:* Esta nota fiscal já foi registrada em ${escapeMarkdownV2(data.duplicateDate ?? 'data anterior')}\\. Deseja registrar novamente\\?\n\n`;
+      msg += `⚠️ *Atenção:* Esta nota fiscal já foi registrada em ${escapeMarkdownV2(data.duplicateDate ? formatDateBR(data.duplicateDate) : 'data anterior')}\\. Deseja registrar novamente\\?\n\n`;
     } else {
       msg += `_Deseja confirmar o lançamento desta despesa?_`;
     }
