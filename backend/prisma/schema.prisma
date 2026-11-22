@@ -115,6 +115,7 @@ model Workspace {
   createdAt             DateTime  @default(now()) @map("created_at")
 
   members             WorkspaceMember[]
+  settlements         Settlement[]
   entities            Entity[]
   categories          Category[]
   transactions        Transaction[]
@@ -165,6 +166,9 @@ model Entity {
   workspace         Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   owner             User?              @relation("EntityOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
   transactions      Transaction[]
+  paidTransactions  Transaction[]      @relation("TransactionPaidBy")
+  debts             Settlement[]       @relation("SettlementDebtor")
+  credits           Settlement[]       @relation("SettlementCreditor")
   financialAccounts FinancialAccount[]
   dasCharges        DasCharge[]
   limitAlerts       LimitAlert[]
@@ -259,6 +263,8 @@ model Transaction {
   notes              String?
   sourceRef          String?           @map("source_ref")
   viaPersonalAccount Boolean           @default(false) @map("via_personal_account")
+  // Entidade cujo dinheiro pagou/recebeu; nulo = a própria entityId. Diferente gera acerto (tarefa 18)
+  paidByEntityId     String?           @map("paid_by_entity_id")
   aiConfidence       Decimal?          @map("ai_confidence") @db.Decimal(5, 4)
   createdBy          String?           @map("created_by")
   createdAt          DateTime          @default(now()) @map("created_at")
@@ -267,11 +273,13 @@ model Transaction {
 
   workspace        Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   entity           Entity             @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  paidByEntity     Entity?            @relation("TransactionPaidBy", fields: [paidByEntityId], references: [id], onDelete: SetNull)
   user             User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
   financialAccount FinancialAccount?  @relation(fields: [financialAccountId], references: [id], onDelete: SetNull)
   category         Category?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   splits           TransactionSplit[]
   audits           TransactionAudit[]
+  settlement       Settlement?
 
   @@unique([externalProvider, externalId])
   @@unique([workspaceId, sourceRef])
@@ -751,4 +759,29 @@ model AuditLog {
   @@index([workspaceId, createdAt])
   @@index([userId, createdAt])
   @@map("audit_logs")
+}
+
+// Acerto entre entidades: o lançamento é de uma entidade, mas o dinheiro saiu/entrou em outra (tarefa 18)
+model Settlement {
+  id               String    @id @default(uuid())
+  workspaceId      String    @map("workspace_id")
+  transactionId    String    @unique @map("transaction_id")
+  debtorEntityId   String    @map("debtor_entity_id")
+  creditorEntityId String    @map("creditor_entity_id")
+  amount           Decimal   @db.Decimal(14, 2)
+  status           String    @default("aberto") // aberto | acertado | cancelado
+  settledVia       String?   @map("settled_via") // transferencia | abatimento
+  settledAt        DateTime? @map("settled_at")
+  settledBy        String?   @map("settled_by")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  debtor      Entity      @relation("SettlementDebtor", fields: [debtorEntityId], references: [id], onDelete: Cascade)
+  creditor    Entity      @relation("SettlementCreditor", fields: [creditorEntityId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status])
+  @@index([debtorEntityId, creditorEntityId])
+  @@map("settlements")
 }
