@@ -11,6 +11,9 @@ COPY src ./src/
 # Variável de build (embutida no bundle): liga o banco de testes da Pluggy na demo hospedada
 ARG VITE_PLUGGY_INCLUDE_SANDBOX=false
 ENV VITE_PLUGGY_INCLUDE_SANDBOX=$VITE_PLUGGY_INCLUDE_SANDBOX
+# Variável de build: mostra os perfis "Família" no onboarding (função em construção; padrão desligado)
+ARG VITE_FEATURE_FAMILIA=false
+ENV VITE_FEATURE_FAMILIA=$VITE_FEATURE_FAMILIA
 # Opcional: URL da API (sem /api e sem barra final) para build fora do compose; vazio = /api relativo
 ARG VITE_API_URL=
 ENV VITE_API_URL=$VITE_API_URL

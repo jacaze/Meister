@@ -97,6 +97,7 @@ const HOST_OR_INFRA_ONLY = new Set([
   'PROXY_HTTPS_PORT',
   // Variável de build do frontend (build arg do Dockerfile), não é lida pela API
   'VITE_PLUGGY_INCLUDE_SANDBOX',
+  'VITE_FEATURE_FAMILIA',
 ]);
 
 // Variáveis só de scripts avulsos (seed de demo, via `docker compose run -e ...`): ficam em env.ts/.env.example

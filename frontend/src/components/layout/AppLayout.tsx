@@ -8,6 +8,7 @@ import {
   DotsNine,
   GraduationCap,
   House,
+  Lightbulb,
   Jar,
   Plus,
   Receipt,
@@ -54,6 +55,7 @@ export const AppLayout: React.FC = () => {
     ...(hasManyEntities ? [{ label: 'Acertos', short: 'Acertos', path: '/acertos', icon: Handshake }] : []),
     { label: 'Educação & Lições', short: 'Lições', path: '/educacao', icon: GraduationCap },
     ...(isMei ? [{ label: 'Impostos & DAS', short: 'DAS', path: '/impostos', icon: Calculator }] : []),
+    { label: 'Insights', short: 'Insights', path: '/insights', icon: Lightbulb },
     { label: 'Relatórios', short: 'Relatórios', path: '/relatorios', icon: ChartLineUp },
     { label: 'Perfil & MEI', short: 'Perfil', path: '/perfil', icon: Storefront },
   ];

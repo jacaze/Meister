@@ -24,6 +24,7 @@ import {
   type BusinessType,
   type WorkspaceProfile,
 } from '../lib/onboarding.js';
+import { featureFlags, visibleProfiles } from '../lib/featureFlags.js';
 
 const PROFILES: ReadonlyArray<{
   value: WorkspaceProfile;
@@ -121,7 +122,7 @@ export const OnboardingPage: React.FC = () => {
 
         {step === 'perfil' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="radiogroup" aria-label="Qual é o seu caso">
-            {PROFILES.map((opt) => {
+            {visibleProfiles(PROFILES, featureFlags.familia).map((opt) => {
               const Icon = opt.icon;
               const active = profile === opt.value;
               return (

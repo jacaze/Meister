@@ -16,6 +16,7 @@ services:
       target: runtime
       args:
         VITE_PLUGGY_INCLUDE_SANDBOX: ${VITE_PLUGGY_INCLUDE_SANDBOX:-false}
+        VITE_FEATURE_FAMILIA: ${VITE_FEATURE_FAMILIA:-false}
     expose:
       - "8080"
     restart: unless-stopped
