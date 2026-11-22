@@ -1,6 +1,6 @@
 # Família no MEIster — desenho (tarefa 15, fase 0)
 
-**Status:** validado pelo dono em 2026-11-21 (decisões na §9). Nada aqui está implementado ainda.
+**Status:** validado pelo dono em 2026-11-21 (decisões na §9). Fase 1 (schema) feita; fases 2 a 8 pendentes.
 **Base:** `develop` em `2058df8` (tarefas 14, 17 e 18 já mescladas).
 
 ## 1. A ideia
@@ -161,7 +161,7 @@ abertos com atalho para a tela Acertos. Remover um membro segue a mesma regra.
 
 | Fase | PR | Dono |
 |---|---|---|
-| 1 | Schema: `Entity.visibility`, `BankAccount/FinancialAccount.visibility`, `kind: 'casa'`, `workspace_invites`, `FiscalReceipt.entityId` (expansão + backfill: tudo existente = pessoal) | DB |
+| 1 ✅ | Schema: `Entity.visibility`, `BankAccount/FinancialAccount.visibility`, `kind: 'casa'`, `workspace_invites`, `FiscalReceipt.entityId` (expansão + backfill: tudo existente = pessoal) — **feita** (migration `20261122000000_familia_visibilidade_convites`) | DB |
 | 2 | Escopo com `visibleEntityIds` + filtro único + testes de caracterização (sem mudar comportamento de quem está sozinho) | Backend |
 | 3 | Convites e aceite com migração de dados | Backend |
 | 4 | Privacidade em todas as rotas + **Gate B** | Backend + QA |
@@ -171,3 +171,16 @@ abertos com atalho para a tela Acertos. Remover um membro segue a mesma regra.
 | 8 | Telegram e assistente com a regra de visibilidade | Backend |
 
 Cada fase com teste que falha antes, Gate 0 verde e, nas fases 3, 4 e 7, Gate B.
+
+## 11. Fase 1 — o que entrou no schema
+
+| Tabela | Coluna / objeto | Padrão | Observação |
+|---|---|---|---|
+| `entities` | `visibility` | `'pessoal'` | `CHECK IN ('pessoal','compartilhada')`; `kind` passa a aceitar `'casa'` (coluna texto) |
+| `bank_accounts`, `financial_accounts` | `visibility` | `'pessoal'` | `CHECK IN ('pessoal','compartilhada')` |
+| `workspaces` | `archived_at` | nulo | Workspace antigo de quem entrou na família (§4) |
+| `fiscal_receipts` | `entity_id`, `user_id` | nulo | FK `SET NULL`. Backfill pelo lançamento com `source_ref = 'nfe:<chave>'` no mesmo workspace |
+| `workspace_invites` | tabela nova | — | `token_hash` único, `status` e `role` com `CHECK`, apagado junto com o workspace |
+
+Nenhum código lê esses campos ainda: o comportamento do app não muda. Os `CHECK` existem só no banco (o Prisma não os
+representa), então o `migrate diff` continua sem diferença.
