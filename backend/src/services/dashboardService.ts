@@ -14,6 +14,7 @@ import {
 import { resolveScopeForUser } from '../modules/workspace/public.js';
 import { getMeiLimit } from '../modules/fiscal/public.js';
 import { getJarsStatus } from '../modules/jars/public.js';
+import { validTransactionsWhere } from '../modules/ledger/public.js';
 
 const DEFAULT_MEI_ANNUAL_LIMIT = Number(process.env.MEI_ANNUAL_LIMIT) || 81000;
 const MEI_TOLERANCE = 0.2;
@@ -62,7 +63,7 @@ function buildWhere(
 ): Prisma.TransactionWhereInput {
   const where: Prisma.TransactionWhereInput = {
     workspaceId: scope.workspaceId,
-    deletedAt: null,
+    ...validTransactionsWhere(),
     transferGroupId: null,
   };
 
@@ -76,6 +77,20 @@ function buildWhere(
   }
 
   return where;
+}
+
+/**
+ * Filtro do SALDO EM CAIXA (e das últimas movimentações): lançamentos válidos da entidade (ou do workspace
+ * inteiro, sem entityId), INCLUINDO pernas de transferência/pró-labore e entradas "não é renda", pois todas
+ * mexem no caixa. Já o resultado (DRE) e a série receitas x despesas usam `buildWhere`, que as exclui.
+ * Saldo = Σ receitas - Σ despesas; `financial_accounts.opening_balance` NÃO entra (ver docs/api/dashboard.md).
+ */
+export function buildCashWhere(scope: WorkspaceScope, entityId?: string): Prisma.TransactionWhereInput {
+  return {
+    workspaceId: scope.workspaceId,
+    ...validTransactionsWhere(),
+    ...(entityId ? { entityId } : {}),
+  };
 }
 
 function aggregateToMoney(aggregate: { _sum: { amount: Prisma.Decimal | number | null } }): Money {
@@ -224,6 +239,14 @@ export async function getSummary(
   assertAuthenticated(userId);
   const resolvedScope = scope ?? (await resolveScopeForUser(userId));
 
+  if (filters.entityId) {
+    const entity = await prisma.entity.findFirst({
+      where: { id: filters.entityId, workspaceId: resolvedScope.workspaceId },
+      select: { id: true },
+    });
+    if (!entity) throw new NotFoundError('Entidade não encontrada');
+  }
+
   const currentYm = clock.currentYearMonth(DEFAULT_TIMEZONE);
   const { start, end } = resolvePeriod(filters, clock, DEFAULT_TIMEZONE);
   const wherePeriod = buildWhere(resolvedScope, {
@@ -260,11 +283,11 @@ export async function getSummary(
       _sum: { amount: true },
     }),
     prisma.transaction.aggregate({
-      where: { workspaceId: resolvedScope.workspaceId, deletedAt: null, transferGroupId: null, type: 'receita' },
+      where: { ...buildCashWhere(resolvedScope, filters.entityId), type: 'receita' },
       _sum: { amount: true },
     }),
     prisma.transaction.aggregate({
-      where: { workspaceId: resolvedScope.workspaceId, deletedAt: null, transferGroupId: null, type: 'despesa' },
+      where: { ...buildCashWhere(resolvedScope, filters.entityId), type: 'despesa' },
       _sum: { amount: true },
     }),
     prisma.transaction.groupBy({
@@ -276,14 +299,15 @@ export async function getSummary(
     prisma.transaction.findMany({
       where: {
         workspaceId: resolvedScope.workspaceId,
-        deletedAt: null,
+        ...validTransactionsWhere(),
         transferGroupId: null,
+        ...(filters.entityId ? { entityId: filters.entityId } : {}),
         transactionDate: { gte: seriesStart, lte: seriesEnd },
       },
       select: { type: true, amount: true, transactionDate: true },
     }),
     prisma.transaction.findMany({
-      where: { workspaceId: resolvedScope.workspaceId, deletedAt: null },
+      where: buildCashWhere(resolvedScope, filters.entityId),
       include: { category: { select: { id: true, name: true } } },
       orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }],
       take: 5,
