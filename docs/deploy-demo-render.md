@@ -29,7 +29,7 @@ Por que a URL direta: as migrations do Prisma exigem conexão direta (a document
 ## 2. Render (API + frontend via Blueprint)
 
 1. Faça push da branch/ revisão que contém `render.yaml` (ex.: `develop` após o merge do PR de deploy).
-2. No Render: **New > Blueprint**, conecte o repositório `jacaze/Meister`, escolha a branch e confirme. Serão criados `meister-api` (Web Service Docker, plano Free) e `meister-web` (Static Site), ambos na região **Virginia** (`region: virginia` no Blueprint; o Burguer House usa a mesma).
+2. No Render: **New > Blueprint**, conecte o repositório `jacaze/Meister`, escolha a branch e confirme. Serão criados `meister-api` (Web Service Docker, plano Free) e `meister-web` (Static Site), a API na região **Virginia** (`region: virginia` no Blueprint; o Burguer House usa a mesma). O Static Site não tem região: é servido pela CDN global do Render, que recusa `region` em Static Site.
 3. O Render pedirá os valores das variáveis `sync: false` (só na criação; depois edite em **Environment** de cada serviço).
 4. Se os nomes `meister-api`/`meister-web` já estiverem em uso, a URL ganhará um sufixo. Use a URL real da API em `VITE_API_URL`.
 5. Preencha `VITE_API_URL` do `meister-web` com a URL do `meister-api` (ex.: `https://meister-api.onrender.com`, sem `/api` e sem barra final). Depois do primeiro deploy, copie a URL do Static Site (`https://meister-web.onrender.com`) e preencha `APP_URL` e `CORS_ORIGINS` da API (se não souber antes, deixe provisório e corrija; o serviço reinicia). Se `VITE_API_URL` for alterada depois, dispare **Manual Deploy > Clear build cache & deploy** no `meister-web`.
