@@ -15,7 +15,8 @@ services:
     autoDeployTrigger: commit
     # preDeployCommand nao existe no plano free; as migrations rodam no start (idempotente).
     # O CLI do Prisma (versao fixada) e instalado na imagem pelo backend/Dockerfile.
-    dockerCommand: sh -c "node_modules/.bin/prisma migrate deploy && node dist/main-api.js"
+    # Sem aspas nem espaços: o Render repassa as aspas literalmente. O script roda as migrations e sobe a API.
+    dockerCommand: ./docker-start.sh
     envVars:
       - key: NODE_ENV
         value: production

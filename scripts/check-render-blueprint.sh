@@ -3,7 +3,8 @@
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 python3 - "$ROOT_DIR/render.yaml" <<'PY'
-import re, sys, yaml
+import pathlib, re, sys, yaml
+root = pathlib.Path(sys.argv[1]).resolve().parent
 
 d = yaml.safe_load(open(sys.argv[1]))
 errs = []
@@ -17,8 +18,11 @@ if "preDeployCommand" in api:
     errs.append("preDeployCommand não existe no plano free")
 if api.get("healthCheckPath") != "/health/live":
     errs.append("healthCheckPath deve ser /health/live (não tocar no banco)")
-if "prisma migrate deploy" not in api.get("dockerCommand", ""):
-    errs.append("dockerCommand deve rodar prisma migrate deploy")
+if api.get("dockerCommand") != "./docker-start.sh":
+    errs.append("dockerCommand da API deve ser ./docker-start.sh (sem aspas: o Render repassa aspas literalmente)")
+start_sh = pathlib.Path(root, "backend", "docker-start.sh")
+if not start_sh.exists() or "prisma migrate deploy" not in start_sh.read_text(encoding="utf-8"):
+    errs.append("backend/docker-start.sh deve existir e rodar prisma migrate deploy")
 sensitive = re.compile(r"SECRET|TOKEN|KEY|PASSWORD|DATABASE_URL|PLUGGY_CLIENT")
 keys = set()
 for s in d["services"]:

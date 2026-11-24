@@ -24,6 +24,8 @@ COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY --from=build --chown=node:node /app/prisma ./prisma
 COPY --from=build --chown=node:node /app/package.json ./package.json
+# Start do Render: migrations + API (o compose usa o serviço migrate e o CMD abaixo)
+COPY --chown=node:node --chmod=0755 docker-start.sh ./docker-start.sh
 
 USER node
 EXPOSE 3000
