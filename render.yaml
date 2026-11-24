@@ -67,7 +67,7 @@ services:
     rootDir: frontend
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
-    region: virginia
+    # Static Site não aceita region (é servido pela CDN global do Render)
     autoDeployTrigger: commit
     envVars:
       - key: NODE_VERSION

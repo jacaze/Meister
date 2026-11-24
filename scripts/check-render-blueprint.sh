@@ -37,9 +37,10 @@ if "VITE_API_URL" not in {e["key"] for e in web.get("envVars", [])}:
 for e in web.get("envVars", []):
     if e["key"] == "VITE_API_URL" and e.get("sync") is not False:
         errs.append("VITE_API_URL deve ser sync: false (preenchida pelo dono)")
-for s_ in (api, web):
-    if s_.get("region") != "virginia":
-        errs.append(f"{s_['name']} deve usar region virginia (mesma do Neon US East)")
+if api.get("region") != "virginia":
+    errs.append("meister-api deve usar region virginia (mesma do Neon US East)")
+if "region" in web:
+    errs.append("meister-web (Static Site) não pode ter region: o Render recusa o Blueprint (static sites cannot have a region)")
 if errs:
     print("\n".join("ERRO: " + e for e in errs)); sys.exit(1)
 print("OK: render.yaml válido (free, sem segredos, fallback SPA, VITE_API_URL e variáveis obrigatórias).")
